@@ -1,0 +1,49 @@
+name: driver_mobile
+description: A new Flutter project.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.0.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Stacked
+  stacked: ^3.4.0
+  stacked_services: ^1.1.0
+  # icons
+  bootstrap_icons: ^1.11.3
+  # internationalization
+  intl: ^0.20.2
+  # firebase
+  firebase_core: ^4.2.0
+  firebase_auth: ^6.1.1
+  firebase_messaging: ^16.1.0
+  # permissions
+  permission_handler: ^12.0.1
+  # geolocator
+  geolocator: ^14.0.2
+  # google maps
+  google_maps_flutter: ^2.14.0
+  # http client
+  dio: ^5.8.0+1
+  pretty_dio_logger: ^1.4.0
+  # jennygas_lib
+  jennygas_lib:
+    path: ../jennygas_lib
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.7.1
+  flutter_lints: ^6.0.0
+  mockito: ^5.4.1
+  stacked_generator: ^2.0.0
+  golden_toolkit: ^0.15.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/

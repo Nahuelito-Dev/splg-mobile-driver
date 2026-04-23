@@ -1,0 +1,86 @@
+{
+  "project_info": {
+    "project_number": "175861123393",
+    "project_id": "jennigas-55f69",
+    "storage_bucket": "jennigas-55f69.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175861123393:android:f5e406e60ba83a310ef9c0",
+        "android_client_info": {
+          "package_name": "com.gearthlogic.driver_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175861123393:android:e6843ab59fbd44980ef9c0",
+        "android_client_info": {
+          "package_name": "com.gearthlogic.jennigas_customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175861123393:android:f86a4dc4150ac00e0ef9c0",
+        "android_client_info": {
+          "package_name": "com.gearthlogic.jennigas_driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175861123393:android:fd278823226f15d60ef9c0",
+        "android_client_info": {
+          "package_name": "com.gearthlogic.jennygas.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

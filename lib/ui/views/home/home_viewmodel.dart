@@ -291,8 +291,7 @@ class HomeViewModel extends StreamViewModel<Position> {
       if (response.statusCode == 200) {
         debugPrint('Pedido $orderId aceptado');
         _driverSocketService.startBroadcasting(orderId, userId, token);
-        // TODO: navegar a la pantalla de entrega en curso cuando exista
-        // (estados on_the_way / delivered todavía no tienen vista propia).
+        await _navigationService.navigateToDeliveryView(orderId: orderId);
       } else {
         debugPrint(
             'No se pudo aceptar el pedido $orderId: HTTP ${response.statusCode}');

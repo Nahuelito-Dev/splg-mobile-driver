@@ -164,24 +164,26 @@ class HomeView extends StackedView<HomeViewModel> {
               ),
             ),
           ),
-        // Botón conectarse
+        // Botón conectarse / desconectarse
         Positioned(
           bottom: 24,
           left: 0,
           right: 0,
           child: Center(
             child: ElevatedButton(
-              onPressed: viewModel.connect,
+              onPressed:
+                  viewModel.isConnected ? viewModel.disconnect : viewModel.connect,
               style: ElevatedButton.styleFrom(
+                backgroundColor: viewModel.isConnected ? Colors.green : null,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
                   vertical: 16,
                 ),
                 elevation: 4,
               ),
-              child: const Text(
-                'Conectarse',
-                style: TextStyle(fontSize: 16),
+              child: Text(
+                viewModel.isConnected ? 'Conectado' : 'Conectarse',
+                style: const TextStyle(fontSize: 16),
               ),
             ),
           ),

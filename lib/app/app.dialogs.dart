@@ -9,9 +9,11 @@ import 'package:stacked_services/stacked_services.dart';
 
 import 'app.locator.dart';
 import '../ui/dialogs/info_alert/info_alert_dialog.dart';
+import '../ui/dialogs/order_offer/order_offer_dialog.dart';
 
 enum DialogType {
   infoAlert,
+  orderOffer,
 }
 
 void setupDialogUi() {
@@ -20,6 +22,8 @@ void setupDialogUi() {
   final Map<DialogType, DialogBuilder> builders = {
     DialogType.infoAlert: (context, request, completer) =>
         InfoAlertDialog(request: request, completer: completer),
+    DialogType.orderOffer: (context, request, completer) =>
+        OrderOfferDialog(request: request, completer: completer),
   };
 
   dialogService.registerCustomDialogBuilders(builders);

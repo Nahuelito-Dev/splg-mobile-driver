@@ -6,12 +6,16 @@
 import 'dart:async' as _i5;
 import 'dart:ui' as _i6;
 
+import 'package:driver_mobile/services/driver_auth_service.dart' as _i13;
+import 'package:driver_mobile/services/driver_socket_service.dart' as _i12;
 import 'package:driver_mobile/services/location_service.dart' as _i9;
 import 'package:driver_mobile/services/order_service.dart' as _i7;
 import 'package:flutter/material.dart' as _i4;
+import 'package:geolocator/geolocator.dart' as _i10;
 import 'package:jennygas_lib/domain/order.dart' as _i8;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i3;
+import 'package:permission_handler/permission_handler.dart' as _i11;
 import 'package:stacked_services/stacked_services.dart' as _i2;
 
 // ignore_for_file: type=lint
@@ -776,4 +780,382 @@ class MockOrderService extends _i1.Mock implements _i7.OrderService {
 /// A class which mocks [LocationService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockLocationService extends _i1.Mock implements _i9.LocationService {}
+class MockLocationService extends _i1.Mock implements _i9.LocationService {
+  @override
+  _i5.Stream<_i10.Position> get positionStream => (super.noSuchMethod(
+        Invocation.getter(#positionStream),
+        returnValue: _i5.Stream<_i10.Position>.empty(),
+        returnValueForMissingStub: _i5.Stream<_i10.Position>.empty(),
+      ) as _i5.Stream<_i10.Position>);
+
+  @override
+  _i11.PermissionStatus get locationPermissionStatus => (super.noSuchMethod(
+        Invocation.getter(#locationPermissionStatus),
+        returnValue: _i11.PermissionStatus.denied,
+        returnValueForMissingStub: _i11.PermissionStatus.denied,
+      ) as _i11.PermissionStatus);
+
+  @override
+  bool get isTracking => (super.noSuchMethod(
+        Invocation.getter(#isTracking),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool);
+
+  @override
+  int get listenersCount => (super.noSuchMethod(
+        Invocation.getter(#listenersCount),
+        returnValue: 0,
+        returnValueForMissingStub: 0,
+      ) as int);
+
+  @override
+  _i5.Future<bool> checkAndRequestLocationPermission() => (super.noSuchMethod(
+        Invocation.method(
+          #checkAndRequestLocationPermission,
+          [],
+        ),
+        returnValue: _i5.Future<bool>.value(false),
+        returnValueForMissingStub: _i5.Future<bool>.value(false),
+      ) as _i5.Future<bool>);
+
+  @override
+  _i5.Future<_i10.Position?> getCurrentLocation() => (super.noSuchMethod(
+        Invocation.method(
+          #getCurrentLocation,
+          [],
+        ),
+        returnValue: _i5.Future<_i10.Position?>.value(),
+        returnValueForMissingStub: _i5.Future<_i10.Position?>.value(),
+      ) as _i5.Future<_i10.Position?>);
+
+  @override
+  _i5.Future<void> startTracking() => (super.noSuchMethod(
+        Invocation.method(
+          #startTracking,
+          [],
+        ),
+        returnValue: _i5.Future<void>.value(),
+        returnValueForMissingStub: _i5.Future<void>.value(),
+      ) as _i5.Future<void>);
+
+  @override
+  _i5.Future<void> stopTracking() => (super.noSuchMethod(
+        Invocation.method(
+          #stopTracking,
+          [],
+        ),
+        returnValue: _i5.Future<void>.value(),
+        returnValueForMissingStub: _i5.Future<void>.value(),
+      ) as _i5.Future<void>);
+
+  @override
+  _i5.Future<void> openAppSettings() => (super.noSuchMethod(
+        Invocation.method(
+          #openAppSettings,
+          [],
+        ),
+        returnValue: _i5.Future<void>.value(),
+        returnValueForMissingStub: _i5.Future<void>.value(),
+      ) as _i5.Future<void>);
+
+  @override
+  double calculateDistance(
+    double? startLatitude,
+    double? startLongitude,
+    double? endLatitude,
+    double? endLongitude,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #calculateDistance,
+          [
+            startLatitude,
+            startLongitude,
+            endLatitude,
+            endLongitude,
+          ],
+        ),
+        returnValue: 0.0,
+        returnValueForMissingStub: 0.0,
+      ) as double);
+
+  @override
+  void dispose() => super.noSuchMethod(
+        Invocation.method(
+          #dispose,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void listenToReactiveValues(List<dynamic>? reactiveValues) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #listenToReactiveValues,
+          [reactiveValues],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void addListener(void Function()? listener) => super.noSuchMethod(
+        Invocation.method(
+          #addListener,
+          [listener],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void removeListener(void Function()? listener) => super.noSuchMethod(
+        Invocation.method(
+          #removeListener,
+          [listener],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void notifyListeners() => super.noSuchMethod(
+        Invocation.method(
+          #notifyListeners,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+}
+
+/// A class which mocks [DriverSocketService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockDriverSocketService extends _i1.Mock
+    implements _i12.DriverSocketService {
+  @override
+  bool get isConnected => (super.noSuchMethod(
+        Invocation.getter(#isConnected),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool);
+
+  @override
+  _i5.Stream<Map<String, dynamic>> get incomingOrders => (super.noSuchMethod(
+        Invocation.getter(#incomingOrders),
+        returnValue: _i5.Stream<Map<String, dynamic>>.empty(),
+        returnValueForMissingStub: _i5.Stream<Map<String, dynamic>>.empty(),
+      ) as _i5.Stream<Map<String, dynamic>>);
+
+  @override
+  int get listenersCount => (super.noSuchMethod(
+        Invocation.getter(#listenersCount),
+        returnValue: 0,
+        returnValueForMissingStub: 0,
+      ) as int);
+
+  @override
+  void connect(
+    String? token,
+    String? driverId,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #connect,
+          [
+            token,
+            driverId,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void sendLocation(
+    String? userId,
+    double? lat,
+    double? lng,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #sendLocation,
+          [
+            userId,
+            lat,
+            lng,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void startBroadcasting(
+    String? orderId,
+    String? userId,
+    String? token,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #startBroadcasting,
+          [
+            orderId,
+            userId,
+            token,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void stopBroadcasting() => super.noSuchMethod(
+        Invocation.method(
+          #stopBroadcasting,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void disconnect() => super.noSuchMethod(
+        Invocation.method(
+          #disconnect,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void dispose() => super.noSuchMethod(
+        Invocation.method(
+          #dispose,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void listenToReactiveValues(List<dynamic>? reactiveValues) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #listenToReactiveValues,
+          [reactiveValues],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void addListener(void Function()? listener) => super.noSuchMethod(
+        Invocation.method(
+          #addListener,
+          [listener],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void removeListener(void Function()? listener) => super.noSuchMethod(
+        Invocation.method(
+          #removeListener,
+          [listener],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void notifyListeners() => super.noSuchMethod(
+        Invocation.method(
+          #notifyListeners,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+}
+
+/// A class which mocks [DriverAuthService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockDriverAuthService extends _i1.Mock implements _i13.DriverAuthService {
+  @override
+  bool get isLoggedIn => (super.noSuchMethod(
+        Invocation.getter(#isLoggedIn),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool);
+
+  @override
+  _i5.Future<String?> get token => (super.noSuchMethod(
+        Invocation.getter(#token),
+        returnValue: _i5.Future<String?>.value(),
+        returnValueForMissingStub: _i5.Future<String?>.value(),
+      ) as _i5.Future<String?>);
+
+  @override
+  int get listenersCount => (super.noSuchMethod(
+        Invocation.getter(#listenersCount),
+        returnValue: 0,
+        returnValueForMissingStub: 0,
+      ) as int);
+
+  @override
+  _i5.Future<bool> signIn(
+    String? email,
+    String? password,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #signIn,
+          [
+            email,
+            password,
+          ],
+        ),
+        returnValue: _i5.Future<bool>.value(false),
+        returnValueForMissingStub: _i5.Future<bool>.value(false),
+      ) as _i5.Future<bool>);
+
+  @override
+  _i5.Future<void> signOut() => (super.noSuchMethod(
+        Invocation.method(
+          #signOut,
+          [],
+        ),
+        returnValue: _i5.Future<void>.value(),
+        returnValueForMissingStub: _i5.Future<void>.value(),
+      ) as _i5.Future<void>);
+
+  @override
+  void listenToReactiveValues(List<dynamic>? reactiveValues) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #listenToReactiveValues,
+          [reactiveValues],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void addListener(void Function()? listener) => super.noSuchMethod(
+        Invocation.method(
+          #addListener,
+          [listener],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void removeListener(void Function()? listener) => super.noSuchMethod(
+        Invocation.method(
+          #removeListener,
+          [listener],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void notifyListeners() => super.noSuchMethod(
+        Invocation.method(
+          #notifyListeners,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+}

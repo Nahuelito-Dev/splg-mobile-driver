@@ -114,6 +114,17 @@ class LoginView extends StackedView<LoginViewModel> with $LoginView {
             ),
           ),
         ),
+        if (viewModel.errorMessage != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            viewModel.errorMessage!,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.error,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
         const SizedBox(height: 32),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
@@ -130,7 +141,16 @@ class LoginView extends StackedView<LoginViewModel> with $LoginView {
                   viewModel.onLogin();
                 }
               : null,
-          child: const Text(loginViewButton),
+          child: viewModel.isBusy
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text(loginViewButton),
         ),
       ],
     );

@@ -12,7 +12,8 @@ class ApiClient {
 
   ApiClient._();
 
-  // Android emulator: 10.0.2.2 → host machine localhost
+  // Android emulator: 10.0.2.2 → host machine localhost (NO usar 'localhost',
+  // que en el emulador apunta al propio Android, no a la máquina de desarrollo).
   final dio = Dio(
     BaseOptions(
       baseUrl: 'http://10.0.2.2:3000/api/',
@@ -74,8 +75,9 @@ class ApiClient {
   Future<Response> patch(
     String path,
     Map<String, dynamic> body,
-    String token,
-  ) async {
+    String token, [
+    Map<String, String>? extraHeaders,
+  ]) async {
     try {
       final response = await dio.patch(
         path,
@@ -86,6 +88,7 @@ class ApiClient {
             'Accept': 'application/json',
             'X-Client-Source': 'driver-app',
             'Authorization': 'Bearer $token',
+            if (extraHeaders != null) ...extraHeaders,
           },
         ),
       );

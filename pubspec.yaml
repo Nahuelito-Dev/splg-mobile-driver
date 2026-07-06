@@ -29,9 +29,15 @@ dependencies:
   # http client
   dio: ^5.8.0+1
   pretty_dio_logger: ^1.4.0
+  # realtime (tracking en vivo del chofer)
+  socket_io_client: ^3.1.2
+  # abrir apps externas de navegación (Waze / Google Maps)
+  url_launcher: ^6.3.1
   # jennygas_lib
   jennygas_lib:
     path: ../jennygas_lib
+  # Idempotency-Key para requests idempotentes (ej: aceptar pedido)
+  uuid: ^4.5.3
 
 dev_dependencies:
   flutter_test:

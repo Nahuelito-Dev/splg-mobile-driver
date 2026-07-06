@@ -4,6 +4,8 @@ import 'package:driver_mobile/app/app.locator.dart';
 import 'package:stacked_services/stacked_services.dart';
 import 'package:driver_mobile/services/order_service.dart';
 import 'package:driver_mobile/services/location_service.dart';
+import 'package:driver_mobile/services/driver_socket_service.dart';
+import 'package:driver_mobile/services/driver_auth_service.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';
@@ -16,6 +18,8 @@ import 'test_helpers.mocks.dart';
     MockSpec<DialogService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<OrderService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<LocationService>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<DriverSocketService>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<DriverAuthService>(onMissingStub: OnMissingStub.returnDefault),
 // @stacked-mock-spec
   ],
 )
@@ -25,6 +29,8 @@ void registerServices() {
   getAndRegisterDialogService();
   getAndRegisterOrderService();
   getAndRegisterLocationService();
+  getAndRegisterDriverSocketService();
+  getAndRegisterDriverAuthService();
 // @stacked-mock-register
 }
 
@@ -93,6 +99,20 @@ MockLocationService getAndRegisterLocationService() {
   _removeRegistrationIfExists<LocationService>();
   final service = MockLocationService();
   locator.registerSingleton<LocationService>(service);
+  return service;
+}
+
+MockDriverSocketService getAndRegisterDriverSocketService() {
+  _removeRegistrationIfExists<DriverSocketService>();
+  final service = MockDriverSocketService();
+  locator.registerSingleton<DriverSocketService>(service);
+  return service;
+}
+
+MockDriverAuthService getAndRegisterDriverAuthService() {
+  _removeRegistrationIfExists<DriverAuthService>();
+  final service = MockDriverAuthService();
+  locator.registerSingleton<DriverAuthService>(service);
   return service;
 }
 // @stacked-mock-create

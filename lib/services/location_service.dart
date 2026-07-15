@@ -145,8 +145,10 @@ class LocationService with ListenableServiceMixin {
     debugPrint('Tracking de ubicación detenido');
   }
 
-  /// Abre la configuración de la aplicación para que el usuario pueda habilitar permisos
-  Future<void> openAppSettings() async {
+  /// Abre la configuración de la app para habilitar permisos.
+  /// (Antes el método se llamaba `openAppSettings` y se invocaba a sí mismo →
+  /// recursión infinita. Renombrado para llamar al de `permission_handler`.)
+  Future<void> openDeviceSettings() async {
     await openAppSettings();
   }
 

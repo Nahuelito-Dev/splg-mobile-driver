@@ -12,6 +12,7 @@ import 'package:driver_mobile/ui/bottom_sheets/order_info/order_info_sheet.dart'
 import 'package:driver_mobile/services/location_service.dart';
 import 'package:driver_mobile/services/driver_socket_service.dart';
 import 'package:driver_mobile/services/driver_auth_service.dart';
+import 'package:driver_mobile/services/foreground_service.dart';
 // @stacked-import
 
 @StackedApp(
@@ -31,6 +32,7 @@ import 'package:driver_mobile/services/driver_auth_service.dart';
     LazySingleton(classType: LocationService),
     LazySingleton(classType: DriverSocketService),
     LazySingleton(classType: DriverAuthService),
+    LazySingleton(classType: DriverForegroundService),
 // @stacked-service
   ],
   bottomsheets: [

@@ -50,9 +50,9 @@ class HomeView extends StackedView<HomeViewModel> {
                     color: Colors.white,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Chofer prueba',
-                    style: TextStyle(
+                  Text(
+                    viewModel.driverName,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,

@@ -59,6 +59,10 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
           ],
           _buildNavigateButton(context, viewModel),
           verticalSpaceMedium,
+          if (viewModel.isOnTheWay && !viewModel.arrivedNotified) ...[
+            _buildArrivedButton(viewModel),
+            verticalSpaceMedium,
+          ],
           _buildQrSection(viewModel),
         ],
       ),
@@ -193,6 +197,20 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
         label: const Text('En camino'),
         style: ElevatedButton.styleFrom(
           backgroundColor: kcPrimaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArrivedButton(DeliveryViewModel viewModel) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: viewModel.markArrived,
+        icon: const Icon(Icons.location_on),
+        label: const Text('Avisar que llegué'),
+        style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),

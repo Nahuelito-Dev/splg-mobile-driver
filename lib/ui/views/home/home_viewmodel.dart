@@ -13,15 +13,15 @@ import 'package:driver_mobile/app/app.router.dart';
 import 'package:driver_mobile/core/network/api_client.dart';
 import 'package:driver_mobile/services/driver_auth_service.dart';
 import 'package:driver_mobile/services/driver_socket_service.dart';
-import 'package:driver_mobile/services/order_service.dart';
+import 'package:driver_mobile/services/foreground_service.dart';
 import 'package:driver_mobile/services/location_service.dart';
 
 class HomeViewModel extends StreamViewModel<Position> {
-  final _orderService = locator<OrderService>();
   final _locationService = locator<LocationService>();
   final _navigationService = locator<NavigationService>();
   final _driverSocketService = locator<DriverSocketService>();
   final _dialogService = locator<DialogService>();
+  final _foregroundService = locator<DriverForegroundService>();
   final _apiClient = ApiClient();
   final _uuid = const Uuid();
 
@@ -39,6 +39,10 @@ class HomeViewModel extends StreamViewModel<Position> {
   /// true una vez que el socket de choferes está conectado y el chofer quedó
   /// unido a su sala (`driver:join` emitido).
   bool get isConnected => _driverSocketService.isConnected;
+
+  /// Nombre del chofer logueado (para el drawer). Fallback genérico si aún no
+  /// se resolvió el perfil.
+  String get driverName => _driverAuthService.fullName ?? 'Chofer';
 
   // Posición inicial del mapa (Buenos Aires, Argentina como ejemplo)
   static const CameraPosition initialPosition = CameraPosition(
@@ -213,6 +217,19 @@ class HomeViewModel extends StreamViewModel<Position> {
       return;
     }
 
+    // Marca al chofer DISPONIBLE en el backend (CU-022). Sin esto el backend no
+    // sabe formalmente que está en línea, y al desconectar hay que sacarlo del
+    // radar (el endpoint hace el ZREM del GEO en el server).
+    await _setAvailability(true);
+
+    // Foreground service: mantiene vivo el proceso (socket + GPS) con la app en
+    // background. Sin esto, al minimizar la app el chofer se cae del radar.
+    await _foregroundService.requestPermissions();
+    await _foregroundService.start(
+      title: 'Estás en línea',
+      text: 'Recibiendo pedidos cercanos',
+    );
+
     _driverSocketService.connect(token, userId);
 
     // Registra la posición actual en el GEO apenas se conecta, sin esperar
@@ -231,12 +248,33 @@ class HomeViewModel extends StreamViewModel<Position> {
     notifyListeners();
   }
 
-  /// Desconecta al chofer: deja de recibir ofertas y cierra el socket.
+  /// Desconecta al chofer: se marca NO DISPONIBLE (el backend lo saca del radar),
+  /// deja de recibir ofertas y cierra el socket.
   Future<void> disconnect() async {
+    await _setAvailability(false);
+    await _foregroundService.stop();
     _incomingOrdersSubscription?.cancel();
     _incomingOrdersSubscription = null;
     _driverSocketService.disconnect();
     notifyListeners();
+  }
+
+  /// Setea la disponibilidad del chofer en el backend (CU-022).
+  /// `PATCH /delivery/user/:userId/availability`. Best-effort: si falla, no
+  /// bloquea el flujo del socket (se loguea).
+  Future<void> _setAvailability(bool isAvailable) async {
+    final token = await _driverAuthService.token;
+    final userId = _driverAuthService.userId;
+    if (token == null || userId == null) return;
+    try {
+      await _apiClient.patch(
+        'delivery/user/$userId/availability',
+        {'available': isAvailable},
+        token,
+      );
+    } catch (e) {
+      debugPrint('No se pudo setear disponibilidad ($isAvailable): $e');
+    }
   }
 
   void _subscribeToIncomingOrders() {
@@ -262,10 +300,25 @@ class HomeViewModel extends StreamViewModel<Position> {
     if (response?.confirmed == true) {
       await acceptOrder(orderId);
     } else {
-      // TODO: no hay endpoint de rechazo todavía; hoy el pedido queda a la
-      // espera de que el backend lo reoferte a otro chofer al expirar
-      // `expiresAt`, o de que se agregue un PATCH explícito de rechazo.
-      debugPrint('Oferta $orderId rechazada/descartada por el chofer');
+      await rejectOrder(orderId);
+    }
+  }
+
+  /// Rechaza una oferta (CU-016): `POST /orders/:orderId/reject`. El backend
+  /// cierra la oferta y re-ofrece al siguiente chofer de inmediato. Best-effort.
+  Future<void> rejectOrder(String orderId) async {
+    final token = await _driverAuthService.token;
+    if (token == null) return;
+    try {
+      await _apiClient.post(
+        'orders/$orderId/reject',
+        const {},
+        token,
+        {'Idempotency-Key': _uuid.v4()},
+      );
+      debugPrint('Oferta $orderId rechazada por el chofer');
+    } catch (e) {
+      debugPrint('Error rechazando la oferta $orderId: $e');
     }
   }
 
@@ -291,6 +344,10 @@ class HomeViewModel extends StreamViewModel<Position> {
       if (response.statusCode == 200) {
         debugPrint('Pedido $orderId aceptado');
         _driverSocketService.startBroadcasting(orderId, userId, token);
+        await _foregroundService.update(
+          title: 'En reparto',
+          text: 'Entrega en curso',
+        );
         await _navigationService.navigateToDeliveryView(orderId: orderId);
       } else {
         debugPrint(
@@ -303,7 +360,6 @@ class HomeViewModel extends StreamViewModel<Position> {
 
   @override
   List<ListenableServiceMixin> get listenableServices => [
-        _orderService,
         _locationService,
         _driverSocketService,
       ];

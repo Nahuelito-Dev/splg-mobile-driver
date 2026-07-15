@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:stacked/stacked.dart';
 
 import 'package:driver_mobile/core/network/api_client.dart';
@@ -19,6 +20,11 @@ class DriverAuthService with ListenableServiceMixin {
 
   final _firebaseAuth = FirebaseAuth.instance;
   final _apiClient = ApiClient();
+  final _storage = const FlutterSecureStorage();
+
+  static const _kUserId = 'driver_user_id';
+  static const _kFullName = 'driver_full_name';
+  static const _kEmail = 'driver_email';
 
   final ReactiveValue<String?> _userId = ReactiveValue<String?>(null);
   final ReactiveValue<String?> _fullName = ReactiveValue<String?>(null);
@@ -84,12 +90,47 @@ class DriverAuthService with ListenableServiceMixin {
         return false;
       }
 
+      final fullName = data['full_name']?.toString();
       _userId.value = id;
-      _fullName.value = data['full_name']?.toString();
+      _fullName.value = fullName;
       _email.value = email;
+
+      // Persistimos para restaurar la sesión en el próximo arranque sin
+      // re-loguear (Firebase ya persiste su sesión; nos faltaba el user_id).
+      await _storage.write(key: _kUserId, value: id);
+      await _storage.write(key: _kEmail, value: email);
+      if (fullName != null) {
+        await _storage.write(key: _kFullName, value: fullName);
+      }
       return true;
     } catch (e) {
       log('Error trayendo perfil: $e', name: 'DriverAuthService');
+      return false;
+    }
+  }
+
+  /// Restaura la sesión al arrancar la app: si Firebase tiene una sesión activa
+  /// y guardamos el user_id, repuebla los datos SIN pedir login de nuevo. Si el
+  /// user_id no está en storage (edge), lo re-trae del backend. Devuelve true si
+  /// quedó una sesión de chofer válida.
+  Future<bool> restoreSession() async {
+    try {
+      if (_firebaseAuth.currentUser == null) return false;
+
+      final storedId = await _storage.read(key: _kUserId);
+      if (storedId != null && storedId.isNotEmpty) {
+        _userId.value = storedId;
+        _fullName.value = await _storage.read(key: _kFullName);
+        _email.value = await _storage.read(key: _kEmail);
+        return true;
+      }
+
+      // Fallback: hay sesión Firebase pero perdimos el user_id → re-traer perfil.
+      final email = _firebaseAuth.currentUser?.email;
+      if (email == null) return false;
+      return await _loadProfile(email);
+    } catch (e) {
+      log('Error restaurando sesión: $e', name: 'DriverAuthService');
       return false;
     }
   }
@@ -99,5 +140,6 @@ class DriverAuthService with ListenableServiceMixin {
     _userId.value = null;
     _fullName.value = null;
     _email.value = null;
+    await _storage.deleteAll();
   }
 }

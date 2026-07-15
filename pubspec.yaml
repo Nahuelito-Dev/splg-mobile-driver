@@ -40,6 +40,11 @@ dependencies:
     path: ../jennygas_lib
   # Idempotency-Key para requests idempotentes (ej: aceptar pedido)
   uuid: ^4.5.3
+  # Persistencia segura de la sesión (token/userId) entre arranques
+  flutter_secure_storage: ^9.2.2
+  # Foreground service: mantiene vivo el socket + GPS con la app en background
+  # (crítico en apps de reparto — si no, el dispatch pierde al chofer)
+  flutter_foreground_task: ^8.17.0
 
 dev_dependencies:
   flutter_test:

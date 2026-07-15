@@ -10,6 +10,7 @@ import 'package:driver_mobile/app/app.router.dart';
 import 'package:driver_mobile/core/network/api_client.dart';
 import 'package:driver_mobile/services/driver_auth_service.dart';
 import 'package:driver_mobile/services/driver_socket_service.dart';
+import 'package:driver_mobile/services/foreground_service.dart';
 import 'package:driver_mobile/services/navigation_launcher.dart';
 
 /// Cada cuánto se hace polling de `GET /orders/:id` mientras la entrega está
@@ -45,6 +46,7 @@ class DeliveryViewModel extends BaseViewModel {
   final _apiClient = ApiClient();
   final _navigationService = locator<NavigationService>();
   final _driverSocketService = locator<DriverSocketService>();
+  final _foregroundService = locator<DriverForegroundService>();
   final _uuid = const Uuid();
 
   // Lazy a propósito, igual que en HomeViewModel: resolver DriverAuthService
@@ -62,6 +64,11 @@ class DeliveryViewModel extends BaseViewModel {
   bool get isLoadingQr => _loadingQr;
   String? qrError;
   String? deliveryCode;
+
+  /// El chofer ya avisó al cliente que llegó (CU-019). Es un flag local: el
+  /// backend no cambia el estado del pedido, solo notifica al cliente.
+  bool _arrivedNotified = false;
+  bool get arrivedNotified => _arrivedNotified;
 
   /// Mensaje de error de la última operación (carga, "en camino", nav). Se
   /// limpia al empezar una operación nueva.
@@ -164,10 +171,47 @@ class DeliveryViewModel extends BaseViewModel {
   }
 
   /// El cliente confirmó la entrega (detectado vía polling): frena el
-  /// broadcasting de GPS de esta entrega, ya no hace falta.
+  /// broadcasting de GPS de esta entrega y revierte la notificación del
+  /// foreground service a "en línea" (el chofer sigue conectado y disponible).
   void _onDeliveryConfirmed() {
     _pollTimer?.cancel();
     _driverSocketService.stopBroadcasting();
+    _foregroundService.update(
+      title: 'Estás en línea',
+      text: 'Recibiendo pedidos cercanos',
+    );
+  }
+
+  /// Avisa al cliente que el chofer llegó (CU-019). Requiere que el pedido esté
+  /// "en camino"; el backend notifica al cliente (`order:arrived`) sin cambiar
+  /// el estado del pedido.
+  Future<void> markArrived() async {
+    if (_arrivedNotified) return;
+    final token = await _driverAuthService.token;
+    if (token == null) {
+      errorMessage = 'No se pudo avisar la llegada: falta la sesión.';
+      notifyListeners();
+      return;
+    }
+    try {
+      final response = await _apiClient.patch(
+        'orders/$orderId/arrived',
+        const {},
+        token,
+        {'Idempotency-Key': _uuid.v4()},
+      );
+      if (response.statusCode == 200) {
+        _arrivedNotified = true;
+        errorMessage = null;
+      } else {
+        errorMessage =
+            'No se pudo avisar la llegada (HTTP ${response.statusCode}).';
+      }
+    } catch (e) {
+      debugPrint('Error avisando llegada del pedido $orderId: $e');
+      errorMessage = 'Error de red al avisar la llegada.';
+    }
+    notifyListeners();
   }
 
   /// Marca el pedido como "en camino" (`PATCH .../status {status: on_the_way}`)

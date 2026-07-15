@@ -6,16 +6,12 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:stacked/stacked.dart';
 
 import 'package:driver_mobile/app/app.locator.dart';
+import 'package:driver_mobile/core/config/app_config.dart';
 import 'package:driver_mobile/services/location_service.dart';
 
-/// Host del backend. Mismo valor que usa [ApiClient] para la REST API:
-/// 10.0.2.2 → localhost de la máquina de desarrollo visto desde el
-/// emulador Android (NO usar 'localhost', que en el emulador apunta al
-/// propio dispositivo Android).
-const String _kSocketBaseUrl = 'http://10.0.2.2:3000';
-
 /// Namespace de Socket.IO donde el backend expone el gateway de choferes.
-const String _kDriversNamespace = '$_kSocketBaseUrl/drivers';
+/// La URL base está centralizada en [AppConfig] (configurable por build).
+final String _kDriversNamespace = AppConfig.driversNamespace;
 
 /// Service encargado del canal de tiempo real con el backend para el
 /// tracking en vivo del chofer: abre la conexión Socket.IO al namespace

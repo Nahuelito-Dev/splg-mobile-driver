@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
+import 'package:driver_mobile/core/config/app_config.dart';
+
 class ApiClient {
   static final instance = ApiClient._();
 
@@ -12,11 +14,11 @@ class ApiClient {
 
   ApiClient._();
 
-  // Android emulator: 10.0.2.2 → host machine localhost (NO usar 'localhost',
-  // que en el emulador apunta al propio Android, no a la máquina de desarrollo).
+  // URL base del backend centralizada en AppConfig (configurable por
+  // --dart-define=API_BASE_URL para dispositivo físico / producción).
   final dio = Dio(
     BaseOptions(
-      baseUrl: 'http://10.0.2.2:3000/api/',
+      baseUrl: AppConfig.apiUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
     ),
@@ -52,6 +54,7 @@ class ApiClient {
     String path,
     Map<String, dynamic> body, [
     String? token,
+    Map<String, String>? extraHeaders,
   ]) async {
     try {
       final response = await dio.post(
@@ -63,6 +66,7 @@ class ApiClient {
             'Accept': 'application/json',
             'X-Client-Source': 'driver-app',
             if (token != null) 'Authorization': 'Bearer $token',
+            if (extraHeaders != null) ...extraHeaders,
           },
         ),
       );

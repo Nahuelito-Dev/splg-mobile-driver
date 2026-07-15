@@ -14,6 +14,7 @@ import 'package:stacked_shared/stacked_shared.dart';
 
 import '../services/driver_auth_service.dart';
 import '../services/driver_socket_service.dart';
+import '../services/foreground_service.dart';
 import '../services/location_service.dart';
 import '../services/order_service.dart';
 
@@ -35,4 +36,5 @@ Future<void> setupLocator({
   locator.registerLazySingleton(() => LocationService());
   locator.registerLazySingleton(() => DriverSocketService());
   locator.registerLazySingleton(() => DriverAuthService());
+  locator.registerLazySingleton(() => DriverForegroundService());
 }

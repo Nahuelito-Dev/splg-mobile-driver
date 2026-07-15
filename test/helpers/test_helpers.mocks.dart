@@ -850,9 +850,9 @@ class MockLocationService extends _i1.Mock implements _i9.LocationService {
       ) as _i5.Future<void>);
 
   @override
-  _i5.Future<void> openAppSettings() => (super.noSuchMethod(
+  _i5.Future<void> openDeviceSettings() => (super.noSuchMethod(
         Invocation.method(
-          #openAppSettings,
+          #openDeviceSettings,
           [],
         ),
         returnValue: _i5.Future<void>.value(),
@@ -1107,6 +1107,16 @@ class MockDriverAuthService extends _i1.Mock implements _i13.DriverAuthService {
             email,
             password,
           ],
+        ),
+        returnValue: _i5.Future<bool>.value(false),
+        returnValueForMissingStub: _i5.Future<bool>.value(false),
+      ) as _i5.Future<bool>);
+
+  @override
+  _i5.Future<bool> restoreSession() => (super.noSuchMethod(
+        Invocation.method(
+          #restoreSession,
+          [],
         ),
         returnValue: _i5.Future<bool>.value(false),
         returnValueForMissingStub: _i5.Future<bool>.value(false),

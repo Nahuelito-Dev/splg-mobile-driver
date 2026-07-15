@@ -81,13 +81,17 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
                 ),
               ),
             ],
-            verticalSpaceLarge,
+            verticalSpaceMedium,
+            _buildCountdownBar(viewModel),
+            verticalSpaceMedium,
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        completer(DialogResponse(confirmed: false)),
+                    onPressed: () {
+                      viewModel.stop();
+                      completer(DialogResponse(confirmed: false));
+                    },
                     child: const Text('Rechazar'),
                   ),
                 ),
@@ -97,9 +101,11 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kcPrimaryColor,
                     ),
-                    onPressed: () =>
-                        completer(DialogResponse(confirmed: true)),
-                    child: const Text('Aceptar'),
+                    onPressed: () {
+                      viewModel.stop();
+                      completer(DialogResponse(confirmed: true));
+                    },
+                    child: Text('Aceptar (${viewModel.remainingSeconds}s)'),
                   ),
                 ),
               ],
@@ -107,6 +113,33 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Barra + texto de la cuenta regresiva de la oferta. Cuando llega a 0 el
+  /// modelo descarta la oferta solo (ver [OrderOfferDialogModel.start]).
+  Widget _buildCountdownBar(OrderOfferDialogModel viewModel) {
+    final remaining = viewModel.remainingSeconds;
+    final fraction = (remaining / 30).clamp(0.0, 1.0);
+    final color = remaining <= 10 ? Colors.red : kcPrimaryColor;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: fraction,
+            minHeight: 6,
+            backgroundColor: kcVeryLightGrey,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        verticalSpaceTiny,
+        Text(
+          'La oferta vence en ${remaining}s',
+          style: TextStyle(fontSize: 12, color: color),
+        ),
+      ],
     );
   }
 
@@ -146,4 +179,18 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
   @override
   OrderOfferDialogModel viewModelBuilder(BuildContext context) =>
       OrderOfferDialogModel();
+
+  @override
+  void onViewModelReady(OrderOfferDialogModel viewModel) {
+    final data = (request.data is Map)
+        ? Map<String, dynamic>.from(request.data as Map)
+        : <String, dynamic>{};
+    // Al vencer, se descarta la oferta como un rechazo (el backend ya la
+    // re-ofreció a otro chofer). Mismo camino que tocar "Rechazar".
+    viewModel.start(
+      data['expiresAt'],
+      () => completer(DialogResponse(confirmed: false)),
+    );
+    super.onViewModelReady(viewModel);
+  }
 }

@@ -70,6 +70,17 @@ class DeliveryViewModel extends BaseViewModel {
   bool _arrivedNotified = false;
   bool get arrivedNotified => _arrivedNotified;
 
+  /// Reporte de incidencia en curso (`POST /incidents`).
+  bool _reportingIncident = false;
+  bool get isReportingIncident => _reportingIncident;
+
+  /// Calificación del cliente ya enviada (`POST /ratings`), una por pedido.
+  bool _ratingSubmitted = false;
+  bool get ratingSubmitted => _ratingSubmitted;
+  bool _submittingRating = false;
+  bool get isSubmittingRating => _submittingRating;
+  String? ratingError;
+
   /// Mensaje de error de la última operación (carga, "en camino", nav). Se
   /// limpia al empezar una operación nueva.
   String? errorMessage;
@@ -212,6 +223,97 @@ class DeliveryViewModel extends BaseViewModel {
       errorMessage = 'Error de red al avisar la llegada.';
     }
     notifyListeners();
+  }
+
+  /// Reporta una incidencia de entrega (CU-024): `POST /incidents` con
+  /// `{ orderId, type, description }`. `type` debe ser uno de los valores del
+  /// enum del backend (`damaged` | `out_of_stock` | `no_show` | `other`).
+  /// Devuelve `true` si el backend la registró.
+  Future<bool> reportIncident({
+    required String type,
+    required String description,
+  }) async {
+    if (_reportingIncident) return false;
+
+    final token = await _driverAuthService.token;
+    if (token == null) {
+      errorMessage = 'No se pudo reportar: falta la sesión.';
+      notifyListeners();
+      return false;
+    }
+
+    _reportingIncident = true;
+    errorMessage = null;
+    notifyListeners();
+
+    var ok = false;
+    try {
+      final response = await _apiClient.post(
+        'incidents',
+        {'orderId': orderId, 'type': type, 'description': description},
+        token,
+        {'Idempotency-Key': _uuid.v4()},
+      );
+      ok = response.statusCode == 200 || response.statusCode == 201;
+      if (!ok) {
+        errorMessage =
+            'No se pudo reportar la incidencia (HTTP ${response.statusCode}).';
+      }
+    } catch (e) {
+      debugPrint('Error reportando incidencia del pedido $orderId: $e');
+      errorMessage = 'Error de red al reportar la incidencia.';
+    }
+
+    _reportingIncident = false;
+    notifyListeners();
+    return ok;
+  }
+
+  /// Califica al cliente una vez entregado el pedido (CU-025): `POST /ratings`
+  /// con `{ orderId, stars, comment? }`. El backend deriva a quién se califica
+  /// desde el pedido y solo lo permite en pedidos `delivered`. Una sola vez por
+  /// pedido y por lado.
+  Future<bool> rateCustomer({required int stars, String? comment}) async {
+    if (_submittingRating || _ratingSubmitted) return false;
+
+    final token = await _driverAuthService.token;
+    if (token == null) {
+      ratingError = 'Falta la sesión para calificar.';
+      notifyListeners();
+      return false;
+    }
+
+    _submittingRating = true;
+    ratingError = null;
+    notifyListeners();
+
+    var ok = false;
+    try {
+      final body = <String, dynamic>{'orderId': orderId, 'stars': stars};
+      final trimmed = comment?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) body['comment'] = trimmed;
+
+      final response = await _apiClient.post(
+        'ratings',
+        body,
+        token,
+        {'Idempotency-Key': _uuid.v4()},
+      );
+      ok = response.statusCode == 200 || response.statusCode == 201;
+      if (ok) {
+        _ratingSubmitted = true;
+      } else {
+        ratingError =
+            'No se pudo enviar la calificación (HTTP ${response.statusCode}).';
+      }
+    } catch (e) {
+      debugPrint('Error calificando al cliente en el pedido $orderId: $e');
+      ratingError = 'Error de red al enviar la calificación.';
+    }
+
+    _submittingRating = false;
+    notifyListeners();
+    return ok;
   }
 
   /// Marca el pedido como "en camino" (`PATCH .../status {status: on_the_way}`)

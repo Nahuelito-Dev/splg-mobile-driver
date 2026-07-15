@@ -64,8 +64,48 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
             verticalSpaceMedium,
           ],
           _buildQrSection(viewModel),
+          verticalSpaceMedium,
+          _buildIncidentButton(context, viewModel),
         ],
       ),
+    );
+  }
+
+  /// Botón discreto para reportar un problema con la entrega (garrafa dañada,
+  /// sin stock, cliente ausente, otro). Abre una hoja para elegir el tipo y
+  /// describirlo, y hace `POST /incidents`.
+  Widget _buildIncidentButton(
+    BuildContext context,
+    DeliveryViewModel viewModel,
+  ) {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: viewModel.isReportingIncident
+            ? null
+            : () => _showIncidentSheet(context, viewModel),
+        icon: const Icon(Icons.report_problem_outlined,
+            size: 20, color: Colors.red),
+        label: const Text(
+          'Reportar un problema',
+          style: TextStyle(color: Colors.red),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showIncidentSheet(
+    BuildContext context,
+    DeliveryViewModel viewModel,
+  ) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) =>
+          _IncidentSheet(orderId: orderId, viewModel: viewModel),
     );
   }
 
@@ -342,39 +382,40 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
   }
 
   Widget _buildDeliveredBody(BuildContext context, DeliveryViewModel viewModel) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 96),
-            verticalSpaceLarge,
-            const Text(
-              '¡Entrega confirmada!',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            verticalSpaceSmall,
-            Text(
-              'El cliente confirmó la entrega escaneando el QR.',
-              style: const TextStyle(fontSize: 14, color: kcMediumGrey),
-              textAlign: TextAlign.center,
-            ),
-            verticalSpaceLarge,
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: viewModel.goHome,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kcPrimaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Volver al inicio'),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          verticalSpaceLarge,
+          const Icon(Icons.check_circle, color: Colors.green, size: 96),
+          verticalSpaceLarge,
+          const Text(
+            '¡Entrega confirmada!',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          verticalSpaceSmall,
+          const Text(
+            'El cliente confirmó la entrega escaneando el QR.',
+            style: TextStyle(fontSize: 14, color: kcMediumGrey),
+            textAlign: TextAlign.center,
+          ),
+          verticalSpaceLarge,
+          _CustomerRatingCard(viewModel: viewModel),
+          verticalSpaceLarge,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: viewModel.goHome,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kcPrimaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
+              child: const Text('Volver al inicio'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -413,5 +454,284 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
   void onViewModelReady(DeliveryViewModel viewModel) {
     viewModel.initialize();
     super.onViewModelReady(viewModel);
+  }
+}
+
+/// Tipos de incidencia que puede reportar el chofer. El primer valor de cada
+/// tupla es el string exacto del enum `IncidentType` del backend.
+const List<(String, String, IconData)> _incidentTypes = [
+  ('damaged', 'Garrafa dañada', Icons.report_gmailerrorred_outlined),
+  ('out_of_stock', 'Sin stock para entregar', Icons.inventory_2_outlined),
+  ('no_show', 'El cliente no estaba', Icons.person_off_outlined),
+  ('other', 'Otro problema', Icons.more_horiz),
+];
+
+/// Hoja para reportar una incidencia: elegir tipo + describir, y enviar a
+/// `POST /incidents` vía [DeliveryViewModel.reportIncident].
+class _IncidentSheet extends StatefulWidget {
+  const _IncidentSheet({required this.orderId, required this.viewModel});
+
+  final String orderId;
+  final DeliveryViewModel viewModel;
+
+  @override
+  State<_IncidentSheet> createState() => _IncidentSheetState();
+}
+
+class _IncidentSheetState extends State<_IncidentSheet> {
+  String _type = _incidentTypes.first.$1;
+  final _descriptionController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final description = _descriptionController.text.trim();
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contanos qué pasó antes de enviar.')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    final ok = await widget.viewModel.reportIncident(
+      type: _type,
+      description: description,
+    );
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok
+            ? 'Incidencia reportada. La distribuidora fue notificada.'
+            : (widget.viewModel.errorMessage ??
+                'No se pudo reportar la incidencia.')),
+        backgroundColor: ok ? Colors.green.shade700 : Colors.red.shade700,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Reportar un problema',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          verticalSpaceMedium,
+          IgnorePointer(
+            ignoring: _submitting,
+            child: RadioGroup<String>(
+              groupValue: _type,
+              onChanged: (value) => setState(() => _type = value ?? _type),
+              child: Column(
+              children: _incidentTypes
+                  .map(
+                    (t) => RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      value: t.$1,
+                      title: Row(
+                        children: [
+                          Icon(t.$3, size: 20, color: kcMediumGrey),
+                          horizontalSpaceSmall,
+                          Text(t.$2),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              ),
+            ),
+          ),
+          verticalSpaceSmall,
+          TextField(
+            controller: _descriptionController,
+            enabled: !_submitting,
+            maxLines: 3,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Descripción',
+              hintText: 'Contá brevemente qué pasó',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          verticalSpaceMedium,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _submitting ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: _submitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Enviar reporte'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarjeta para calificar al cliente una vez confirmada la entrega
+/// (`POST /ratings`). Guarda las estrellas + comentario opcional localmente y
+/// delega el envío al [DeliveryViewModel]. Una vez enviada, muestra el
+/// agradecimiento.
+class _CustomerRatingCard extends StatefulWidget {
+  const _CustomerRatingCard({required this.viewModel});
+
+  final DeliveryViewModel viewModel;
+
+  @override
+  State<_CustomerRatingCard> createState() => _CustomerRatingCardState();
+}
+
+class _CustomerRatingCardState extends State<_CustomerRatingCard> {
+  int _stars = 0;
+  final _commentController = TextEditingController();
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final ok = await widget.viewModel.rateCustomer(
+      stars: _stars,
+      comment: _commentController.text,
+    );
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('¡Gracias por calificar!')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewModel = widget.viewModel;
+
+    if (viewModel.ratingSubmitted) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: kcVeryLightGrey.withAlpha(120),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.star, color: Colors.amber),
+            horizontalSpaceSmall,
+            Text('¡Gracias por calificar al cliente!'),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kcVeryLightGrey.withAlpha(120),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Calificá al cliente',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          verticalSpaceSmall,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              final value = index + 1;
+              return IconButton(
+                iconSize: 36,
+                onPressed: viewModel.isSubmittingRating
+                    ? null
+                    : () => setState(() => _stars = value),
+                icon: Icon(
+                  value <= _stars ? Icons.star : Icons.star_border,
+                  color: Colors.amber,
+                ),
+              );
+            }),
+          ),
+          TextField(
+            controller: _commentController,
+            enabled: !viewModel.isSubmittingRating,
+            maxLines: 2,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Comentario (opcional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (viewModel.ratingError != null) ...[
+            verticalSpaceSmall,
+            Text(
+              viewModel.ratingError!,
+              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+            ),
+          ],
+          verticalSpaceMedium,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (_stars == 0 || viewModel.isSubmittingRating)
+                  ? null
+                  : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kcPrimaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: viewModel.isSubmittingRating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Enviar calificación'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -89,11 +89,19 @@ class HomeView extends StackedView<HomeViewModel> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Términos y Condiciones'),
+              onTap: () {
+                Navigator.pop(context);
+                viewModel.navigateToTerms();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.privacy_tip_outlined),
               title: const Text('Privacidad'),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Navegar a la vista de privacidad
+                viewModel.navigateToPrivacyPolicy();
               },
             ),
             Divider(

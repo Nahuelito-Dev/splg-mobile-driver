@@ -45,6 +45,8 @@ dependencies:
   # Foreground service: mantiene vivo el socket + GPS con la app en background
   # (crítico en apps de reparto — si no, el dispatch pierde al chofer)
   flutter_foreground_task: ^8.17.0
+  # render de Términos y Condiciones / Política de Privacidad en markdown
+  flutter_markdown_plus: ^1.0.12
 
 dev_dependencies:
   flutter_test:
@@ -60,3 +62,4 @@ flutter:
 
   assets:
     - assets/
+    - legal/

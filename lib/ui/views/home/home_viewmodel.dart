@@ -15,6 +15,7 @@ import 'package:driver_mobile/services/driver_auth_service.dart';
 import 'package:driver_mobile/services/driver_socket_service.dart';
 import 'package:driver_mobile/services/foreground_service.dart';
 import 'package:driver_mobile/services/location_service.dart';
+import 'package:driver_mobile/ui/views/legal/legal_view.dart';
 
 class HomeViewModel extends StreamViewModel<Position> {
   final _locationService = locator<LocationService>();
@@ -190,6 +191,20 @@ class HomeViewModel extends StreamViewModel<Position> {
     if (currentLocation != null) {
       await _animateCameraToPosition(currentLocation!);
     }
+  }
+
+  /// Navega a los Términos y Condiciones de la plataforma (C3).
+  Future<void> navigateToTerms() async {
+    await _navigationService.navigateToLegalView(
+      document: LegalDocument.terms,
+    );
+  }
+
+  /// Navega a la Política de Privacidad de la plataforma (C3).
+  Future<void> navigateToPrivacyPolicy() async {
+    await _navigationService.navigateToLegalView(
+      document: LegalDocument.privacy,
+    );
   }
 
   /// Cierra sesión y navega a la pantalla de login

@@ -9,12 +9,13 @@
 import 'package:driver_mobile/ui/views/delivery/delivery_view.dart' as _i6;
 import 'package:driver_mobile/ui/views/directions/directions_view.dart' as _i5;
 import 'package:driver_mobile/ui/views/home/home_view.dart' as _i2;
+import 'package:driver_mobile/ui/views/legal/legal_view.dart' as _i7;
 import 'package:driver_mobile/ui/views/login/login_view.dart' as _i4;
 import 'package:driver_mobile/ui/views/startup/startup_view.dart' as _i3;
-import 'package:flutter/material.dart' as _i7;
+import 'package:flutter/material.dart' as _i8;
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart' as _i1;
-import 'package:stacked_services/stacked_services.dart' as _i8;
+import 'package:stacked_services/stacked_services.dart' as _i9;
 
 class Routes {
   static const homeView = '/home-view';
@@ -27,12 +28,15 @@ class Routes {
 
   static const deliveryView = '/delivery-view';
 
+  static const legalView = '/legal-view';
+
   static const all = <String>{
     homeView,
     startupView,
     loginView,
     directionsView,
     deliveryView,
+    legalView,
   };
 }
 
@@ -43,6 +47,7 @@ class StackedRouter extends _i1.RouterBase {
     _i1.RouteDef(Routes.loginView, page: _i4.LoginView),
     _i1.RouteDef(Routes.directionsView, page: _i5.DirectionsView),
     _i1.RouteDef(Routes.deliveryView, page: _i6.DeliveryView),
+    _i1.RouteDef(Routes.legalView, page: _i7.LegalView),
   ];
 
   final _pagesMap = <Type, _i1.StackedRouteFactory>{
@@ -50,7 +55,7 @@ class StackedRouter extends _i1.RouterBase {
       final args = data.getArgs<HomeViewArguments>(
         orElse: () => const HomeViewArguments(),
       );
-      return _i7.MaterialPageRoute<dynamic>(
+      return _i8.MaterialPageRoute<dynamic>(
         builder: (context) => _i2.HomeView(key: args.key),
         settings: data,
       );
@@ -59,7 +64,7 @@ class StackedRouter extends _i1.RouterBase {
       final args = data.getArgs<StartupViewArguments>(
         orElse: () => const StartupViewArguments(),
       );
-      return _i7.MaterialPageRoute<dynamic>(
+      return _i8.MaterialPageRoute<dynamic>(
         builder: (context) => _i3.StartupView(key: args.key),
         settings: data,
       );
@@ -68,7 +73,7 @@ class StackedRouter extends _i1.RouterBase {
       final args = data.getArgs<LoginViewArguments>(
         orElse: () => const LoginViewArguments(),
       );
-      return _i7.MaterialPageRoute<dynamic>(
+      return _i8.MaterialPageRoute<dynamic>(
         builder: (context) => _i4.LoginView(key: args.key),
         settings: data,
       );
@@ -77,16 +82,24 @@ class StackedRouter extends _i1.RouterBase {
       final args = data.getArgs<DirectionsViewArguments>(
         orElse: () => const DirectionsViewArguments(),
       );
-      return _i7.MaterialPageRoute<dynamic>(
+      return _i8.MaterialPageRoute<dynamic>(
         builder: (context) => _i5.DirectionsView(key: args.key),
         settings: data,
       );
     },
     _i6.DeliveryView: (data) {
       final args = data.getArgs<DeliveryViewArguments>(nullOk: false);
-      return _i7.MaterialPageRoute<dynamic>(
+      return _i8.MaterialPageRoute<dynamic>(
         builder: (context) =>
             _i6.DeliveryView(key: args.key, orderId: args.orderId),
+        settings: data,
+      );
+    },
+    _i7.LegalView: (data) {
+      final args = data.getArgs<LegalViewArguments>(nullOk: false);
+      return _i8.MaterialPageRoute<dynamic>(
+        builder: (context) =>
+            _i7.LegalView(key: args.key, document: args.document),
         settings: data,
       );
     },
@@ -102,7 +115,7 @@ class StackedRouter extends _i1.RouterBase {
 class HomeViewArguments {
   const HomeViewArguments({this.key});
 
-  final _i7.Key? key;
+  final _i8.Key? key;
 
   @override
   String toString() {
@@ -124,7 +137,7 @@ class HomeViewArguments {
 class StartupViewArguments {
   const StartupViewArguments({this.key});
 
-  final _i7.Key? key;
+  final _i8.Key? key;
 
   @override
   String toString() {
@@ -146,7 +159,7 @@ class StartupViewArguments {
 class LoginViewArguments {
   const LoginViewArguments({this.key});
 
-  final _i7.Key? key;
+  final _i8.Key? key;
 
   @override
   String toString() {
@@ -168,7 +181,7 @@ class LoginViewArguments {
 class DirectionsViewArguments {
   const DirectionsViewArguments({this.key});
 
-  final _i7.Key? key;
+  final _i8.Key? key;
 
   @override
   String toString() {
@@ -190,7 +203,7 @@ class DirectionsViewArguments {
 class DeliveryViewArguments {
   const DeliveryViewArguments({this.key, required this.orderId});
 
-  final _i7.Key? key;
+  final _i8.Key? key;
 
   final String orderId;
 
@@ -211,9 +224,33 @@ class DeliveryViewArguments {
   }
 }
 
-extension NavigatorStateExtension on _i8.NavigationService {
+class LegalViewArguments {
+  const LegalViewArguments({this.key, required this.document});
+
+  final _i8.Key? key;
+
+  final _i7.LegalDocument document;
+
+  @override
+  String toString() {
+    return '{"key": "$key", "document": "$document"}';
+  }
+
+  @override
+  bool operator ==(covariant LegalViewArguments other) {
+    if (identical(this, other)) return true;
+    return other.key == key && other.document == document;
+  }
+
+  @override
+  int get hashCode {
+    return key.hashCode ^ document.hashCode;
+  }
+}
+
+extension NavigatorStateExtension on _i9.NavigationService {
   Future<dynamic> navigateToHomeView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -231,7 +268,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> navigateToStartupView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -249,7 +286,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> navigateToLoginView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -267,7 +304,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> navigateToDirectionsView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -285,7 +322,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> navigateToDeliveryView({
-    _i7.Key? key,
+    _i8.Key? key,
     required String orderId,
     int? routerId,
     bool preventDuplicates = true,
@@ -303,8 +340,27 @@ extension NavigatorStateExtension on _i8.NavigationService {
     );
   }
 
+  Future<dynamic> navigateToLegalView({
+    _i8.Key? key,
+    required _i7.LegalDocument document,
+    int? routerId,
+    bool preventDuplicates = true,
+    Map<String, String>? parameters,
+    Widget Function(BuildContext, Animation<double>, Animation<double>, Widget)?
+        transition,
+  }) async {
+    return navigateTo<dynamic>(
+      Routes.legalView,
+      arguments: LegalViewArguments(key: key, document: document),
+      id: routerId,
+      preventDuplicates: preventDuplicates,
+      parameters: parameters,
+      transition: transition,
+    );
+  }
+
   Future<dynamic> replaceWithHomeView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -322,7 +378,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> replaceWithStartupView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -340,7 +396,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> replaceWithLoginView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -358,7 +414,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> replaceWithDirectionsView({
-    _i7.Key? key,
+    _i8.Key? key,
     int? routerId,
     bool preventDuplicates = true,
     Map<String, String>? parameters,
@@ -376,7 +432,7 @@ extension NavigatorStateExtension on _i8.NavigationService {
   }
 
   Future<dynamic> replaceWithDeliveryView({
-    _i7.Key? key,
+    _i8.Key? key,
     required String orderId,
     int? routerId,
     bool preventDuplicates = true,
@@ -387,6 +443,25 @@ extension NavigatorStateExtension on _i8.NavigationService {
     return replaceWith<dynamic>(
       Routes.deliveryView,
       arguments: DeliveryViewArguments(key: key, orderId: orderId),
+      id: routerId,
+      preventDuplicates: preventDuplicates,
+      parameters: parameters,
+      transition: transition,
+    );
+  }
+
+  Future<dynamic> replaceWithLegalView({
+    _i8.Key? key,
+    required _i7.LegalDocument document,
+    int? routerId,
+    bool preventDuplicates = true,
+    Map<String, String>? parameters,
+    Widget Function(BuildContext, Animation<double>, Animation<double>, Widget)?
+        transition,
+  }) async {
+    return replaceWith<dynamic>(
+      Routes.legalView,
+      arguments: LegalViewArguments(key: key, document: document),
       id: routerId,
       preventDuplicates: preventDuplicates,
       parameters: parameters,

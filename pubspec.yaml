@@ -47,6 +47,8 @@ dependencies:
   flutter_foreground_task: ^8.17.0
   # render de Términos y Condiciones / Política de Privacidad en markdown
   flutter_markdown_plus: ^1.0.12
+  # notificaciones locales (avisar ofertas de pedido cuando FCM llega en foreground)
+  flutter_local_notifications: ^19.4.2
 
 dev_dependencies:
   flutter_test:

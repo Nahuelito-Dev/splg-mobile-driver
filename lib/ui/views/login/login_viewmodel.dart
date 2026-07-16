@@ -1,14 +1,18 @@
+import 'dart:async';
+
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 import 'package:driver_mobile/app/app.router.dart';
 import 'package:driver_mobile/app/app.locator.dart';
 import 'package:driver_mobile/services/driver_auth_service.dart';
+import 'package:driver_mobile/services/fcm_service.dart';
 import 'package:driver_mobile/ui/views/login/login_view.form.dart';
 
 class LoginViewModel extends FormViewModel {
   final _navigationService = locator<NavigationService>();
   final _authService = locator<DriverAuthService>();
+  final _fcmService = locator<FcmService>();
 
   /// Mensaje de error para mostrar bajo el formulario (null = sin error).
   String? errorMessage;
@@ -30,6 +34,9 @@ class LoginViewModel extends FormViewModel {
     setBusy(false);
 
     if (ok) {
+      // Best-effort, no bloquea la navegación: registra el token FCM del
+      // chofer para poder recibir ofertas de pedido con la app cerrada.
+      unawaited(_fcmService.registerForCurrentUser(_authService));
       _navigationService.replaceWithHomeView();
     } else {
       errorMessage = 'No pudimos iniciar sesión. Revisá tus datos.';

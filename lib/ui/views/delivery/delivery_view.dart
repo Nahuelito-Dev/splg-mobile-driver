@@ -53,6 +53,10 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
           verticalSpaceMedium,
           _buildOrderCard(viewModel),
           verticalSpaceLarge,
+          if (viewModel.isAccepted || viewModel.isOnTheWay) ...[
+            _CylinderAssignCard(viewModel: viewModel),
+            verticalSpaceMedium,
+          ],
           if (viewModel.isAccepted) ...[
             _buildOnTheWayButton(viewModel),
             verticalSpaceMedium,
@@ -728,6 +732,187 @@ class _CustomerRatingCardState extends State<_CustomerRatingCard> {
                       ),
                     )
                   : const Text('Enviar calificación'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarjeta para cargar en el camión los envases físicos (por serial) que salen
+/// para este pedido. Cada serial ingresado se agrega como chip; al despachar,
+/// hace `POST /cylinders/assign` (filled→dispatched). Al confirmarse la entrega,
+/// el backend los avanza solo a "con el cliente". Es opcional: distribuidoras
+/// que no llevan control por serial simplemente no lo usan.
+class _CylinderAssignCard extends StatefulWidget {
+  const _CylinderAssignCard({required this.viewModel});
+
+  final DeliveryViewModel viewModel;
+
+  @override
+  State<_CylinderAssignCard> createState() => _CylinderAssignCardState();
+}
+
+class _CylinderAssignCardState extends State<_CylinderAssignCard> {
+  final _serialController = TextEditingController();
+  final List<String> _serials = [];
+
+  @override
+  void dispose() {
+    _serialController.dispose();
+    super.dispose();
+  }
+
+  void _addSerial() {
+    final value = _serialController.text.trim();
+    if (value.isEmpty) return;
+    if (_serials.contains(value)) {
+      _serialController.clear();
+      return;
+    }
+    setState(() {
+      _serials.add(value);
+      _serialController.clear();
+    });
+  }
+
+  Future<void> _dispatch() async {
+    if (_serials.isEmpty) return;
+    final ok = await widget.viewModel.assignCylinders(List.of(_serials));
+    if (ok && mounted) {
+      setState(() => _serials.clear());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Envases despachados')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewModel = widget.viewModel;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kcVeryLightGrey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.propane_tank_outlined,
+                  size: 20, color: kcPrimaryColor),
+              horizontalSpaceSmall,
+              const Text(
+                'Envases del pedido',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              if (viewModel.assignedCylinders > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${viewModel.assignedCylinders} despachado(s)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          verticalSpaceSmall,
+          const Text(
+            'Cargá los seriales de las garrafas que salen para este pedido.',
+            style: TextStyle(fontSize: 13, color: kcMediumGrey),
+          ),
+          verticalSpaceMedium,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _serialController,
+                  enabled: !viewModel.isAssigningCylinders,
+                  textCapitalization: TextCapitalization.characters,
+                  onSubmitted: (_) => _addSerial(),
+                  decoration: const InputDecoration(
+                    labelText: 'Número de serie',
+                    hintText: 'Ej: SN-000123',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              horizontalSpaceSmall,
+              IconButton.filled(
+                onPressed: viewModel.isAssigningCylinders ? null : _addSerial,
+                style: IconButton.styleFrom(backgroundColor: kcPrimaryColor),
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+          if (_serials.isNotEmpty) ...[
+            verticalSpaceSmall,
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: _serials
+                  .map(
+                    (s) => Chip(
+                      label: Text(s),
+                      onDeleted: viewModel.isAssigningCylinders
+                          ? null
+                          : () => setState(() => _serials.remove(s)),
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          if (viewModel.cylinderError != null) ...[
+            verticalSpaceSmall,
+            Text(
+              viewModel.cylinderError!,
+              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+            ),
+          ],
+          verticalSpaceMedium,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (_serials.isEmpty || viewModel.isAssigningCylinders)
+                  ? null
+                  : _dispatch,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kcPrimaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: viewModel.isAssigningCylinders
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      _serials.isEmpty
+                          ? 'Despachar envases'
+                          : 'Despachar ${_serials.length} envase(s)',
+                    ),
             ),
           ),
         ],

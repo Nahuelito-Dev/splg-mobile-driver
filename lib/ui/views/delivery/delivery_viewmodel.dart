@@ -74,6 +74,17 @@ class DeliveryViewModel extends BaseViewModel {
   bool _reportingIncident = false;
   bool get isReportingIncident => _reportingIncident;
 
+  /// Asignación de envases físicos al pedido en curso (`POST /cylinders/assign`).
+  bool _assigningCylinders = false;
+  bool get isAssigningCylinders => _assigningCylinders;
+
+  /// Cantidad de envases ya despachados para este pedido (acumulado). Se usa
+  /// para mostrarle al chofer que ya cargó los envases y que, al confirmarse la
+  /// entrega, el sistema los pasará solo a "con el cliente".
+  int _assignedCylinders = 0;
+  int get assignedCylinders => _assignedCylinders;
+  String? cylinderError;
+
   /// Calificación del cliente ya enviada (`POST /ratings`), una por pedido.
   bool _ratingSubmitted = false;
   bool get ratingSubmitted => _ratingSubmitted;
@@ -265,6 +276,56 @@ class DeliveryViewModel extends BaseViewModel {
     }
 
     _reportingIncident = false;
+    notifyListeners();
+    return ok;
+  }
+
+  /// Asigna envases físicos (por serial) a este pedido y los despacha
+  /// (`POST /cylinders/assign` → filled→dispatched). Se usa cuando el chofer
+  /// carga en el camión los envases que salen para este pedido. Al confirmarse
+  /// la entrega, el backend los avanza solo a "con el cliente". Devuelve `true`
+  /// si el backend los despachó. Los envases deben estar en estado "llena".
+  Future<bool> assignCylinders(List<String> serials) async {
+    if (_assigningCylinders || serials.isEmpty) return false;
+
+    final token = await _driverAuthService.token;
+    if (token == null) {
+      cylinderError = 'Falta la sesión para despachar los envases.';
+      notifyListeners();
+      return false;
+    }
+
+    _assigningCylinders = true;
+    cylinderError = null;
+    notifyListeners();
+
+    var ok = false;
+    try {
+      final response = await _apiClient.post(
+        'cylinders/assign',
+        {'orderId': orderId, 'serials': serials},
+        token,
+        {'Idempotency-Key': _uuid.v4()},
+      );
+      ok = response.statusCode == 200 || response.statusCode == 201;
+      if (ok) {
+        _assignedCylinders += serials.length;
+      } else {
+        final data = response.data;
+        final msg = (data is Map && data['message'] != null)
+            ? (data['message'] is List
+                ? (data['message'] as List).join(', ')
+                : data['message'].toString())
+            : null;
+        cylinderError = msg ??
+            'No se pudieron despachar los envases (HTTP ${response.statusCode}).';
+      }
+    } catch (e) {
+      debugPrint('Error asignando envases del pedido $orderId: $e');
+      cylinderError = 'Error de red al despachar los envases.';
+    }
+
+    _assigningCylinders = false;
     notifyListeners();
     return ok;
   }

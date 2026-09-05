@@ -1,4 +1,4 @@
-package com.gearthlogic.splg_driver
+package com.nahuelwagner.splg.driver
 
 import io.flutter.embedding.android.FlutterActivity
 

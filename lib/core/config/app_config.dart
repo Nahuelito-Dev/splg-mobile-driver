@@ -10,7 +10,7 @@
 /// # Dispositivo físico en la LAN:
 /// flutter run --dart-define=API_BASE_URL=http://192.168.0.20:3000
 /// # Producción:
-/// flutter build apk --dart-define=API_BASE_URL=https://api.jennygas.com
+/// flutter build apk --dart-define=API_BASE_URL=https://api.splg.app
 /// ```
 class AppConfig {
   const AppConfig._();

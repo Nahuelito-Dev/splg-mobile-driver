@@ -63,6 +63,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '175861123393',
     projectId: 'jennigas-55f69',
     storageBucket: 'jennigas-55f69.firebasestorage.app',
-    iosBundleId: 'com.gearthlogic.splg.driver',
+    iosBundleId: 'com.nahuelwagner.splg.driver',
   );
 }

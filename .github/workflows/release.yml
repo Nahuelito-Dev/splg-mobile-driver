@@ -1,0 +1,98 @@
+name: Release automatico
+
+# Al mergear a main lee la version declarada, y si ese tag todavia no existe
+# arma el changelog, crea el tag anotado y publica la Release.
+#
+# La generacion de notas vive en scripts/release-notes.sh, el mismo script que
+# usa el finalizador local. Asi el resultado es identico corras donde corras.
+#
+# Es idempotente: si el tag ya existe, no hace nada.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publicar:
+    name: Tag y Release de SPLG App Chofer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Traer el repo completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Leer la version declarada
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/^version:[[:space:]]*//; s/+.*//')
+          if [ -z "$VERSION" ]; then
+            echo "No pude leer la version del proyecto." >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version declarada: $VERSION"
+
+      - name: Ver si el tag ya existe
+        id: chequeo
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "existe=si" >> "$GITHUB_OUTPUT"
+            echo "El tag v${{ steps.version.outputs.version }} ya existe. Nada que publicar."
+          else
+            echo "existe=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Armar el changelog
+        if: steps.chequeo.outputs.existe == 'no'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./scripts/release-notes.sh
+
+      - name: Commitear el changelog y crear el tag
+        if: steps.chequeo.outputs.existe == 'no'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): v$VERSION [skip ci]" || echo "El changelog no cambio."
+          git tag -a "v$VERSION" -F NOTES.md
+          git push origin HEAD:main
+          git push origin "v$VERSION"
+
+      - name: Preparar Java
+        if: steps.chequeo.outputs.existe == 'no'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Flutter
+        if: steps.chequeo.outputs.existe == 'no'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          cache: true
+
+      - name: Compilar el APK
+        if: steps.chequeo.outputs.existe == 'no'
+        run: |
+          flutter pub get
+          flutter build apk --release
+          mv build/app/outputs/flutter-apk/app-release.apk "splg-chofer-${{ steps.version.outputs.version }}.apk"
+
+      - name: Publicar la Release
+        if: steps.chequeo.outputs.existe == 'no'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "SPLG App Chofer v${{ steps.version.outputs.version }}" \
+            --notes-file NOTES.md \
+            --verify-tag \
+            "splg-chofer-${{ steps.version.outputs.version }}.apk"

@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:757204810726:android:565a5705440979bf8f7427",
+        "android_client_info": {
+          "package_name": "com.nahuelwagner.splg.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCINEEptz-g3DX_vVkn1RfKftGNHtqwCas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:757204810726:android:e161cd30b980ef5a8f7427",
         "android_client_info": {
           "package_name": "com.nahuelwagner.splg.custoomer"

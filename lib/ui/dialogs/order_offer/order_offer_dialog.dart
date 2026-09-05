@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
-import 'package:driver_mobile/ui/common/app_colors.dart';
-import 'package:driver_mobile/ui/common/ui_helpers.dart';
+import 'package:splg_driver/ui/common/app_colors.dart';
+import 'package:splg_driver/ui/common/ui_helpers.dart';
 
 import 'order_offer_dialog_model.dart';
 

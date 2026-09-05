@@ -1,11 +1,11 @@
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:driver_mobile/app/app.locator.dart';
+import 'package:splg_driver/app/app.locator.dart';
 import 'package:stacked_services/stacked_services.dart';
-import 'package:driver_mobile/services/order_service.dart';
-import 'package:driver_mobile/services/location_service.dart';
-import 'package:driver_mobile/services/driver_socket_service.dart';
-import 'package:driver_mobile/services/driver_auth_service.dart';
+import 'package:splg_driver/services/order_service.dart';
+import 'package:splg_driver/services/location_service.dart';
+import 'package:splg_driver/services/driver_socket_service.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';

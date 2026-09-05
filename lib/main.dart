@@ -3,14 +3,14 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:stacked_services/stacked_services.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-import 'package:jennygas_lib/theme/app_theme.dart';
+import 'package:splg_lib/theme/app_theme.dart';
 
-import 'package:driver_mobile/app/app.router.dart';
-import 'package:driver_mobile/app/app.dialogs.dart';
-import 'package:driver_mobile/app/app.locator.dart';
-import 'package:driver_mobile/firebase_options.dart';
-import 'package:driver_mobile/app/app.bottomsheets.dart';
-import 'package:driver_mobile/services/fcm_service.dart';
+import 'package:splg_driver/app/app.router.dart';
+import 'package:splg_driver/app/app.dialogs.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/firebase_options.dart';
+import 'package:splg_driver/app/app.bottomsheets.dart';
+import 'package:splg_driver/services/fcm_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

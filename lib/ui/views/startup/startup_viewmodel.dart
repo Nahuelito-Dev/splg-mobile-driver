@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:stacked/stacked.dart';
-import 'package:driver_mobile/app/app.locator.dart';
-import 'package:driver_mobile/app/app.router.dart';
-import 'package:driver_mobile/services/driver_auth_service.dart';
-import 'package:driver_mobile/services/fcm_service.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/app/app.router.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
+import 'package:splg_driver/services/fcm_service.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 class StartupViewModel extends BaseViewModel {

@@ -1,20 +1,20 @@
-import 'package:driver_mobile/ui/dialogs/info_alert/info_alert_dialog.dart';
-import 'package:driver_mobile/ui/dialogs/order_offer/order_offer_dialog.dart';
-import 'package:driver_mobile/ui/views/home/home_view.dart';
-import 'package:driver_mobile/ui/views/startup/startup_view.dart';
+import 'package:splg_driver/ui/dialogs/info_alert/info_alert_dialog.dart';
+import 'package:splg_driver/ui/dialogs/order_offer/order_offer_dialog.dart';
+import 'package:splg_driver/ui/views/home/home_view.dart';
+import 'package:splg_driver/ui/views/startup/startup_view.dart';
 import 'package:stacked/stacked_annotations.dart';
 import 'package:stacked_services/stacked_services.dart';
-import 'package:driver_mobile/ui/views/login/login_view.dart';
-import 'package:driver_mobile/services/order_service.dart';
-import 'package:driver_mobile/ui/views/directions/directions_view.dart';
-import 'package:driver_mobile/ui/views/delivery/delivery_view.dart';
-import 'package:driver_mobile/ui/bottom_sheets/order_info/order_info_sheet.dart';
-import 'package:driver_mobile/ui/views/legal/legal_view.dart';
-import 'package:driver_mobile/services/location_service.dart';
-import 'package:driver_mobile/services/driver_socket_service.dart';
-import 'package:driver_mobile/services/driver_auth_service.dart';
-import 'package:driver_mobile/services/foreground_service.dart';
-import 'package:driver_mobile/services/fcm_service.dart';
+import 'package:splg_driver/ui/views/login/login_view.dart';
+import 'package:splg_driver/services/order_service.dart';
+import 'package:splg_driver/ui/views/directions/directions_view.dart';
+import 'package:splg_driver/ui/views/delivery/delivery_view.dart';
+import 'package:splg_driver/ui/bottom_sheets/order_info/order_info_sheet.dart';
+import 'package:splg_driver/ui/views/legal/legal_view.dart';
+import 'package:splg_driver/services/location_service.dart';
+import 'package:splg_driver/services/driver_socket_service.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
+import 'package:splg_driver/services/foreground_service.dart';
+import 'package:splg_driver/services/fcm_service.dart';
 // @stacked-import
 
 @StackedApp(

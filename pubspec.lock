@@ -688,13 +688,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
-  jennygas_lib:
-    dependency: "direct main"
-    description:
-      path: "../jennygas_lib"
-      relative: true
-    source: path
-    version: "1.0.1"
   jni:
     dependency: transitive
     description:
@@ -1180,6 +1173,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.1"
+  splg_lib:
+    dependency: "direct main"
+    description:
+      path: "../splg-lib"
+      relative: true
+    source: path
+    version: "1.0.1"
   stack_trace:
     dependency: transitive
     description:

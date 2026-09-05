@@ -7,15 +7,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:stacked_services/stacked_services.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:driver_mobile/app/app.dialogs.dart';
-import 'package:driver_mobile/app/app.locator.dart';
-import 'package:driver_mobile/app/app.router.dart';
-import 'package:driver_mobile/core/network/api_client.dart';
-import 'package:driver_mobile/services/driver_auth_service.dart';
-import 'package:driver_mobile/services/driver_socket_service.dart';
-import 'package:driver_mobile/services/foreground_service.dart';
-import 'package:driver_mobile/services/location_service.dart';
-import 'package:driver_mobile/ui/views/legal/legal_view.dart';
+import 'package:splg_driver/app/app.dialogs.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/app/app.router.dart';
+import 'package:splg_driver/core/network/api_client.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
+import 'package:splg_driver/services/driver_socket_service.dart';
+import 'package:splg_driver/services/foreground_service.dart';
+import 'package:splg_driver/services/location_service.dart';
+import 'package:splg_driver/ui/views/legal/legal_view.dart';
 
 class HomeViewModel extends StreamViewModel<Position> {
   final _locationService = locator<LocationService>();

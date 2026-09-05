@@ -5,13 +5,13 @@ import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:driver_mobile/app/app.locator.dart';
-import 'package:driver_mobile/app/app.router.dart';
-import 'package:driver_mobile/core/network/api_client.dart';
-import 'package:driver_mobile/services/driver_auth_service.dart';
-import 'package:driver_mobile/services/driver_socket_service.dart';
-import 'package:driver_mobile/services/foreground_service.dart';
-import 'package:driver_mobile/services/navigation_launcher.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/app/app.router.dart';
+import 'package:splg_driver/core/network/api_client.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
+import 'package:splg_driver/services/driver_socket_service.dart';
+import 'package:splg_driver/services/foreground_service.dart';
+import 'package:splg_driver/services/navigation_launcher.dart';
 
 /// Cada cuánto se hace polling de `GET /orders/:id` mientras la entrega está
 /// en curso, para enterarse de que el cliente confirmó la entrega escaneando
@@ -25,19 +25,19 @@ const Duration _kPollInterval = Duration(seconds: 5);
 /// Nota sobre el `status` que viaja en las respuestas del backend: el estado
 /// interno `ON_THE_WAY` del pedido se serializa como el string
 /// `'out_for_delivery'` (ver `OrderMapper.mapStatus` en el backend y
-/// `OrderStatus.outForDelivery` en `jennygas_lib`), mientras que el PATCH
+/// `OrderStatus.outForDelivery` en `splg_lib`), mientras que el PATCH
 /// para *fijar* ese estado espera literalmente `'on_the_way'` (el valor del
 /// enum de la entidad). Por eso `markOnTheWay()` manda `'on_the_way'` pero
 /// [isOnTheWay] compara contra `'out_for_delivery'`.
 ///
 /// El parseo de la respuesta se hace a mano sobre el Map crudo (en vez de
-/// `Order.fromJson` de `jennygas_lib`) porque el shape real que devuelve
+/// `Order.fromJson` de `splg_lib`) porque el shape real que devuelve
 /// `GET /orders/:id` no calza 1:1 con ese modelo compartido: `gas_cylinder`
 /// no trae `isActive` (campo requerido, no nullable, en `GasCylinder`) y
 /// `weight` viaja como número mientras el modelo lo tipa como `String`.
 /// Usar `Order.fromJson` tal cual rompería esta pantalla con cualquier
 /// pedido que tenga items. Queda como TODO para quien mantenga
-/// `jennygas_lib` alinear ese modelo con `OrderResponseDto`.
+/// `splg_lib` alinear ese modelo con `OrderResponseDto`.
 class DeliveryViewModel extends BaseViewModel {
   DeliveryViewModel({required this.orderId});
 

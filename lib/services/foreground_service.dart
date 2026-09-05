@@ -30,7 +30,7 @@ class DriverForegroundService {
     if (_initialized) return;
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'jennygas_driver_online',
+        channelId: 'splg_driver_online',
         channelName: 'Jeny Gas — Repartidor',
         channelDescription:
             'Mantiene la conexión y el GPS activos mientras estás en línea.',

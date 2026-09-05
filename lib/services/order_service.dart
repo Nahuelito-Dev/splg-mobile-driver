@@ -1,9 +1,9 @@
-import 'package:jennygas_lib/domain/address.dart';
-import 'package:jennygas_lib/domain/gas_cylinder.dart';
-import 'package:jennygas_lib/domain/order_item.dart';
+import 'package:splg_lib/domain/address.dart';
+import 'package:splg_lib/domain/gas_cylinder.dart';
+import 'package:splg_lib/domain/order_item.dart';
 import 'package:stacked/stacked.dart';
 
-import 'package:jennygas_lib/domain/order.dart';
+import 'package:splg_lib/domain/order.dart';
 
 class OrderService with ListenableServiceMixin {
   final ReactiveList<Order> _orders = ReactiveList<Order>();

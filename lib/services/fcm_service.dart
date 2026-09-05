@@ -5,8 +5,8 @@ import 'dart:io' show Platform;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import 'package:driver_mobile/core/network/api_client.dart';
-import 'package:driver_mobile/services/driver_auth_service.dart';
+import 'package:splg_driver/core/network/api_client.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
 
 /// Handler de mensajes FCM en background/terminated. Tiene que ser una
 /// función top-level (o estática) con `@pragma('vm:entry-point')` porque
@@ -48,7 +48,7 @@ class FcmService {
   StreamSubscription<RemoteMessage>? _foregroundMessageSubscription;
   bool _initialized = false;
 
-  static const _channelId = 'jennygas_driver_offers';
+  static const _channelId = 'splg_driver_offers';
   static const _channelName = 'Jeny Gas — Ofertas de pedido';
 
   /// Inicializa `flutter_local_notifications` (canal de Android + config de

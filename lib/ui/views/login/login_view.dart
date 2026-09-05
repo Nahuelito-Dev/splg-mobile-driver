@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked/stacked_annotations.dart';
 
-import 'package:driver_mobile/ui/common/app_strings.dart';
+import 'package:splg_driver/ui/common/app_strings.dart';
 
 import 'login_view.form.dart';
 import 'login_viewmodel.dart';

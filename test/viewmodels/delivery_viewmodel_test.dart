@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:driver_mobile/app/app.locator.dart';
-import 'package:driver_mobile/ui/views/delivery/delivery_viewmodel.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
 
 import '../helpers/test_helpers.dart';
 

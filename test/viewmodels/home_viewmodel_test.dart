@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:driver_mobile/app/app.bottomsheets.dart';
-import 'package:driver_mobile/app/app.locator.dart';
-import 'package:driver_mobile/ui/common/app_strings.dart';
-import 'package:driver_mobile/ui/views/home/home_viewmodel.dart';
+import 'package:splg_driver/app/app.bottomsheets.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/ui/common/app_strings.dart';
+import 'package:splg_driver/ui/views/home/home_viewmodel.dart';
 
 import '../helpers/test_helpers.dart';
 

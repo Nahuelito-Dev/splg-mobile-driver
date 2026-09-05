@@ -6,12 +6,12 @@
 // **************************************************************************
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:driver_mobile/ui/views/delivery/delivery_view.dart' as _i6;
-import 'package:driver_mobile/ui/views/directions/directions_view.dart' as _i5;
-import 'package:driver_mobile/ui/views/home/home_view.dart' as _i2;
-import 'package:driver_mobile/ui/views/legal/legal_view.dart' as _i7;
-import 'package:driver_mobile/ui/views/login/login_view.dart' as _i4;
-import 'package:driver_mobile/ui/views/startup/startup_view.dart' as _i3;
+import 'package:splg_driver/ui/views/delivery/delivery_view.dart' as _i6;
+import 'package:splg_driver/ui/views/directions/directions_view.dart' as _i5;
+import 'package:splg_driver/ui/views/home/home_view.dart' as _i2;
+import 'package:splg_driver/ui/views/legal/legal_view.dart' as _i7;
+import 'package:splg_driver/ui/views/login/login_view.dart' as _i4;
+import 'package:splg_driver/ui/views/startup/startup_view.dart' as _i3;
 import 'package:flutter/material.dart' as _i8;
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart' as _i1;

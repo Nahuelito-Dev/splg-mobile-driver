@@ -1,4 +1,4 @@
-package com.gearthlogic.jennigas_driver
+package com.gearthlogic.splg_driver
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:stacked/stacked.dart';
 
-import 'package:driver_mobile/core/network/api_client.dart';
+import 'package:splg_driver/core/network/api_client.dart';
 
 /// Autenticación real del chofer.
 ///

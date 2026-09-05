@@ -5,9 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:stacked/stacked.dart';
 
-import 'package:driver_mobile/app/app.locator.dart';
-import 'package:driver_mobile/core/config/app_config.dart';
-import 'package:driver_mobile/services/location_service.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/core/config/app_config.dart';
+import 'package:splg_driver/services/location_service.dart';
 
 /// Namespace de Socket.IO donde el backend expone el gateway de choferes.
 /// La URL base está centralizada en [AppConfig] (configurable por build).

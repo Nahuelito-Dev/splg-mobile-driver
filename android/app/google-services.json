@@ -1,13 +1,32 @@
 {
   "project_info": {
-    "project_number": "175861123393",
-    "project_id": "jennigas-55f69",
-    "storage_bucket": "jennigas-55f69.firebasestorage.app"
+    "project_number": "757204810726",
+    "project_id": "splg-gas",
+    "storage_bucket": "splg-gas.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:175861123393:android:f5e406e60ba83a310ef9c0",
+        "mobilesdk_app_id": "1:757204810726:android:e161cd30b980ef5a8f7427",
+        "android_client_info": {
+          "package_name": "com.nahuelwagner.splg.custoomer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCINEEptz-g3DX_vVkn1RfKftGNHtqwCas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:757204810726:android:472908289a174eb48f7427",
         "android_client_info": {
           "package_name": "com.nahuelwagner.splg.driver"
         }
@@ -15,64 +34,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:175861123393:android:e6843ab59fbd44980ef9c0",
-        "android_client_info": {
-          "package_name": "com.nahuelwagner.splg.customer"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:175861123393:android:f86a4dc4150ac00e0ef9c0",
-        "android_client_info": {
-          "package_name": "com.nahuelwagner.splg.driver"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:175861123393:android:fd278823226f15d60ef9c0",
-        "android_client_info": {
-          "package_name": "com.nahuelwagner.splg.customer"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCw-yUeWFyQOhCS9JpZgJ-jR5eBroON3dE"
+          "current_key": "AIzaSyCINEEptz-g3DX_vVkn1RfKftGNHtqwCas"
         }
       ],
       "services": {

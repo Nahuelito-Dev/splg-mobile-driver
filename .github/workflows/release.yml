@@ -1,12 +1,15 @@
 name: Release automatico
 
-# Al mergear a main lee la version declarada, y si ese tag todavia no existe
-# arma el changelog, crea el tag anotado y publica la Release.
+# Cada merge a main publica una version nueva, sin que nadie elija el numero.
 #
-# La generacion de notas vive en scripts/release-notes.sh, el mismo script que
-# usa el finalizador local. Asi el resultado es identico corras donde corras.
+# El salto lo deciden los commits desde el ultimo tag:
+#   un commit con "!" o BREAKING CHANGE -> sube la mayor
+#   algun commit feat:                  -> sube la menor
+#   cualquier otra cosa                 -> sube el parche
 #
-# Es idempotente: si el tag ya existe, no hace nada.
+# Si no hay commits nuevos, no hace nada. Los commits que genera este mismo
+# workflow llevan [skip ci] y quedan excluidos del calculo, asi que no se
+# retroalimenta.
 
 on:
   push:
@@ -17,7 +20,7 @@ permissions:
 
 jobs:
   publicar:
-    name: Tag y Release de SPLG App Chofer
+    name: Version y Release de SPLG App Chofer
     runs-on: ubuntu-latest
     steps:
       - name: Traer el repo completo
@@ -25,74 +28,76 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Leer la version declarada
-        id: version
+      - name: Calcular la version nueva
+        id: calculo
         run: |
-          VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/^version:[[:space:]]*//; s/+.*//')
-          if [ -z "$VERSION" ]; then
-            echo "No pude leer la version del proyecto." >&2
-            exit 1
+          NUEVA=$(./scripts/version.sh siguiente)
+          if [ -z "$NUEVA" ]; then
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+            echo "No hay commits nuevos desde el ultimo tag. Nada que publicar."
+            exit 0
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version declarada: $VERSION"
+          if git rev-parse "v$NUEVA" >/dev/null 2>&1; then
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+            echo "El tag v$NUEVA ya existe. Nada que publicar."
+            exit 0
+          fi
+          echo "hay=si" >> "$GITHUB_OUTPUT"
+          echo "version=$NUEVA" >> "$GITHUB_OUTPUT"
+          echo "Version anterior: $(./scripts/version.sh actual)"
+          echo "Version nueva:    $NUEVA"
 
-      - name: Ver si el tag ya existe
-        id: chequeo
-        run: |
-          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "existe=si" >> "$GITHUB_OUTPUT"
-            echo "El tag v${{ steps.version.outputs.version }} ya existe. Nada que publicar."
-          else
-            echo "existe=no" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Escribir la version en el proyecto
+        if: steps.calculo.outputs.hay == 'si'
+        run: ./scripts/version.sh fijar "${{ steps.calculo.outputs.version }}"
 
       - name: Armar el changelog
-        if: steps.chequeo.outputs.existe == 'no'
+        if: steps.calculo.outputs.hay == 'si'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.calculo.outputs.version }}
         run: ./scripts/release-notes.sh
 
-      - name: Commitear el changelog y crear el tag
-        if: steps.chequeo.outputs.existe == 'no'
+      - name: Commitear la version y crear el tag
+        if: steps.calculo.outputs.hay == 'si'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.calculo.outputs.version }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "docs(changelog): v$VERSION [skip ci]" || echo "El changelog no cambio."
+          git add -A
+          git commit -m "chore(release): version $VERSION [skip ci]"
           git tag -a "v$VERSION" -F NOTES.md
           git push origin HEAD:main
           git push origin "v$VERSION"
 
       - name: Preparar Java
-        if: steps.chequeo.outputs.existe == 'no'
+        if: steps.calculo.outputs.hay == 'si'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Preparar Flutter
-        if: steps.chequeo.outputs.existe == 'no'
+        if: steps.calculo.outputs.hay == 'si'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.7'
           cache: true
 
       - name: Compilar el APK
-        if: steps.chequeo.outputs.existe == 'no'
+        if: steps.calculo.outputs.hay == 'si'
         run: |
           flutter pub get
           flutter build apk --release
-          mv build/app/outputs/flutter-apk/app-release.apk "splg-chofer-${{ steps.version.outputs.version }}.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "splg-chofer-${{ steps.calculo.outputs.version }}.apk"
 
       - name: Publicar la Release
-        if: steps.chequeo.outputs.existe == 'no'
+        if: steps.calculo.outputs.hay == 'si'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
-            --title "SPLG App Chofer v${{ steps.version.outputs.version }}" \
+          gh release create "v${{ steps.calculo.outputs.version }}" \
+            --title "SPLG App Chofer v${{ steps.calculo.outputs.version }}" \
             --notes-file NOTES.md \
             --verify-tag \
-            "splg-chofer-${{ steps.version.outputs.version }}.apk"
+            "splg-chofer-${{ steps.calculo.outputs.version }}.apk"

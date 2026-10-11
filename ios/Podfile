@@ -39,5 +39,18 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # permission_handler en iOS sólo compila los permisos que se habilitan acá;
+    # sin esto `Permission.<x>` devuelve siempre "denegado". Cada macro tiene que
+    # tener su clave de uso en Info.plist.
+    target.build_configurations.each do |config|
+      defs = Array(config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)'])
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs + [
+        'PERMISSION_LOCATION_WHENINUSE=1',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_PHOTOS=1',
+        'PERMISSION_NOTIFICATIONS=1',
+      ]
+    end
   end
 end

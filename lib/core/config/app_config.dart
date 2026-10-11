@@ -23,6 +23,12 @@ class AppConfig {
     defaultValue: 'http://10.0.2.2:3000',
   );
 
+  /// `--dart-define=PUSH_ENABLED=false` evita pedir permiso de notificaciones
+  /// y registrar el token FCM (recorridos automáticos en simulador, donde el
+  /// prompt del sistema tapa la pantalla).
+  static const bool pushEnabled =
+      bool.fromEnvironment('PUSH_ENABLED', defaultValue: true);
+
   /// Base de la REST API (con `/api`).
   static String get apiUrl => '$apiBaseUrl/api/';
 

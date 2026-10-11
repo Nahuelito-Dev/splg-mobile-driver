@@ -3,10 +3,10 @@ const String loginViewTitle = 'Bienvenido';
 const String loginViewDescription = 'Inicie sesión para continuar';
 const String loginViewHintEmail = 'Email';
 const String loginViewHintPassword = 'Contraseña';
-const String loginViewButton = 'Continuar';
+const String loginViewButton = 'Ingresar';
 const String loginViewNoAccount = '¿No tienes cuenta? ';
 const String loginViewSignup = 'Registrarse';
-const String loginForgotPassword = 'olvidé mi contraseña';
+const String loginForgotPassword = '¿Olvidaste tu contraseña?';
 // Home
 const String homeNoOrders = 'No hay pedidos.';
 const String homeOrderSummary = 'Resumen de la orden';

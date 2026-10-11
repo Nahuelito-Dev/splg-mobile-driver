@@ -3,10 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
-import 'package:splg_driver/ui/common/app_colors.dart';
 import 'package:splg_driver/ui/common/ui_helpers.dart';
 
 import 'order_offer_dialog_model.dart';
+import 'package:splg_lib/theme/brasa_palette.dart';
 
 final _currencyFormat =
     NumberFormat.currency(locale: 'es_AR', symbol: '\$', decimalDigits: 0);
@@ -42,7 +42,7 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Column(
@@ -56,13 +56,12 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
             verticalSpaceSmall,
             Text(
               _formatTotal(data['totalAmount']),
-              style:
-                  const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             verticalSpaceTiny,
             Text(
               _formatPaymentMethod(data['paymentMethod']),
-              style: const TextStyle(fontSize: 14, color: kcMediumGrey),
+              style: TextStyle(fontSize: 14, color: context.brasa.muted),
             ),
             if (items.isNotEmpty) ...[
               verticalSpaceMedium,
@@ -82,7 +81,7 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
               ),
             ],
             verticalSpaceMedium,
-            _buildCountdownBar(viewModel),
+            _buildCountdownBar(context, viewModel),
             verticalSpaceMedium,
             Row(
               children: [
@@ -99,7 +98,7 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: kcPrimaryColor,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                     onPressed: () {
                       viewModel.stop();
@@ -118,10 +117,15 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
 
   /// Barra + texto de la cuenta regresiva de la oferta. Cuando llega a 0 el
   /// modelo descarta la oferta solo (ver [OrderOfferDialogModel.start]).
-  Widget _buildCountdownBar(OrderOfferDialogModel viewModel) {
+  Widget _buildCountdownBar(
+    BuildContext context,
+    OrderOfferDialogModel viewModel,
+  ) {
     final remaining = viewModel.remainingSeconds;
     final fraction = (remaining / 30).clamp(0.0, 1.0);
-    final color = remaining <= 10 ? Colors.red : kcPrimaryColor;
+    final color = remaining <= 10
+        ? context.brasa.danger
+        : Theme.of(context).colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -130,7 +134,7 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
           child: LinearProgressIndicator(
             value: fraction,
             minHeight: 6,
-            backgroundColor: kcVeryLightGrey,
+            backgroundColor: context.brasa.outline,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),

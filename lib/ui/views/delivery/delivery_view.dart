@@ -3,10 +3,11 @@ import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:stacked/stacked.dart';
 
-import 'package:splg_driver/ui/common/app_colors.dart';
 import 'package:splg_driver/ui/common/ui_helpers.dart';
 
 import 'delivery_viewmodel.dart';
+import 'package:splg_lib/theme/app_colors.dart';
+import 'package:splg_lib/theme/brasa_palette.dart';
 
 final _currencyFormat =
     NumberFormat.currency(locale: 'es_AR', symbol: '\$', decimalDigits: 0);
@@ -46,28 +47,28 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (viewModel.errorMessage != null) ...[
-            _buildErrorBanner(viewModel.errorMessage!),
+            _buildErrorBanner(context, viewModel.errorMessage!),
             verticalSpaceMedium,
           ],
-          _buildStatusChip(viewModel),
+          _buildStatusChip(context, viewModel),
           verticalSpaceMedium,
-          _buildOrderCard(viewModel),
+          _buildOrderCard(context, viewModel),
           verticalSpaceLarge,
           if (viewModel.isAccepted || viewModel.isOnTheWay) ...[
             _CylinderAssignCard(viewModel: viewModel),
             verticalSpaceMedium,
           ],
           if (viewModel.isAccepted) ...[
-            _buildOnTheWayButton(viewModel),
+            _buildOnTheWayButton(context, viewModel),
             verticalSpaceMedium,
           ],
           _buildNavigateButton(context, viewModel),
           verticalSpaceMedium,
           if (viewModel.isOnTheWay && !viewModel.arrivedNotified) ...[
-            _buildArrivedButton(viewModel),
+            _buildArrivedButton(context, viewModel),
             verticalSpaceMedium,
           ],
-          _buildQrSection(viewModel),
+          _buildQrSection(context, viewModel),
           verticalSpaceMedium,
           _buildIncidentButton(context, viewModel),
         ],
@@ -88,11 +89,11 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
         onPressed: viewModel.isReportingIncident
             ? null
             : () => _showIncidentSheet(context, viewModel),
-        icon: const Icon(Icons.report_problem_outlined,
-            size: 20, color: Colors.red),
-        label: const Text(
+        icon: Icon(Icons.report_problem_outlined,
+            size: 20, color: context.brasa.danger),
+        label: Text(
           'Reportar un problema',
-          style: TextStyle(color: Colors.red),
+          style: TextStyle(color: context.brasa.danger),
         ),
       ),
     );
@@ -113,23 +114,23 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
     );
   }
 
-  Widget _buildErrorBanner(String message) {
+  Widget _buildErrorBanner(BuildContext context, String message) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: context.brasa.dangerSoft,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red.shade200),
+        border: Border.all(color: context.brasa.danger),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+          Icon(Icons.error_outline, color: context.brasa.danger, size: 20),
           horizontalSpaceSmall,
           Expanded(
             child: Text(
               message,
-              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+              style: TextStyle(color: context.brasa.danger, fontSize: 13),
             ),
           ),
         ],
@@ -137,18 +138,18 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
     );
   }
 
-  Widget _buildStatusChip(DeliveryViewModel viewModel) {
+  Widget _buildStatusChip(BuildContext context, DeliveryViewModel viewModel) {
     final String label;
     final Color color;
     if (viewModel.isOnTheWay) {
       label = 'En camino';
-      color = kcPrimaryColor;
+      color = Theme.of(context).colorScheme.primary;
     } else if (viewModel.isAccepted) {
       label = 'Aceptado, falta salir';
-      color = Colors.orange;
+      color = context.brasa.warn;
     } else {
       label = viewModel.status ?? 'Sin estado';
-      color = kcMediumGrey;
+      color = context.brasa.muted;
     }
 
     return Container(
@@ -162,18 +163,19 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
         children: [
           const Icon(Icons.local_shipping, color: Colors.white, size: 16),
           horizontalSpaceTiny,
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
+          Text(label,
+              style: const TextStyle(color: Colors.white, fontSize: 13)),
         ],
       ),
     );
   }
 
-  Widget _buildOrderCard(DeliveryViewModel viewModel) {
+  Widget _buildOrderCard(BuildContext context, DeliveryViewModel viewModel) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kcVeryLightGrey.withAlpha(120),
+        color: context.brasa.outline.withAlpha(120),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -202,11 +204,12 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
           verticalSpaceTiny,
           Text(
             _formatPaymentMethod(viewModel.paymentMethod),
-            style: const TextStyle(fontSize: 13, color: kcMediumGrey),
+            style: TextStyle(fontSize: 13, color: context.brasa.muted),
           ),
           if (viewModel.items.isNotEmpty) ...[
             verticalSpaceMedium,
-            const Text('Detalle', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Detalle',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             verticalSpaceTiny,
             ...viewModel.items.map(
               (item) => Padding(
@@ -223,31 +226,33 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
     );
   }
 
-  Widget _buildOnTheWayButton(DeliveryViewModel viewModel) {
+  Widget _buildOnTheWayButton(
+      BuildContext context, DeliveryViewModel viewModel) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: viewModel.isUpdatingStatus ? null : viewModel.markOnTheWay,
         icon: viewModel.isUpdatingStatus
-            ? const SizedBox(
+            ? SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onPrimary,
                 ),
               )
             : const Icon(Icons.play_arrow),
         label: const Text('En camino'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: kcPrimaryColor,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
     );
   }
 
-  Widget _buildArrivedButton(DeliveryViewModel viewModel) {
+  Widget _buildArrivedButton(
+      BuildContext context, DeliveryViewModel viewModel) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -261,7 +266,8 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
     );
   }
 
-  Widget _buildNavigateButton(BuildContext context, DeliveryViewModel viewModel) {
+  Widget _buildNavigateButton(
+      BuildContext context, DeliveryViewModel viewModel) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
@@ -315,7 +321,7 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
     );
   }
 
-  Widget _buildQrSection(DeliveryViewModel viewModel) {
+  Widget _buildQrSection(BuildContext context, DeliveryViewModel viewModel) {
     if (viewModel.deliveryCode == null) {
       return SizedBox(
         width: double.infinity,
@@ -342,7 +348,7 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
               verticalSpaceSmall,
               Text(
                 viewModel.qrError!,
-                style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                style: TextStyle(color: context.brasa.danger, fontSize: 13),
               ),
             ],
           ],
@@ -354,16 +360,16 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kcVeryLightGrey),
+        border: Border.all(color: context.brasa.outline),
       ),
       child: Column(
         children: [
           QrImageView(
             data: viewModel.deliveryCode!,
             size: 220,
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
           ),
           verticalSpaceMedium,
           Text(
@@ -375,24 +381,25 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
             ),
           ),
           verticalSpaceSmall,
-          const Text(
+          Text(
             'Mostrale este QR al cliente para confirmar la entrega',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: kcMediumGrey),
+            style: TextStyle(fontSize: 13, color: context.brasa.muted),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDeliveredBody(BuildContext context, DeliveryViewModel viewModel) {
+  Widget _buildDeliveredBody(
+      BuildContext context, DeliveryViewModel viewModel) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           verticalSpaceLarge,
-          const Icon(Icons.check_circle, color: Colors.green, size: 96),
+          Icon(Icons.check_circle, color: context.brasa.success, size: 96),
           verticalSpaceLarge,
           const Text(
             '¡Entrega confirmada!',
@@ -400,9 +407,9 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
             textAlign: TextAlign.center,
           ),
           verticalSpaceSmall,
-          const Text(
+          Text(
             'El cliente confirmó la entrega escaneando el QR.',
-            style: TextStyle(fontSize: 14, color: kcMediumGrey),
+            style: TextStyle(fontSize: 14, color: context.brasa.muted),
             textAlign: TextAlign.center,
           ),
           verticalSpaceLarge,
@@ -413,7 +420,7 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
             child: ElevatedButton(
               onPressed: viewModel.goHome,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kcPrimaryColor,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: const Text('Volver al inicio'),
@@ -517,7 +524,7 @@ class _IncidentSheetState extends State<_IncidentSheet> {
             ? 'Incidencia reportada. La distribuidora fue notificada.'
             : (widget.viewModel.errorMessage ??
                 'No se pudo reportar la incidencia.')),
-        backgroundColor: ok ? Colors.green.shade700 : Colors.red.shade700,
+        backgroundColor: ok ? context.brasa.success : context.brasa.danger,
       ),
     );
   }
@@ -546,22 +553,22 @@ class _IncidentSheetState extends State<_IncidentSheet> {
               groupValue: _type,
               onChanged: (value) => setState(() => _type = value ?? _type),
               child: Column(
-              children: _incidentTypes
-                  .map(
-                    (t) => RadioListTile<String>(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      value: t.$1,
-                      title: Row(
-                        children: [
-                          Icon(t.$3, size: 20, color: kcMediumGrey),
-                          horizontalSpaceSmall,
-                          Text(t.$2),
-                        ],
+                children: _incidentTypes
+                    .map(
+                      (t) => RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        value: t.$1,
+                        title: Row(
+                          children: [
+                            Icon(t.$3, size: 20, color: context.brasa.muted),
+                            horizontalSpaceSmall,
+                            Text(t.$2),
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-                  .toList(),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -583,16 +590,16 @@ class _IncidentSheetState extends State<_IncidentSheet> {
             child: ElevatedButton(
               onPressed: _submitting ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade700,
+                backgroundColor: context.brasa.danger,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: _submitting
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : const Text('Enviar reporte'),
@@ -649,13 +656,13 @@ class _CustomerRatingCardState extends State<_CustomerRatingCard> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: kcVeryLightGrey.withAlpha(120),
+          color: context.brasa.outline.withAlpha(120),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.star, color: Colors.amber),
+            Icon(Icons.star, color: AppColors.gas400),
             horizontalSpaceSmall,
             Text('¡Gracias por calificar al cliente!'),
           ],
@@ -667,7 +674,7 @@ class _CustomerRatingCardState extends State<_CustomerRatingCard> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kcVeryLightGrey.withAlpha(120),
+        color: context.brasa.outline.withAlpha(120),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -689,7 +696,7 @@ class _CustomerRatingCardState extends State<_CustomerRatingCard> {
                     : () => setState(() => _stars = value),
                 icon: Icon(
                   value <= _stars ? Icons.star : Icons.star_border,
-                  color: Colors.amber,
+                  color: AppColors.gas400,
                 ),
               );
             }),
@@ -708,7 +715,7 @@ class _CustomerRatingCardState extends State<_CustomerRatingCard> {
             verticalSpaceSmall,
             Text(
               viewModel.ratingError!,
-              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+              style: TextStyle(color: context.brasa.danger, fontSize: 13),
             ),
           ],
           verticalSpaceMedium,
@@ -719,16 +726,16 @@ class _CustomerRatingCardState extends State<_CustomerRatingCard> {
                   ? null
                   : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kcPrimaryColor,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               child: viewModel.isSubmittingRating
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : const Text('Enviar calificación'),
@@ -796,17 +803,17 @@ class _CylinderAssignCardState extends State<_CylinderAssignCard> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kcVeryLightGrey),
+        border: Border.all(color: context.brasa.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.propane_tank_outlined,
-                  size: 20, color: kcPrimaryColor),
+              Icon(Icons.propane_tank_outlined,
+                  size: 20, color: Theme.of(context).colorScheme.primary),
               horizontalSpaceSmall,
               const Text(
                 'Envases del pedido',
@@ -818,7 +825,7 @@ class _CylinderAssignCardState extends State<_CylinderAssignCard> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
+                    color: context.brasa.successSoft,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -826,16 +833,16 @@ class _CylinderAssignCardState extends State<_CylinderAssignCard> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
+                      color: context.brasa.success,
                     ),
                   ),
                 ),
             ],
           ),
           verticalSpaceSmall,
-          const Text(
+          Text(
             'Cargá los seriales de las garrafas que salen para este pedido.',
-            style: TextStyle(fontSize: 13, color: kcMediumGrey),
+            style: TextStyle(fontSize: 13, color: context.brasa.muted),
           ),
           verticalSpaceMedium,
           Row(
@@ -857,7 +864,8 @@ class _CylinderAssignCardState extends State<_CylinderAssignCard> {
               horizontalSpaceSmall,
               IconButton.filled(
                 onPressed: viewModel.isAssigningCylinders ? null : _addSerial,
-                style: IconButton.styleFrom(backgroundColor: kcPrimaryColor),
+                style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary),
                 icon: const Icon(Icons.add),
               ),
             ],
@@ -874,8 +882,7 @@ class _CylinderAssignCardState extends State<_CylinderAssignCard> {
                       onDeleted: viewModel.isAssigningCylinders
                           ? null
                           : () => setState(() => _serials.remove(s)),
-                      materialTapTargetSize:
-                          MaterialTapTargetSize.shrinkWrap,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   )
                   .toList(),
@@ -885,7 +892,7 @@ class _CylinderAssignCardState extends State<_CylinderAssignCard> {
             verticalSpaceSmall,
             Text(
               viewModel.cylinderError!,
-              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+              style: TextStyle(fontSize: 12, color: context.brasa.danger),
             ),
           ],
           verticalSpaceMedium,
@@ -896,16 +903,16 @@ class _CylinderAssignCardState extends State<_CylinderAssignCard> {
                   ? null
                   : _dispatch,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kcPrimaryColor,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: viewModel.isAssigningCylinders
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : Text(

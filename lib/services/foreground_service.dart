@@ -31,7 +31,7 @@ class DriverForegroundService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'splg_driver_online',
-        channelName: 'Jeny Gas — Repartidor',
+        channelName: 'SPLG Chofer',
         channelDescription:
             'Mantiene la conexión y el GPS activos mientras estás en línea.',
         onlyAlertOnce: true,
@@ -48,18 +48,6 @@ class DriverForegroundService {
       ),
     );
     _initialized = true;
-  }
-
-  /// Pide el permiso de notificaciones (Android 13+). Best-effort.
-  Future<void> requestPermissions() async {
-    try {
-      final status = await FlutterForegroundTask.checkNotificationPermission();
-      if (status != NotificationPermission.granted) {
-        await FlutterForegroundTask.requestNotificationPermission();
-      }
-    } catch (e) {
-      debugPrint('[ForegroundService] permiso notif: $e');
-    }
   }
 
   /// Arranca (o actualiza) el service con la notificación persistente.

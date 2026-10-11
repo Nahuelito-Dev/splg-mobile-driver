@@ -2,13 +2,13 @@
 
 **Última actualización: 16 de julio de 2026**
 
-En **Jeny Gas** nos tomamos en serio la protección de tus datos personales. Esta Política de Privacidad explica qué información recolectamos, con qué finalidad, cómo la protegemos y cuáles son tus derechos, en cumplimiento de la **Ley N.º 25.326 de Protección de Datos Personales** de la República Argentina y su normativa reglamentaria, bajo el contralor de la **Agencia de Acceso a la Información Pública (AAIP)**.
+En **SPLG** nos tomamos en serio la protección de tus datos personales. Esta Política de Privacidad explica qué información recolectamos, con qué finalidad, cómo la protegemos y cuáles son tus derechos, en cumplimiento de la **Ley N.º 25.326 de Protección de Datos Personales** de la República Argentina y su normativa reglamentaria, bajo el contralor de la **Agencia de Acceso a la Información Pública (AAIP)**.
 
 Al usar la App, aceptás las prácticas descriptas en esta Política.
 
 ## 1. Responsable del tratamiento
 
-El responsable del tratamiento de los datos personales recolectados a través de la App es **Jeny Gas**. Ante cualquier consulta relacionada con tus datos, podés escribir a **privacidad@jenygas.com.ar**.
+El responsable del tratamiento de los datos personales recolectados a través de la App es **SPLG**. Ante cualquier consulta relacionada con tus datos, podés escribir a **privacidad@splg.app**.
 
 ## 2. Datos que recolectamos
 
@@ -82,7 +82,7 @@ Conforme a la Ley N.º 25.326, tenés derecho a:
 - **Supresión (cancelación)**: solicitar la eliminación de tus datos cuando corresponda (por ejemplo, al dar de baja tu cuenta).
 - **Oposición**: oponerte al tratamiento de tus datos para determinadas finalidades.
 
-Podés ejercer estos derechos desde la sección "Mi Perfil" de la App (edición de datos, baja de cuenta) o escribiendo a **privacidad@jenygas.com.ar**. Responderemos tu solicitud dentro de los plazos que establece la normativa vigente.
+Podés ejercer estos derechos desde la sección "Mi Perfil" de la App (edición de datos, baja de cuenta) o escribiendo a **privacidad@splg.app**. Responderemos tu solicitud dentro de los plazos que establece la normativa vigente.
 
 Asimismo, te informamos que **la Agencia de Acceso a la Información Pública**, en su carácter de Órgano de Control de la Ley N.º 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.
 
@@ -100,4 +100,4 @@ Podemos actualizar esta Política de Privacidad para reflejar cambios legales, o
 
 ## 13. Contacto
 
-Para consultas, reclamos o para ejercer tus derechos ARCO, podés escribirnos a **privacidad@jenygas.com.ar** o desde la sección "Ayuda" de la App.
+Para consultas, reclamos o para ejercer tus derechos ARCO, podés escribirnos a **privacidad@splg.app** o desde la sección "Ayuda" de la App.

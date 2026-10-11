@@ -13,6 +13,19 @@ import 'package:splg_driver/core/network/api_client.dart';
 /// REAL de la base — que es el id que usan el radar (GEO) y los eventos de
 /// socket del chofer (`driver:join` / `driver:update-location`), NO el uid de
 /// Firebase. Guardamos ese id + datos básicos para el resto de la operación.
+/// Resultado de [DriverAuthService.changePassword].
+enum PasswordChangeResult {
+  ok,
+  wrongCurrent,
+  weak,
+
+  /// Firebase rechazó la nueva contraseña por su política de requisitos.
+  notMeetsRequirements,
+  network,
+  tooManyRequests,
+  other,
+}
+
 class DriverAuthService with ListenableServiceMixin {
   DriverAuthService() {
     listenToReactiveValues([_userId, _fullName, _email]);
@@ -41,6 +54,51 @@ class DriverAuthService with ListenableServiceMixin {
   /// Token de Firebase (JWT) para el handshake del socket y los headers REST.
   Future<String?> get token async =>
       await _firebaseAuth.currentUser?.getIdToken();
+
+  /// Envía el mail de recuperación de contraseña. Devuelve false si Firebase
+  /// rechaza el pedido (email mal formado, demasiados intentos, sin red).
+  Future<bool> sendPasswordResetEmail(String email) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+      return true;
+    } on FirebaseAuthException catch (e) {
+      log('Reset de contraseña falló: ${e.code}', name: 'DriverAuthService');
+      return false;
+    }
+  }
+
+  /// Cambia la contraseña: Firebase pide volver a autenticar con la actual.
+  Future<PasswordChangeResult> changePassword(
+    String current,
+    String next,
+  ) async {
+    final user = _firebaseAuth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null) return PasswordChangeResult.other;
+    try {
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: email, password: current),
+      );
+      await user.updatePassword(next);
+      return PasswordChangeResult.ok;
+    } on FirebaseAuthException catch (e) {
+      log('Cambio de contraseña falló: ${e.code}', name: 'DriverAuthService');
+      return switch (e.code) {
+        'wrong-password' ||
+        'invalid-credential' =>
+          PasswordChangeResult.wrongCurrent,
+        'weak-password' => PasswordChangeResult.weak,
+        'password-does-not-meet-requirements' =>
+          PasswordChangeResult.notMeetsRequirements,
+        'network-request-failed' => PasswordChangeResult.network,
+        'too-many-requests' => PasswordChangeResult.tooManyRequests,
+        _ => PasswordChangeResult.other,
+      };
+    } catch (e) {
+      log('Cambio de contraseña falló: $e', name: 'DriverAuthService');
+      return PasswordChangeResult.other;
+    }
+  }
 
   /// Inicia sesión. Devuelve true si Firebase autenticó Y pudimos resolver el
   /// perfil del chofer (user_id). Si el perfil no es un chofer o no se puede

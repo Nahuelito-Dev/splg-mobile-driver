@@ -23,7 +23,8 @@ class NavigationLauncher {
 
   static Future<bool> _launch(Uri uri, {required String appName}) async {
     try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched) {
         log('No se pudo abrir $appName ($uri)', name: 'NavigationLauncher');
       }

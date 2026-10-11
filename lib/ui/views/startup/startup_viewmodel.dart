@@ -13,17 +13,19 @@ class StartupViewModel extends BaseViewModel {
   final _fcmService = locator<FcmService>();
 
   /// Decide adónde ir según haya o no una sesión de chofer válida. Si Firebase
-  /// tiene sesión y restauramos el user_id, va directo a Home; si no, a Login.
+  /// tiene sesión y restauramos el user_id, va directo a Home; si no, a la Bienvenida.
   Future runStartupLogic() async {
     final restored = await _authService.restoreSession();
 
     if (restored) {
       // Best-effort: re-registra (o renueva) el token FCM en cada apertura de
       // la app con sesión activa, sin bloquear la navegación a Home.
-      unawaited(_fcmService.registerForCurrentUser(_authService));
+      unawaited(
+        _fcmService.registerForCurrentUser(_authService, interactive: false),
+      );
       await _navigationService.replaceWithHomeView();
     } else {
-      await _navigationService.replaceWithLoginView();
+      await _navigationService.replaceWithWelcomeView();
     }
   }
 }

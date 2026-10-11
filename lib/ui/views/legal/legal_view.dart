@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:stacked/stacked.dart';
 
+import 'package:splg_lib/splg_lib.dart';
+
+import 'package:splg_driver/ui/widgets/driver_header.dart';
 import 'legal_viewmodel.dart';
 
 /// Documento legal que puede mostrar [LegalView].
@@ -35,29 +38,15 @@ class LegalView extends StackedView<LegalViewModel> {
     LegalViewModel viewModel,
     Widget? child,
   ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: IconThemeData(color: colorScheme.primary),
-        title: Text(
-          viewModel.title,
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
-          ),
-        ),
-      ),
+      appBar: DriverHeader(title: viewModel.title, bell: false),
       body: SafeArea(child: _buildBody(context, viewModel)),
     );
   }
 
   Widget _buildBody(BuildContext context, LegalViewModel viewModel) {
     final theme = Theme.of(context);
+    final type = SplgType.of(context);
 
     if (viewModel.isBusy) {
       return const Center(child: CircularProgressIndicator());
@@ -80,9 +69,10 @@ class LegalView extends StackedView<LegalViewModel> {
       data: viewModel.content!,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-        h1: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        h2: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        p: theme.textTheme.bodyMedium,
+        h1: type.title.copyWith(fontSize: context.sp(14)),
+        h2: type.heading.copyWith(fontSize: context.sp(13)),
+        h3: type.subtitle,
+        p: type.body.copyWith(height: 1.4),
       ),
     );
   }

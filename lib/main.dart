@@ -4,6 +4,7 @@ import 'package:stacked_services/stacked_services.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'package:splg_lib/theme/app_theme.dart';
+import 'package:splg_lib/theme/splg_licenses.dart';
 
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/app/app.dialogs.dart';
@@ -14,6 +15,8 @@ import 'package:splg_driver/services/fcm_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // La licencia de la tipografía (Geist, OFL) viaja en la app.
+  registerSplgLicenses();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

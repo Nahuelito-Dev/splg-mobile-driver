@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:splg_driver/ui/common/app_colors.dart';
 import 'package:splg_driver/ui/common/ui_helpers.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 import 'order_info_sheet_model.dart';
+import 'package:splg_lib/theme/brasa_palette.dart';
 
 class OrderInfoSheet extends StackedView<OrderInfoSheetModel> {
   final Function(SheetResponse response)? completer;
@@ -23,8 +23,8 @@ class OrderInfoSheet extends StackedView<OrderInfoSheetModel> {
   ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(10),
           topRight: Radius.circular(10),
@@ -42,7 +42,7 @@ class OrderInfoSheet extends StackedView<OrderInfoSheetModel> {
             verticalSpaceTiny,
             Text(
               request.description!,
-              style: const TextStyle(fontSize: 14, color: kcMediumGrey),
+              style: TextStyle(fontSize: 14, color: context.brasa.muted),
               maxLines: 3,
               softWrap: true,
             ),

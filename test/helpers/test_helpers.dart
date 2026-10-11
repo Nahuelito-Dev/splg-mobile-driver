@@ -6,6 +6,13 @@ import 'package:splg_driver/services/order_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
+import 'package:splg_driver/services/fcm_service.dart';
+import 'package:splg_driver/services/app_permissions.dart';
+import 'package:splg_driver/core/network/api_client.dart';
+import 'package:splg_lib/permissions/app_permission.dart';
+import 'package:splg_driver/services/foreground_service.dart';
+import 'package:splg_driver/services/driver_api_service.dart';
+import 'package:splg_driver/models/driver_data.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';
@@ -20,10 +27,18 @@ import 'test_helpers.mocks.dart';
     MockSpec<LocationService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<DriverSocketService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<DriverAuthService>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<DriverForegroundService>(
+        onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<FcmService>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<AppPermissions>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<ApiClient>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<DriverApiService>(onMissingStub: OnMissingStub.returnDefault),
 // @stacked-mock-spec
   ],
 )
 void registerServices() {
+  provideDummy<PermissionOutcome>(PermissionOutcome.granted);
+  provideDummy<OrdersPage>(const OrdersPage(orders: [], total: 0, offset: 0));
   getAndRegisterNavigationService();
   getAndRegisterBottomSheetService();
   getAndRegisterDialogService();
@@ -31,6 +46,10 @@ void registerServices() {
   getAndRegisterLocationService();
   getAndRegisterDriverSocketService();
   getAndRegisterDriverAuthService();
+  getAndRegisterDriverForegroundService();
+  getAndRegisterFcmService();
+  getAndRegisterAppPermissions();
+  getAndRegisterDriverApiService();
 // @stacked-mock-register
 }
 
@@ -115,10 +134,38 @@ MockDriverAuthService getAndRegisterDriverAuthService() {
   locator.registerSingleton<DriverAuthService>(service);
   return service;
 }
+
+MockDriverApiService getAndRegisterDriverApiService() {
+  _removeRegistrationIfExists<DriverApiService>();
+  final service = MockDriverApiService();
+  locator.registerSingleton<DriverApiService>(service);
+  return service;
+}
+
+MockDriverForegroundService getAndRegisterDriverForegroundService() {
+  _removeRegistrationIfExists<DriverForegroundService>();
+  final service = MockDriverForegroundService();
+  locator.registerSingleton<DriverForegroundService>(service);
+  return service;
+}
 // @stacked-mock-create
 
 void _removeRegistrationIfExists<T extends Object>() {
   if (locator.isRegistered<T>()) {
     locator.unregister<T>();
   }
+}
+
+MockFcmService getAndRegisterFcmService() {
+  _removeRegistrationIfExists<FcmService>();
+  final service = MockFcmService();
+  locator.registerSingleton<FcmService>(service);
+  return service;
+}
+
+MockAppPermissions getAndRegisterAppPermissions() {
+  _removeRegistrationIfExists<AppPermissions>();
+  final service = MockAppPermissions();
+  locator.registerSingleton<AppPermissions>(service);
+  return service;
 }

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:stacked_services/stacked_services.dart';
 import 'package:uuid/uuid.dart';
@@ -11,19 +10,46 @@ import 'package:splg_driver/app/app.dialogs.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/core/network/api_client.dart';
+import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/services/app_permissions.dart';
+import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/foreground_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/ui/views/legal/legal_view.dart';
+import 'package:splg_lib/permissions/app_permission.dart';
 
-class HomeViewModel extends StreamViewModel<Position> {
+/// Fase de la búsqueda de pedidos mientras el chofer está en línea.
+enum HomeSearch {
+  /// Fuera de línea.
+  idle,
+
+  /// En línea, esperando una oferta ("Buscando pedidos…").
+  searching,
+
+  /// En línea y sin ofertas pasado el tiempo de espera ("Sin pedidos disponibles").
+  empty,
+}
+
+class HomeViewModel extends StreamViewModel<Position>
+    with WidgetsBindingObserver {
+  HomeViewModel({
+    ApiClient? apiClient,
+    this.searchTimeout = const Duration(seconds: 6),
+  }) : _apiClient = apiClient ?? ApiClient();
+
+  /// Cuánto se muestra "Buscando pedidos…" antes de pasar a "Sin pedidos
+  /// disponibles" si no llegó ninguna oferta.
+  final Duration searchTimeout;
+
   final _locationService = locator<LocationService>();
   final _navigationService = locator<NavigationService>();
   final _driverSocketService = locator<DriverSocketService>();
   final _dialogService = locator<DialogService>();
   final _foregroundService = locator<DriverForegroundService>();
-  final _apiClient = ApiClient();
+  final ApiClient _apiClient;
+  final _permissions = locator<AppPermissions>();
   final _uuid = const Uuid();
 
   // Lazy a propósito (no como los demás `locator<T>()` de arriba): resolver
@@ -33,7 +59,21 @@ class HomeViewModel extends StreamViewModel<Position> {
   // resuelve cuando efectivamente se usa (connect/acceptOrder/onData).
   DriverAuthService get _driverAuthService => locator<DriverAuthService>();
 
+  // Lazy, por lo mismo que `_driverAuthService`.
+  DriverApiService get _driverApi => locator<DriverApiService>();
+
   Completer<GoogleMapController> mapController = Completer();
+
+  HomeSearch search = HomeSearch.idle;
+  Timer? _searchTimer;
+
+  /// Reloj inyectable para los tests.
+  DateTime Function() now = DateTime.now;
+
+  /// Total entregado hoy y cantidad de entregas; el chip del Inicio sólo se
+  /// muestra si hay alguna.
+  num todayTotal = 0;
+  int todayCount = 0;
 
   StreamSubscription<Map<String, dynamic>>? _incomingOrdersSubscription;
 
@@ -85,16 +125,62 @@ class HomeViewModel extends StreamViewModel<Position> {
   //   notifyListeners();
   // }
 
-  /// Inicializa el ViewModel y verifica permisos
+  /// Inicializa el ViewModel: pide el permiso de ubicación (con explicación) y
+  /// empieza el tracking si se concede.
   Future<void> initialize() async {
-    await _checkLocationPermission();
-    if (hasLocationPermission) {
-      await _locationService.startTracking();
+    WidgetsBinding.instance.addObserver(this);
+    await _resolveLocation(interactive: true);
+    await loadToday();
+  }
+
+  /// Total de hoy para el chip del Inicio, con las entregas más recientes del
+  /// chofer (`GET /orders/delivery/:id`, de la más nueva a la más vieja). Si
+  /// falla no se muestra nada.
+  Future<void> loadToday() async {
+    try {
+      final page =
+          await _driverApi.ordersPage(limit: DriverApiService.maxPageSize);
+      final summary = EarningsSummary.from(page.orders, now());
+      todayTotal = summary.today;
+      todayCount = summary.todayCount;
+    } catch (e) {
+      debugPrint('No se pudo leer el total de hoy: $e');
+      todayTotal = 0;
+      todayCount = 0;
+    }
+    notifyListeners();
+  }
+
+  void _startSearching() {
+    _searchTimer?.cancel();
+    search = HomeSearch.searching;
+    _searchTimer = Timer(searchTimeout, () {
+      if (search == HomeSearch.searching) {
+        search = HomeSearch.empty;
+        notifyListeners();
+      }
+    });
+  }
+
+  void _stopSearching() {
+    _searchTimer?.cancel();
+    _searchTimer = null;
+    search = HomeSearch.idle;
+  }
+
+  /// Al volver de Ajustes se vuelve a mirar el permiso, en silencio (sin
+  /// diálogos ni pedidos del sistema). Nunca hay reintentos en bucle.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !hasLocationPermission) {
+      _resolveLocation(interactive: false);
     }
   }
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _incomingOrdersSubscription?.cancel();
     _locationService.stopTracking();
     mapController.future.then((controller) => controller.dispose());
@@ -107,29 +193,41 @@ class HomeViewModel extends StreamViewModel<Position> {
     }
   }
 
-  /// Verifica el estado de los permisos de ubicación
-  Future<void> _checkLocationPermission() async {
-    hasLocationPermission =
-        await _locationService.checkAndRequestLocationPermission();
+  bool _resolvingLocation = false;
 
-    if (!hasLocationPermission) {
-      PermissionStatus status = _locationService.locationPermissionStatus;
+  /// Resuelve el permiso de ubicación: [interactive] muestra la explicación y
+  /// el pedido del sistema; en silencio sólo consulta el estado. Una sola
+  /// resolución a la vez, y sin reintentos automáticos.
+  Future<void> _resolveLocation({required bool interactive}) async {
+    if (_resolvingLocation) return;
+    _resolvingLocation = true;
+    try {
+      hasLocationPermission = interactive
+          ? await _locationService.requestLocationPermission()
+          : await _locationService.checkLocationPermission();
 
-      if (status.isPermanentlyDenied) {
+      if (hasLocationPermission) {
+        permissionMessage = null;
+        await _locationService.startTracking();
+      } else if (_locationService.serviceDisabled) {
         permissionMessage =
-            'Los permisos de ubicación están denegados permanentemente.\n'
-            'Por favor, habilítalos en la configuración de la aplicación.';
-      } else if (status.isDenied) {
-        permissionMessage =
-            'Se requieren permisos de ubicación para mostrar tu posición en el mapa.';
+            'El GPS del teléfono está apagado. Encendelo para ponerte en línea.';
+      } else if (_locationService.locationPermission ==
+          PermissionOutcome.permanentlyDenied) {
+        permissionMessage = 'La ubicación está desactivada para SPLG.\n'
+            'Activala desde Ajustes para ponerte en línea y recibir pedidos.';
       } else {
-        permissionMessage = 'El servicio de ubicación está deshabilitado.';
+        permissionMessage =
+            'Necesitamos tu ubicación para asignarte pedidos cercanos.';
       }
-    } else {
-      permissionMessage = null;
+    } catch (e) {
+      hasLocationPermission = false;
+      permissionMessage = 'No pudimos obtener tu ubicación. Probá de nuevo.';
+      debugPrint('Error al resolver el permiso de ubicación: $e');
+    } finally {
+      _resolvingLocation = false;
+      notifyListeners();
     }
-
-    notifyListeners();
   }
 
   /// Actualiza la ubicación del usuario en el mapa
@@ -173,17 +271,14 @@ class HomeViewModel extends StreamViewModel<Position> {
     }
   }
 
-  /// Solicita permisos de ubicación nuevamente
-  Future<void> requestLocationPermission() async {
-    await _checkLocationPermission();
-    if (hasLocationPermission) {
-      await _locationService.startTracking();
-    }
-  }
+  /// Botón "Solicitar permisos": vuelve a pedir (o lleva a Ajustes si quedó
+  /// denegado para siempre).
+  Future<void> requestLocationPermission() =>
+      _resolveLocation(interactive: true);
 
   /// Abre la configuración de la app para habilitar permisos
   Future<void> openSettings() async {
-    await openAppSettings();
+    await _permissions.openSettings();
   }
 
   /// Centra el mapa en la ubicación actual del usuario
@@ -207,20 +302,81 @@ class HomeViewModel extends StreamViewModel<Position> {
     );
   }
 
-  /// Cierra sesión y navega a la pantalla de login
+  /// true desde que el chofer se marca disponible en el backend hasta que se
+  /// marca no disponible (independiente de si el socket llegó a conectar).
+  bool _markedOnline = false;
+  bool _connecting = false;
+
+  /// Un solo estado para la píldora y el botón: si se marcó en línea el botón
+  /// dice "Desconectarse" aunque el socket esté reconectando.
+  bool get showsDisconnect => isOnline;
+
+  String get statusLabel =>
+      !isOnline ? 'Desconectado' : (isConnected ? 'En línea' : 'Reconectando…');
+
+  /// Hay un `connect` en curso (el botón muestra el indicador).
+  bool get isConnecting => _connectInFlight != null;
+
+  bool get isOnline => _markedOnline || _driverSocketService.hasSocket;
+
+  /// Cierra sesión y navega a la pantalla de login. Siempre baja al chofer del
+  /// radar (`PATCH availability false`, con timeout corto y sin depender del
+  /// estado en memoria: tras reabrir la app el estado se perdió pero el back
+  /// puede seguir con el chofer disponible). Si había un `connect` en vuelo,
+  /// primero se lo hace abortar y se espera a que termine, para que su PATCH
+  /// "true" no llegue después del "false".
   Future<void> logout() async {
-    // Detener el seguimiento de ubicación
-    await _locationService.stopTracking();
+    setBusy(true);
+    _sessionEpoch++;
+    try {
+      final inFlight = _connectInFlight;
+      if (inFlight != null) {
+        try {
+          await inFlight;
+        } catch (_) {}
+      }
+      await _rollbackOnline();
+
+      // Detener el seguimiento de ubicación
+      await _locationService.stopTracking();
+
+      // Cerrar la sesión de verdad: sin esto la app la restaura al reabrir.
+      await _driverAuthService.signOut();
+    } catch (e) {
+      debugPrint('Error al cerrar sesión: $e');
+    } finally {
+      setBusy(false);
+    }
 
     // Navegar a la pantalla de login y limpiar el stack de navegación
     await _navigationService.clearStackAndShow(Routes.loginView);
   }
 
-  /// Conecta al chofer para recibir órdenes: abre el socket de choferes,
-  /// registra su ubicación actual en el GEO y se suscribe a las ofertas de
-  /// pedido que empuje el backend mientras esté conectado.
-  Future<void> connect() async {
-    if (isConnected) {
+  /// Se incrementa al cerrar sesión: un `connect` que arrancó con otro valor
+  /// aborta y revierte.
+  int _sessionEpoch = 0;
+  Future<void>? _connectInFlight;
+
+  /// Conecta al chofer para recibir órdenes: lo marca disponible, abre el
+  /// socket de choferes, registra su ubicación actual en el GEO y se suscribe
+  /// a las ofertas de pedido. Si algo falla después de marcarlo disponible, lo
+  /// deja como estaba (no disponible, sin servicio en primer plano ni socket).
+  Future<void> connect() {
+    if (isConnected || _connecting || _connectInFlight != null) {
+      debugPrint('connect() ignorado: el chofer ya está conectado');
+      return Future.value();
+    }
+    final run = _connect();
+    _connectInFlight = run;
+    notifyListeners();
+    return run.whenComplete(() {
+      if (identical(_connectInFlight, run)) _connectInFlight = null;
+    });
+  }
+
+  Future<void> _connect() async {
+    final epoch = _sessionEpoch;
+    if (isConnected || _connecting) {
       debugPrint('connect() ignorado: el chofer ya está conectado');
       return;
     }
@@ -232,63 +388,109 @@ class HomeViewModel extends StreamViewModel<Position> {
       return;
     }
 
-    // Marca al chofer DISPONIBLE en el backend (CU-022). Sin esto el backend no
-    // sabe formalmente que está en línea, y al desconectar hay que sacarlo del
-    // radar (el endpoint hace el ZREM del GEO en el server).
-    await _setAvailability(true);
+    _connecting = true;
+    try {
+      // Marca al chofer DISPONIBLE en el backend (CU-022). Sin esto el backend
+      // no sabe formalmente que está en línea, y al desconectar hay que sacarlo
+      // del radar (el endpoint hace el ZREM del GEO en el server).
+      if (!await _setAvailability(true)) {
+        throw StateError('no se pudo marcar disponible');
+      }
+      _markedOnline = true;
+      _abortIfLoggedOut(epoch);
 
-    // Foreground service: mantiene vivo el proceso (socket + GPS) con la app en
-    // background. Sin esto, al minimizar la app el chofer se cae del radar.
-    await _foregroundService.requestPermissions();
-    await _foregroundService.start(
-      title: 'Estás en línea',
-      text: 'Recibiendo pedidos cercanos',
-    );
+      // Aviso de "estás en línea" (Android 13+ lo oculta sin el permiso de
+      // notificaciones). Si se niega, igual se puede trabajar.
+      await _permissions.ensure(AppPermission.notifications);
+      _abortIfLoggedOut(epoch);
 
-    _driverSocketService.connect(token, userId);
-
-    // Registra la posición actual en el GEO apenas se conecta, sin esperar
-    // al próximo tick del tracking de ubicación.
-    final position =
-        _locationService.currentPosition ?? await _locationService.getCurrentLocation();
-    if (position != null) {
-      _driverSocketService.sendLocation(
-        userId,
-        position.latitude,
-        position.longitude,
+      // Foreground service: mantiene vivo el proceso (socket + GPS) con la app
+      // en background. Sin esto, al minimizar la app el chofer se cae del radar.
+      await _foregroundService.start(
+        title: 'Estás en línea',
+        text: 'Recibiendo pedidos cercanos',
       );
-    }
+      _abortIfLoggedOut(epoch);
 
-    _subscribeToIncomingOrders();
-    notifyListeners();
+      _driverSocketService.connect(token, userId);
+      if (!await _driverSocketService.waitUntilConnected(_socketTimeout)) {
+        throw StateError('el socket no conectó');
+      }
+      _abortIfLoggedOut(epoch);
+
+      // Registra la posición actual en el GEO apenas se conecta, sin esperar
+      // al próximo tick del tracking de ubicación.
+      final position = _locationService.currentPosition ??
+          await _locationService.getCurrentLocation();
+      if (position != null) {
+        _driverSocketService.sendLocation(
+          userId,
+          position.latitude,
+          position.longitude,
+        );
+      }
+
+      _subscribeToIncomingOrders();
+      _startSearching();
+    } on _LoggedOutDuringConnect {
+      debugPrint('connect() abortado: se cerró la sesión mientras conectaba');
+      await _rollbackOnline();
+    } catch (e) {
+      debugPrint('No se pudo poner en línea al chofer: $e');
+      await _rollbackOnline();
+      await _dialogService.showDialog(
+        title: 'No pudimos ponerte en línea',
+        description: 'Revisá tu conexión e intentá de nuevo.',
+      );
+    } finally {
+      _connecting = false;
+      notifyListeners();
+    }
   }
 
-  /// Desconecta al chofer: se marca NO DISPONIBLE (el backend lo saca del radar),
-  /// deja de recibir ofertas y cierra el socket.
-  Future<void> disconnect() async {
+  static const _socketTimeout = Duration(seconds: 8);
+
+  void _abortIfLoggedOut(int epoch) {
+    if (epoch != _sessionEpoch) throw const _LoggedOutDuringConnect();
+  }
+
+  /// Deja al chofer fuera de línea sin depender del estado del socket.
+  Future<void> _rollbackOnline() async {
+    _markedOnline = false;
+    _stopSearching();
     await _setAvailability(false);
     await _foregroundService.stop();
     _incomingOrdersSubscription?.cancel();
     _incomingOrdersSubscription = null;
     _driverSocketService.disconnect();
+  }
+
+  /// Desconecta al chofer: se marca NO DISPONIBLE (el backend lo saca del radar),
+  /// deja de recibir ofertas y cierra el socket.
+  Future<void> disconnect() async {
+    await _rollbackOnline();
     notifyListeners();
   }
 
   /// Setea la disponibilidad del chofer en el backend (CU-022).
-  /// `PATCH /delivery/user/:userId/availability`. Best-effort: si falla, no
-  /// bloquea el flujo del socket (se loguea).
-  Future<void> _setAvailability(bool isAvailable) async {
+  /// `PATCH /delivery/user/:userId/availability`. Devuelve si el back lo
+  /// aceptó; con un timeout corto para no dejar la pantalla colgada.
+  Future<bool> _setAvailability(bool isAvailable) async {
     final token = await _driverAuthService.token;
     final userId = _driverAuthService.userId;
-    if (token == null || userId == null) return;
+    if (token == null || userId == null) return false;
     try {
-      await _apiClient.patch(
-        'delivery/user/$userId/availability',
-        {'available': isAvailable},
-        token,
-      );
+      await _apiClient
+          .patch(
+            'delivery/user/$userId/availability',
+            {'available': isAvailable},
+            token,
+          )
+          .timeout(const Duration(seconds: 4));
+      return true;
     } catch (e) {
       debugPrint('No se pudo setear disponibilidad ($isAvailable): $e');
+      return false;
     }
   }
 
@@ -316,6 +518,10 @@ class HomeViewModel extends StreamViewModel<Position> {
       await acceptOrder(orderId);
     } else {
       await rejectOrder(orderId);
+      if (isOnline) {
+        _startSearching();
+        notifyListeners();
+      }
     }
   }
 
@@ -378,4 +584,9 @@ class HomeViewModel extends StreamViewModel<Position> {
         _locationService,
         _driverSocketService,
       ];
+}
+
+/// Señal interna: se cerró la sesión mientras `connect` estaba en vuelo.
+class _LoggedOutDuringConnect implements Exception {
+  const _LoggedOutDuringConnect();
 }

@@ -15,6 +15,21 @@ import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/foreground_service.dart';
 import 'package:splg_driver/services/fcm_service.dart';
+import 'package:splg_driver/services/app_permissions.dart';
+import 'package:splg_driver/ui/views/welcome/welcome_view.dart';
+import 'package:splg_driver/ui/views/forgot_password/forgot_password_view.dart';
+import 'package:splg_driver/ui/views/profile/profile_view.dart';
+import 'package:splg_driver/ui/views/personal_info/personal_info_view.dart';
+import 'package:splg_driver/ui/views/change_password/change_password_view.dart';
+import 'package:splg_driver/ui/views/deliveries/deliveries_view.dart';
+import 'package:splg_driver/ui/views/delivery_detail/delivery_detail_view.dart';
+import 'package:splg_driver/ui/views/vehicle/vehicle_view.dart';
+import 'package:splg_driver/ui/views/earnings/earnings_view.dart';
+import 'package:splg_driver/ui/views/rating/rating_view.dart';
+import 'package:splg_driver/ui/views/notifications/notifications_view.dart';
+import 'package:splg_driver/ui/views/help/help_view.dart';
+import 'package:splg_driver/ui/views/about/about_view.dart';
+import 'package:splg_driver/services/driver_api_service.dart';
 // @stacked-import
 
 @StackedApp(
@@ -25,6 +40,19 @@ import 'package:splg_driver/services/fcm_service.dart';
     MaterialRoute(page: DirectionsView),
     MaterialRoute(page: DeliveryView),
     MaterialRoute(page: LegalView),
+    MaterialRoute(page: WelcomeView),
+    MaterialRoute(page: ForgotPasswordView),
+    MaterialRoute(page: ProfileView),
+    MaterialRoute(page: PersonalInfoView),
+    MaterialRoute(page: ChangePasswordView),
+    MaterialRoute(page: DeliveriesView),
+    MaterialRoute(page: DeliveryDetailView),
+    MaterialRoute(page: VehicleView),
+    MaterialRoute(page: EarningsView),
+    MaterialRoute(page: RatingView),
+    MaterialRoute(page: NotificationsView),
+    MaterialRoute(page: HelpView),
+    MaterialRoute(page: AboutView),
 // @stacked-route
   ],
   dependencies: [
@@ -37,6 +65,8 @@ import 'package:splg_driver/services/fcm_service.dart';
     LazySingleton(classType: DriverAuthService),
     LazySingleton(classType: DriverForegroundService),
     LazySingleton(classType: FcmService),
+    LazySingleton(classType: AppPermissions),
+    LazySingleton(classType: DriverApiService),
 // @stacked-service
   ],
   bottomsheets: [

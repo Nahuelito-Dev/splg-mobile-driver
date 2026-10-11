@@ -17,6 +17,22 @@ class LoginViewModel extends FormViewModel {
   /// Mensaje de error para mostrar bajo el formulario (null = sin error).
   String? errorMessage;
 
+  bool showPassword = false;
+
+  void togglePasswordVisibility() {
+    showPassword = !showPassword;
+    notifyListeners();
+  }
+
+  /// Abre la pantalla de recuperación con el email que ya escribió.
+  Future<void> onForgotPassword() async {
+    if (isBusy) return;
+    final email = emailValue?.trim();
+    await _navigationService.navigateToForgotPasswordView(
+      email: (email == null || email.isEmpty) ? null : email,
+    );
+  }
+
   Future<void> onLogin() async {
     if (isBusy) return;
     errorMessage = null;

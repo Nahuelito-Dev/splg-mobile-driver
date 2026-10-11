@@ -1,0 +1,2 @@
+// Copiar a Keys.xcconfig (no se versiona) con la clave de Google Maps para iOS.
+GOOGLE_MAPS_API_KEY = TU_CLAVE_DE_GOOGLE_MAPS

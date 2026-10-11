@@ -2,10 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SPLG necesita acceder a tus fotos para que puedas adjuntar una imagen a una incidencia.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>SPLG usa la cámara para que puedas sacar una foto al reportar una incidencia en una entrega.</string>
+	<key>GMSApiKey</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Usamos tu ubicación para asignarte pedidos cercanos y compartir tu posición con el cliente durante la entrega.</string>
+	<string>SPLG usa tu ubicación mientras estás en línea para asignarte pedidos cercanos y compartir tu posición con el cliente durante la entrega.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Necesitamos tu ubicación en segundo plano para seguir compartiendo tu posición mientras hacés una entrega con la app minimizada.</string>
+	<string>SPLG usa tu ubicación también con la app minimizada para seguir compartiendo tu posición con el cliente mientras hacés una entrega.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
@@ -17,7 +23,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Driver Mobile</string>
+	<string>SPLG Chofer</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

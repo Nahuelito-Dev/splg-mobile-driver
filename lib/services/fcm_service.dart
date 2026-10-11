@@ -3,6 +3,10 @@ import 'dart:developer';
 import 'dart:io' show Platform;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/core/config/app_config.dart';
+import 'package:splg_driver/services/app_permissions.dart';
+import 'package:splg_lib/permissions/app_permission.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:splg_driver/core/network/api_client.dart';
@@ -49,7 +53,7 @@ class FcmService {
   bool _initialized = false;
 
   static const _channelId = 'splg_driver_offers';
-  static const _channelName = 'Jeny Gas — Ofertas de pedido';
+  static const _channelName = 'SPLG Chofer — Ofertas de pedido';
 
   /// Inicializa `flutter_local_notifications` (canal de Android + config de
   /// iOS) y engancha el listener de mensajes en foreground. Idempotente.
@@ -57,7 +61,8 @@ class FcmService {
     if (_initialized) return;
     _initialized = true;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings();
     await _localNotifications.initialize(
       const InitializationSettings(
@@ -91,7 +96,7 @@ class FcmService {
     try {
       await _localNotifications.show(
         message.hashCode,
-        notification.title ?? 'Jeny Gas',
+        notification.title ?? 'SPLG Chofer',
         notification.body ?? 'Tenés un nuevo aviso.',
         const NotificationDetails(
           android: AndroidNotificationDetails(
@@ -112,20 +117,26 @@ class FcmService {
   /// backend para el chofer logueado (`_authService.userId`). Además deja
   /// enganchado `onTokenRefresh` para re-registrar si el token cambia.
   ///
+  /// [interactive] false (reapertura de la app con sesión) sólo registra si el
+  /// permiso ya estaba concedido; true (login) lo pide con explicación previa.
+  ///
   /// Best-effort: si algo falla (sin permiso, sin sesión, error de red), se
   /// loguea y no bloquea el resto del flujo de la app.
-  Future<void> registerForCurrentUser(DriverAuthService authService) async {
+  Future<void> registerForCurrentUser(
+    DriverAuthService authService, {
+    bool interactive = true,
+  }) async {
+    if (!AppConfig.pushEnabled) return;
     try {
       await _ensureInitialized();
 
-      final settings = await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
+      final outcome = await locator<AppPermissions>().ensure(
+        AppPermission.notifications,
+        interactive: interactive,
       );
-
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        log('Permiso de notificaciones denegado', name: 'FcmService');
+      if (!outcome.isGranted) {
+        log('Notificaciones sin permiso ($outcome): no se registra el token',
+            name: 'FcmService');
         return;
       }
 

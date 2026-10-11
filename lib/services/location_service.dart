@@ -1,14 +1,19 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:splg_lib/permissions/app_permission.dart';
+
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/services/app_permissions.dart';
 
 class LocationService with ListenableServiceMixin {
   LocationService() {
     listenToReactiveValues([
-      _locationPermissionStatus,
+      _locationPermission,
+      _serviceDisabled,
       _currentPosition,
       _isTracking,
     ]);
@@ -19,10 +24,15 @@ class LocationService with ListenableServiceMixin {
   Stream<Position> get positionStream => _positionStreamController.stream;
 
   // Variables reactivas
-  final ReactiveValue<PermissionStatus> _locationPermissionStatus =
-      ReactiveValue<PermissionStatus>(PermissionStatus.denied);
-  PermissionStatus get locationPermissionStatus =>
-      _locationPermissionStatus.value;
+  final ReactiveValue<PermissionOutcome> _locationPermission =
+      ReactiveValue<PermissionOutcome>(PermissionOutcome.denied);
+  PermissionOutcome get locationPermission => _locationPermission.value;
+
+  /// true si el permiso está pero el GPS del teléfono está apagado.
+  final ReactiveValue<bool> _serviceDisabled = ReactiveValue<bool>(false);
+  bool get serviceDisabled => _serviceDisabled.value;
+
+  AppPermissions get _permissions => locator<AppPermissions>();
 
   final ReactiveValue<Position?> _currentPosition =
       ReactiveValue<Position?>(null);
@@ -33,45 +43,39 @@ class LocationService with ListenableServiceMixin {
 
   StreamSubscription<Position>? _positionSubscription;
 
-  /// Verifica y solicita permisos de ubicación
-  Future<bool> checkAndRequestLocationPermission() async {
-    try {
-      // Verificar si el servicio de ubicación está habilitado
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        debugPrint('Los servicios de ubicación están deshabilitados');
-        _locationPermissionStatus.value = PermissionStatus.denied;
-        return false;
-      }
+  /// Estado del permiso sin pedir nada ni mostrar avisos (se puede llamar las
+  /// veces que haga falta: al reanudar la app, antes de empezar el tracking).
+  Future<bool> checkLocationPermission() async {
+    final outcome =
+        await _permissions.ensure(AppPermission.location, interactive: false);
+    return _applyOutcome(outcome);
+  }
 
-      // Verificar el estado del permiso
-      PermissionStatus status = await Permission.location.status;
-      _locationPermissionStatus.value = status;
+  /// Pide el permiso de ubicación (mientras la app está abierta) con la
+  /// explicación previa. Es la única puerta que muestra avisos.
+  Future<bool> requestLocationPermission() async {
+    final outcome = await _permissions.ensure(AppPermission.location);
+    return _applyOutcome(outcome);
+  }
 
-      // Si está denegado, solicitar permiso
-      if (status.isDenied) {
-        status = await Permission.location.request();
-        _locationPermissionStatus.value = status;
-      }
+  Future<bool> _applyOutcome(PermissionOutcome outcome) async {
+    _locationPermission.value = outcome;
+    if (!outcome.isGranted) return false;
 
-      // Si está permanentemente denegado, indicar al usuario
-      if (status.isPermanentlyDenied) {
-        debugPrint('Permisos de ubicación denegados permanentemente');
-        return false;
-      }
-
-      return status.isGranted;
-    } catch (e) {
-      debugPrint('Error al verificar permisos de ubicación: $e');
+    // El permiso está, pero el GPS del teléfono puede estar apagado.
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _serviceDisabled.value = true;
       return false;
     }
+    _serviceDisabled.value = false;
+    return true;
   }
 
   /// Obtiene la ubicación actual del usuario una sola vez
   Future<Position?> getCurrentLocation() async {
     try {
-      bool hasPermission = await checkAndRequestLocationPermission();
-      if (!hasPermission) {
+      if (!await checkLocationPermission()) {
         return null;
       }
 
@@ -92,8 +96,7 @@ class LocationService with ListenableServiceMixin {
   /// Inicia el seguimiento continuo de la ubicación del usuario
   Future<void> startTracking() async {
     try {
-      bool hasPermission = await checkAndRequestLocationPermission();
-      if (!hasPermission) {
+      if (!await checkLocationPermission()) {
         debugPrint('No se puede iniciar el tracking sin permisos');
         return;
       }
@@ -105,11 +108,24 @@ class LocationService with ListenableServiceMixin {
 
       _isTracking.value = true;
 
-      // Configuración del stream de posición
-      const LocationSettings locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Actualizar cada 10 metros
-      );
+      // Configuración del stream de posición. En iOS sigue entregando
+      // posiciones con la app minimizada (UIBackgroundModes: location) y lo
+      // avisa con la barra azul del sistema; en Android lo mantiene vivo el
+      // servicio en primer plano (flutter_foreground_task).
+      final LocationSettings locationSettings =
+          defaultTargetPlatform == TargetPlatform.iOS
+              ? AppleSettings(
+                  accuracy: LocationAccuracy.high,
+                  activityType: ActivityType.automotiveNavigation,
+                  distanceFilter: 10,
+                  pauseLocationUpdatesAutomatically: false,
+                  showBackgroundLocationIndicator: true,
+                  allowBackgroundLocationUpdates: true,
+                )
+              : AndroidSettings(
+                  accuracy: LocationAccuracy.high,
+                  distanceFilter: 10, // Actualizar cada 10 metros
+                );
 
       // Suscribirse al stream de posición
       _positionSubscription = Geolocator.getPositionStream(
@@ -149,7 +165,7 @@ class LocationService with ListenableServiceMixin {
   /// (Antes el método se llamaba `openAppSettings` y se invocaba a sí mismo →
   /// recursión infinita. Renombrado para llamar al de `permission_handler`.)
   Future<void> openDeviceSettings() async {
-    await openAppSettings();
+    await _permissions.openSettings();
   }
 
   /// Calcula la distancia entre dos puntos en metros

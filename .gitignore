@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Entregas y capturas de los agentes (traen emails de cuentas de prueba)
+.orq/
+
+# Diferencias que genera golden_toolkit al fallar un golden (temporales)
+test/golden/failures/

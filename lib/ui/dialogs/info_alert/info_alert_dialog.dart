@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:splg_driver/ui/common/app_colors.dart';
 import 'package:splg_driver/ui/common/ui_helpers.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 import 'info_alert_dialog_model.dart';
+import 'package:splg_lib/theme/brasa_palette.dart';
 
 const double _graphicSize = 60;
 
@@ -26,7 +26,7 @@ class InfoAlertDialog extends StackedView<InfoAlertDialogModel> {
   ) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Column(
@@ -50,9 +50,9 @@ class InfoAlertDialog extends StackedView<InfoAlertDialogModel> {
                       verticalSpaceTiny,
                       Text(
                         request.description!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: kcMediumGrey,
+                          color: context.brasa.muted,
                         ),
                         maxLines: 3,
                         softWrap: true,
@@ -63,8 +63,8 @@ class InfoAlertDialog extends StackedView<InfoAlertDialogModel> {
                 Container(
                   width: _graphicSize,
                   height: _graphicSize,
-                  decoration: const BoxDecoration(
-                    color: Color(0xffF6E7B0),
+                  decoration: BoxDecoration(
+                    color: context.brasa.accentSoft,
                     borderRadius: BorderRadius.all(
                       Radius.circular(_graphicSize / 2),
                     ),
@@ -82,11 +82,11 @@ class InfoAlertDialog extends StackedView<InfoAlertDialogModel> {
                 width: double.infinity,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
-                  'Got it',
+                  'Entendido',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,

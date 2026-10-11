@@ -186,6 +186,21 @@ class DriverSocketService with ListenableServiceMixin {
     log('Broadcasting detenido', name: 'DriverSocketService');
   }
 
+  /// true si hay un socket abierto o en proceso de conexión (aunque todavía no
+  /// haya emitido `driver:join`). Mientras exista, `connect()` se ignora.
+  bool get hasSocket => _socket != null;
+
+  /// Espera a que el socket quede conectado (y unido a la sala). `false` si no
+  /// lo logra en [timeout].
+  Future<bool> waitUntilConnected(Duration timeout) async {
+    final deadline = DateTime.now().add(timeout);
+    while (!_isConnected.value) {
+      if (_socket == null || DateTime.now().isAfter(deadline)) return false;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    return true;
+  }
+
   /// Cierra la conexión de socket y limpia todos sus listeners.
   void disconnect() {
     _socket?.dispose();

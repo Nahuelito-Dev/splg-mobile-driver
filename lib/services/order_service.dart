@@ -22,9 +22,7 @@ class OrderService with ListenableServiceMixin {
             total: 200000,
             status: OrderStatus.pending,
             createdAt: DateTime.now().subtract(Duration(days: 3)),
-            address: Address(
-                addressId: '1',
-                streetName: 'Santa Clara 12'),
+            address: Address(addressId: '1', streetName: 'Santa Clara 12'),
             items: [
               OrderItem(
                   cylinder: GasCylinder(
@@ -42,9 +40,7 @@ class OrderService with ListenableServiceMixin {
             total: 200000,
             status: OrderStatus.pending,
             createdAt: DateTime.now().subtract(Duration(days: 1)),
-            address: Address(
-                addressId: '2',
-                streetName: 'Santa Elena 16'),
+            address: Address(addressId: '2', streetName: 'Santa Elena 16'),
             items: [
               OrderItem(
                   cylinder: GasCylinder(
@@ -62,9 +58,7 @@ class OrderService with ListenableServiceMixin {
             total: 200000,
             status: OrderStatus.accepted,
             createdAt: DateTime.now(),
-            address: Address(
-                addressId: '3',
-                streetName: 'San Martin 200'),
+            address: Address(addressId: '3', streetName: 'San Martin 200'),
             items: [
               OrderItem(
                   cylinder: GasCylinder(
@@ -82,9 +76,7 @@ class OrderService with ListenableServiceMixin {
             total: 200000,
             status: OrderStatus.outForDelivery,
             createdAt: DateTime.now(),
-            address: Address(
-                addressId: '4',
-                streetName: 'San Martin 200'),
+            address: Address(addressId: '4', streetName: 'San Martin 200'),
             items: [
               OrderItem(
                   cylinder: GasCylinder(
@@ -102,9 +94,7 @@ class OrderService with ListenableServiceMixin {
             total: 150000,
             status: OrderStatus.pending,
             createdAt: DateTime.now().subtract(Duration(days: 3)),
-            address: Address(
-                addressId: '5',
-                streetName: 'Santa Clara 12'),
+            address: Address(addressId: '5', streetName: 'Santa Clara 12'),
             items: [
               OrderItem(
                   cylinder: GasCylinder(
@@ -122,9 +112,7 @@ class OrderService with ListenableServiceMixin {
             total: 360000,
             status: OrderStatus.pending,
             createdAt: DateTime.now().subtract(Duration(days: 3)),
-            address: Address(
-                addressId: '6',
-                streetName: 'Santa Clara 12'),
+            address: Address(addressId: '6', streetName: 'Santa Clara 12'),
             items: [
               OrderItem(
                   cylinder: GasCylinder(

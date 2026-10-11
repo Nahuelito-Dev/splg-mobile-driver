@@ -20,6 +20,8 @@ import '../services/fcm_service.dart';
 import '../services/foreground_service.dart';
 import '../services/location_service.dart';
 import '../services/order_service.dart';
+import '../services/payment_repository.dart';
+import '../services/trip_service.dart';
 
 final locator = StackedLocator.instance;
 
@@ -43,4 +45,7 @@ Future<void> setupLocator({
   locator.registerLazySingleton(() => FcmService());
   locator.registerLazySingleton(() => AppPermissions());
   locator.registerLazySingleton(() => DriverApiService());
+  locator.registerLazySingleton(() => TripService());
+  locator
+      .registerLazySingleton<PaymentRepository>(() => HttpPaymentRepository());
 }

@@ -1,10 +1,11 @@
 import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:stacked_services/stacked_services.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:splg_driver/app/app.dialogs.dart';
 import 'package:splg_driver/app/app.locator.dart';
@@ -17,6 +18,8 @@ import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/foreground_service.dart';
 import 'package:splg_driver/services/location_service.dart';
+import 'package:splg_driver/services/navigation_launcher.dart';
+import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/views/legal/legal_view.dart';
 import 'package:splg_lib/permissions/app_permission.dart';
 
@@ -37,7 +40,11 @@ class HomeViewModel extends StreamViewModel<Position>
   HomeViewModel({
     ApiClient? apiClient,
     this.searchTimeout = const Duration(seconds: 6),
-  }) : _apiClient = apiClient ?? ApiClient();
+    TripService? trips,
+  })  : _apiClient = apiClient ?? ApiClient(),
+        _tripsOverride = trips;
+
+  final TripService? _tripsOverride;
 
   /// Cuánto se muestra "Buscando pedidos…" antes de pasar a "Sin pedidos
   /// disponibles" si no llegó ninguna oferta.
@@ -50,7 +57,6 @@ class HomeViewModel extends StreamViewModel<Position>
   final _foregroundService = locator<DriverForegroundService>();
   final ApiClient _apiClient;
   final _permissions = locator<AppPermissions>();
-  final _uuid = const Uuid();
 
   // Lazy a propósito (no como los demás `locator<T>()` de arriba): resolver
   // DriverAuthService dispara `FirebaseAuth.instance` en su constructor, y
@@ -58,6 +64,8 @@ class HomeViewModel extends StreamViewModel<Position>
   // en tests/goldens que no inicializan Firebase). Como getter, solo se
   // resuelve cuando efectivamente se usa (connect/acceptOrder/onData).
   DriverAuthService get _driverAuthService => locator<DriverAuthService>();
+
+  TripService get _trips => _tripsOverride ?? locator<TripService>();
 
   // Lazy, por lo mismo que `_driverAuthService`.
   DriverApiService get _driverApi => locator<DriverApiService>();
@@ -131,6 +139,7 @@ class HomeViewModel extends StreamViewModel<Position>
     WidgetsBinding.instance.addObserver(this);
     await _resolveLocation(interactive: true);
     await loadToday();
+    unawaited(resumeActiveOrder());
   }
 
   /// Total de hoy para el chip del Inicio, con las entregas más recientes del
@@ -172,8 +181,9 @@ class HomeViewModel extends StreamViewModel<Position>
   /// diálogos ni pedidos del sistema). Nunca hay reintentos en bucle.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !hasLocationPermission) {
-      _resolveLocation(interactive: false);
+    if (state == AppLifecycleState.resumed) {
+      if (!hasLocationPermission) _resolveLocation(interactive: false);
+      unawaited(resumeActiveOrder());
     }
   }
 
@@ -345,6 +355,8 @@ class HomeViewModel extends StreamViewModel<Position>
     } catch (e) {
       debugPrint('Error al cerrar sesión: $e');
     } finally {
+      // Las claves de idempotencia y el flujo en curso son de la sesión.
+      _trips.reset();
       setBusy(false);
     }
 
@@ -432,6 +444,7 @@ class HomeViewModel extends StreamViewModel<Position>
 
       _subscribeToIncomingOrders();
       _startSearching();
+      unawaited(resumeActiveOrder());
     } on _LoggedOutDuringConnect {
       debugPrint('connect() abortado: se cerró la sesión mientras conectaba');
       await _rollbackOnline();
@@ -500,53 +513,83 @@ class HomeViewModel extends StreamViewModel<Position>
         _driverSocketService.incomingOrders.listen(_showOrderOfferDialog);
   }
 
-  /// Muestra el dialog de "Nuevo pedido" por cada oferta que llega
-  /// (`server:new-order-request` / `NEW_ORDER` | `NEW_ORDER_RETRY`).
+  /// Muestra la oferta de pedido por cada aviso que llega
+  /// (`server:new-order-request` / `NEW_ORDER` | `NEW_ORDER_RETRY`). Mientras hay
+  /// una oferta en pantalla (o un pedido en curso) las demás se ignoran.
+  bool _offerOpen = false;
+
+  /// Hay una oferta abierta o un pedido en curso.
+  @visibleForTesting
+  bool get busyWithOrder => _offerOpen || _trips.activeOrderId != null;
+
   Future<void> _showOrderOfferDialog(Map<String, dynamic> offer) async {
     final orderId = offer['orderId']?.toString();
     if (orderId == null) {
       debugPrint('Oferta de pedido sin orderId, se ignora: $offer');
       return;
     }
-
-    final response = await _dialogService.showCustomDialog(
-      variant: DialogType.orderOffer,
-      data: offer,
-    );
-
-    if (response?.confirmed == true) {
-      await acceptOrder(orderId);
-    } else {
+    if (_offerOpen || _trips.activeOrderId != null) {
+      // Ocupado: se rechaza explícitamente para que el back la pase a otro
+      // chofer enseguida, en vez de esperar a que venza.
+      debugPrint('Oferta $orderId rechazada: ya hay un pedido en pantalla');
       await rejectOrder(orderId);
-      if (isOnline) {
-        _startSearching();
-        notifyListeners();
+      return;
+    }
+    _offerOpen = true;
+    try {
+      final response = await _dialogService.showCustomDialog(
+        variant: DialogType.orderOffer,
+        data: offer,
+        barrierDismissible: false,
+      );
+
+      if (response?.confirmed == true) {
+        final data = response?.data;
+        final map = data is Map
+            ? MapApp.values.firstWhere((m) => m.name == data['map'],
+                orElse: () => MapApp.stay)
+            : MapApp.stay;
+        final lat = data is Map ? (data['lat'] as num?)?.toDouble() : null;
+        final lng = data is Map ? (data['lng'] as num?)?.toDouble() : null;
+        await acceptOrder(orderId, map: map, lat: lat, lng: lng);
+      } else {
+        await rejectOrder(orderId);
+        if (isOnline) {
+          _startSearching();
+          notifyListeners();
+        }
       }
+    } catch (e) {
+      // Un fallo al mostrar la oferta no la deja colgada: se rechaza para que
+      // el back la pase a otro chofer.
+      debugPrint('Error con la oferta $orderId: $e');
+      await rejectOrder(orderId);
+    } finally {
+      _offerOpen = false;
     }
   }
 
   /// Rechaza una oferta (CU-016): `POST /orders/:orderId/reject`. El backend
   /// cierra la oferta y re-ofrece al siguiente chofer de inmediato. Best-effort.
   Future<void> rejectOrder(String orderId) async {
-    final token = await _driverAuthService.token;
-    if (token == null) return;
     try {
-      await _apiClient.post(
-        'orders/$orderId/reject',
-        const {},
-        token,
-        {'Idempotency-Key': _uuid.v4()},
-      );
+      await _trips.reject(orderId);
       debugPrint('Oferta $orderId rechazada por el chofer');
     } catch (e) {
       debugPrint('Error rechazando la oferta $orderId: $e');
     }
   }
 
-  /// Acepta un pedido ofertado: PATCH idempotente a `/orders/:orderId/status`
-  /// con `status: accepted`. Si el backend confirma, arranca el broadcasting
-  /// de posición GPS de la entrega.
-  Future<void> acceptOrder(String orderId) async {
+  /// Acepta un pedido ofertado: `PATCH /orders/:orderId/status {accepted}`
+  /// (idempotente). Si el back lo confirma, arranca el tracking de la entrega,
+  /// abre el mapa elegido y va a la pantalla del pedido; si lo rechaza (la oferta
+  /// venció o la tomó otro chofer) lo dice y vuelve a buscar.
+  Future<void> acceptOrder(
+    String orderId, {
+    MapApp map = MapApp.stay,
+    double? lat,
+    double? lng,
+  }) async {
     final token = await _driverAuthService.token;
     final userId = _driverAuthService.userId;
     if (token == null || userId == null) {
@@ -554,29 +597,129 @@ class HomeViewModel extends StreamViewModel<Position>
       return;
     }
 
-    try {
-      final response = await _apiClient.patch(
-        'orders/$orderId/status',
-        {'status': 'accepted'},
-        token,
-        {'Idempotency-Key': _uuid.v4()},
-      );
-
-      if (response.statusCode == 200) {
-        debugPrint('Pedido $orderId aceptado');
-        _driverSocketService.startBroadcasting(orderId, userId, token);
-        await _foregroundService.update(
-          title: 'En reparto',
-          text: 'Entrega en curso',
-        );
-        await _navigationService.navigateToDeliveryView(orderId: orderId);
-      } else {
-        debugPrint(
-            'No se pudo aceptar el pedido $orderId: HTTP ${response.statusCode}');
+    if (!await _acceptWithConfirmation(orderId)) {
+      if (isOnline) {
+        _startSearching();
+        notifyListeners();
       }
-    } catch (e) {
-      debugPrint('Error aceptando el pedido $orderId: $e');
+      return;
     }
+    debugPrint('Pedido $orderId aceptado');
+    await _runOrderFlow(orderId,
+        token: token, userId: userId, map: map, lat: lat, lng: lng);
+  }
+
+  /// `PATCH accepted`. Con la red caída o un timeout no se sabe si el back lo
+  /// aplicó: se consulta el pedido y, si quedó aceptado por este chofer, se
+  /// sigue; si no, se reintenta una vez con la MISMA Idempotency-Key y recién
+  /// ahí se descarta. Un rechazo del back (400/403/409) se dice y no se insiste.
+  Future<bool> _acceptWithConfirmation(String orderId) async {
+    Object? failure;
+    try {
+      await _trips.setStatus(orderId, 'accepted');
+      return true;
+    } catch (e) {
+      failure = e;
+    }
+    if (failure is DioException && failure.response == null) {
+      debugPrint('Aceptar $orderId sin respuesta ($failure): se verifica');
+      try {
+        final o = await _trips.order(orderId);
+        final mine = (await _driverApi.profile()).deliveryId;
+        if (o.status == DriverOrderStatus.accepted &&
+            o.deliveryId != null &&
+            o.deliveryId == mine) {
+          return true;
+        }
+      } catch (e) {
+        debugPrint('No se pudo verificar el pedido $orderId: $e');
+      }
+      try {
+        await _trips.setStatus(orderId, 'accepted'); // misma clave
+        return true;
+      } catch (e) {
+        failure = e;
+      }
+    }
+    debugPrint('Error aceptando el pedido $orderId: $failure');
+    await _dialogService.showDialog(
+      title: 'No pudimos aceptar el pedido',
+      description: DriverApiService.errorMessage(failure),
+    );
+    return false;
+  }
+
+  /// Del pedido aceptado hasta el fin REAL del flujo (completado, cancelado o
+  /// liberado): el Inicio no retoma cuando una pantalla reemplaza a otra.
+  Future<void> _runOrderFlow(
+    String orderId, {
+    required String token,
+    required String userId,
+    MapApp map = MapApp.stay,
+    double? lat,
+    double? lng,
+  }) async {
+    _trips.beginFlow(orderId);
+    _stopSearching();
+    _driverSocketService.startBroadcasting(orderId, userId, token);
+    await _foregroundService.update(
+      title: 'En reparto',
+      text: 'Entrega en curso',
+    );
+    if (map != MapApp.stay && lat != null && lng != null) {
+      unawaited(NavigationLauncher.open(map, lat, lng));
+    }
+    await _navigationService.navigateToDeliveryView(orderId: orderId);
+    await _trips.waitFlow();
+
+    await _foregroundService.update(
+      title: 'Estás en línea',
+      text: 'Recibiendo pedidos cercanos',
+    );
+    earned = _trips.takeEarned();
+    if (isOnline) _startSearching();
+    notifyListeners();
+    await loadToday();
+  }
+
+  bool _resuming = false;
+
+  /// Si el chofer tiene un pedido `accepted` u `on_the_way` (porque mató la app,
+  /// se cayó o volvió del background), lo retoma abriendo la pantalla del
+  /// pedido. Se llama al abrir, al conectarse y al volver a primer plano.
+  Future<void> resumeActiveOrder() async {
+    if (_resuming || _offerOpen || _trips.activeOrderId != null) return;
+    _resuming = true;
+    try {
+      final token = await _driverAuthService.token;
+      final userId = _driverAuthService.userId;
+      if (token == null || userId == null) return;
+      final page = await _driverApi.ordersPage(limit: 20);
+      DriverOrder? current;
+      for (final o in page.orders) {
+        if (o.status == DriverOrderStatus.accepted ||
+            o.status == DriverOrderStatus.onTheWay) {
+          current = o;
+          break;
+        }
+      }
+      if (current == null) return;
+      debugPrint('Retomando el pedido en curso ${current.id}');
+      await _runOrderFlow(current.id, token: token, userId: userId);
+    } catch (e) {
+      debugPrint('No se pudo buscar un pedido en curso: $e');
+    } finally {
+      _resuming = false;
+    }
+  }
+
+  /// Monto del último pedido terminado, para el cartel "¡Ganaste!" del mapa.
+  num? earned;
+
+  /// Cierra el cartel "¡Ganaste!".
+  void dismissEarned() {
+    earned = null;
+    notifyListeners();
   }
 
   @override

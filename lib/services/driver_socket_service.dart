@@ -53,6 +53,13 @@ class DriverSocketService with ListenableServiceMixin {
   Stream<Map<String, dynamic>> get incomingOrders =>
       _incomingOrdersController.stream;
 
+  /// Avisos de cancelación del pedido en curso (`order:cancelled`): lo cancela
+  /// el cliente o el panel mientras el chofer lo tiene asignado.
+  final _cancelledController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get orderCancelled =>
+      _cancelledController.stream;
+
   /// orderId de la entrega para la que se está emitiendo posición
   /// actualmente (null si no hay broadcasting activo).
   String? _activeOrderId;
@@ -95,6 +102,12 @@ class DriverSocketService with ListenableServiceMixin {
       } else {
         log('Payload inesperado en server:new-order-request: $data',
             name: 'DriverSocketService');
+      }
+    });
+
+    socket.on('order:cancelled', (data) {
+      if (data is Map) {
+        _cancelledController.add(Map<String, dynamic>.from(data));
       }
     });
 
@@ -186,6 +199,16 @@ class DriverSocketService with ListenableServiceMixin {
     log('Broadcasting detenido', name: 'DriverSocketService');
   }
 
+  /// Termina el reparto sin tocar la conexión: deja de emitir la posición de la
+  /// entrega y el chofer sigue en línea para recibir ofertas.
+  void stopTracking() {
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _activeOrderId = null;
+    log('Tracking de la entrega detenido (sigue conectado)',
+        name: 'DriverSocketService');
+  }
+
   /// true si hay un socket abierto o en proceso de conexión (aunque todavía no
   /// haya emitido `driver:join`). Mientras exista, `connect()` se ignora.
   bool get hasSocket => _socket != null;
@@ -213,5 +236,6 @@ class DriverSocketService with ListenableServiceMixin {
     _positionSubscription?.cancel();
     disconnect();
     _incomingOrdersController.close();
+    _cancelledController.close();
   }
 }

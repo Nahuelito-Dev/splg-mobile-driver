@@ -102,6 +102,29 @@ class ApiClient {
     }
   }
 
+  /// `PUT` multipart con un archivo en el campo [field] (fotos).
+  Future<Response> putFile(
+    String path, {
+    required List<int> bytes,
+    required String filename,
+    required String contentType,
+    required String token,
+    String field = 'file',
+  }) {
+    return dio.put(
+      path,
+      data: FormData.fromMap({
+        field: MultipartFile.fromBytes(bytes,
+            filename: filename, contentType: DioMediaType.parse(contentType)),
+      }),
+      options: Options(headers: {
+        'Accept': 'application/json',
+        'X-Client-Source': 'driver-app',
+        'Authorization': 'Bearer $token',
+      }),
+    );
+  }
+
   Future<Response> put(
     String path,
     Map<String, dynamic> body,

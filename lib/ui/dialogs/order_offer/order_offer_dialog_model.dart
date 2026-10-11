@@ -1,24 +1,81 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show BuildContext, Navigator;
+import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 
-/// Maneja la cuenta regresiva de la oferta de pedido.
+import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/trip_service.dart';
+
+/// Datos de la oferta de pedido (cuenta regresiva y detalle).
 ///
-/// El backend ofrece cada pedido a un chofer por una ventana acotada
-/// (`OFFER_TTL_SECONDS`, 30s) y, si no responde, lo re-ofrece al siguiente.
-/// El payload trae `expiresAt`; este modelo cuenta hasta ahí y, si el chofer
-/// no decide a tiempo, descarta la oferta solo (equivale a rechazar) para no
-/// dejar en pantalla un pedido que el backend ya pasó a otro. También expone
-/// los segundos restantes para pintarlos en el botón.
+/// El back ofrece cada pedido a un chofer por una ventana acotada
+/// (`OFFER_TTL_SECONDS`, 30 s) y, si no responde, lo re-ofrece al siguiente. El
+/// payload del socket trae `expiresAt`; este modelo cuenta hasta ahí y, si el
+/// chofer no decide a tiempo, descarta la oferta sola (equivale a rechazar).
+///
+/// El payload sólo trae monto, medio de pago y vencimiento: el cliente, la
+/// dirección y las garrafas se leen de `GET /orders/:id`.
 class OrderOfferDialogModel extends BaseViewModel {
+  OrderOfferDialogModel({TripService? trips}) : _tripsOverride = trips;
+
+  final TripService? _tripsOverride;
+  TripService get _trips => _tripsOverride ?? locator<TripService>();
+
   Timer? _timer;
   int _remainingSeconds = 0;
   int get remainingSeconds => _remainingSeconds;
 
+  int _totalSeconds = 30;
+
+  /// Segundos con los que arrancó la cuenta (el 100 % de la barra).
+  int get totalSeconds => _totalSeconds;
+
   /// Guarda contra disparar el vencimiento más de una vez (o después de que el
   /// chofer ya aceptó/rechazó a mano).
   bool _finished = false;
+  bool get isFinished => _finished;
+
+  /// Contexto del pop-up "elegí mapa" mientras está abierto.
+  BuildContext? chooserContext;
+
+  /// Cierra el pop-up de mapas si está abierto (la oferta venció con él arriba:
+  /// el `completer` cierra la ruta de ARRIBA, que sería el pop-up y no la
+  /// oferta).
+  void closeChooser() {
+    final c = chooserContext;
+    chooserContext = null;
+    if (c != null && c.mounted) Navigator.of(c).pop();
+  }
+
+  TripOrder? order;
+  RatingSummary? customerRating;
+  String? loadError;
+  bool loading = false;
+
+  /// Lee el pedido y la calificación del cliente. Un error no impide decidir.
+  Future<void> load(String orderId) async {
+    loading = true;
+    loadError = null;
+    notifyListeners();
+    try {
+      order = await _trips.order(orderId);
+      final customerId = order?.customerId;
+      if (customerId != null) {
+        customerRating = await _trips.customerRating(customerId);
+      }
+    } catch (e) {
+      loadError = e is DioException
+          ? ApiErrorText.of(e.response?.statusCode, e.response?.data)
+          : 'No pudimos cargar los datos del pedido.';
+    }
+    loading = false;
+    notifyListeners();
+  }
 
   /// Arranca la cuenta regresiva hasta `expiresAt` (ISO-8601 string o millis
   /// epoch). Si no hay un valor válido, cae a [fallbackSeconds]. Al llegar a 0
@@ -29,6 +86,7 @@ class OrderOfferDialogModel extends BaseViewModel {
     int fallbackSeconds = 30,
   }) {
     _remainingSeconds = _secondsUntil(expiresAt, fallbackSeconds);
+    _totalSeconds = _remainingSeconds < 1 ? 1 : _remainingSeconds;
     notifyListeners();
 
     _timer?.cancel();

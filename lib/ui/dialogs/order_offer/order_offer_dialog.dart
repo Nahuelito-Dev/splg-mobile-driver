@@ -1,23 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
-import 'package:splg_driver/ui/common/ui_helpers.dart';
+import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/navigation_launcher.dart';
 
 import 'order_offer_dialog_model.dart';
-import 'package:splg_lib/theme/brasa_palette.dart';
 
-final _currencyFormat =
-    NumberFormat.currency(locale: 'es_AR', symbol: '\$', decimalDigits: 0);
+String paymentLabel(String? method) => switch (method) {
+      'cash' => 'Efectivo',
+      'online' => 'Mercado Pago',
+      null => 'No informado',
+      final other => other,
+    };
 
-/// Dialog que se muestra cuando llega una oferta de pedido nueva mientras el
-/// chofer está conectado (evento de socket `server:new-order-request`).
+IconData paymentIcon(String? method) =>
+    method == 'online' ? SplgIcons.card : SplgIcons.cash;
+
+/// Oferta de pedido, a pantalla completa (referencia de diseño: "Datos del viaje"):
+/// monto, cliente con su calificación, dirección, garrafas y forma de pago,
+/// con la cuenta regresiva. "Aceptar pedido" pregunta con qué mapa seguir;
+/// "Volver" rechaza.
 ///
-/// `request.data` trae el payload crudo del evento:
-/// `{ orderId, totalAmount, paymentMethod, expiresAt, items }`. El completer
-/// devuelve `DialogResponse(confirmed: true)` si el chofer acepta, o
-/// `confirmed: false` si rechaza/descarta la oferta.
+/// `request.data` trae el payload del socket (`orderId`, `totalAmount`,
+/// `paymentMethod`, `expiresAt`). El completer devuelve
+/// `DialogResponse(confirmed: true, data: {map, lat, lng})` al aceptar y
+/// `confirmed: false` si rechaza o vence.
 class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
   final DialogRequest request;
   final Function(DialogResponse) completer;
@@ -28,86 +38,150 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
     required this.completer,
   });
 
+  Map<String, dynamic> get _data => (request.data is Map)
+      ? Map<String, dynamic>.from(request.data as Map)
+      : <String, dynamic>{};
+
+  void _reject(OrderOfferDialogModel model) {
+    model.stop();
+    completer(DialogResponse(confirmed: false));
+  }
+
+  Future<void> _accept(
+      BuildContext context, OrderOfferDialogModel model) async {
+    final order = model.order;
+    MapApp map = MapApp.stay;
+    if (order != null && order.hasCoordinates) {
+      // La cuenta sigue corriendo mientras elige el mapa: si vence, se cierra
+      // primero el pop-up (`closeChooser`) y después la oferta.
+      final picked = await showDialog<MapApp>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          model.chooserContext = ctx;
+          return const SplgChoiceDialog<MapApp>(
+            message:
+                'Al aceptar el pedido debés elegir un tipo de mapa para continuar:',
+            boldPrefix: 'aceptar',
+            choices: [
+              SplgChoice(MapApp.stay, 'Permanecer en SPLG', bold: true),
+              SplgChoice(MapApp.google, 'Ir a Google Maps'),
+              SplgChoice(MapApp.waze, 'Ir a Waze'),
+            ],
+          );
+        },
+      );
+      model.chooserContext = null;
+      if (model.isFinished) return;
+      map = picked ?? MapApp.stay;
+    }
+    model.stop();
+    completer(DialogResponse(confirmed: true, data: {
+      'map': map.name,
+      'lat': order?.lat,
+      'lng': order?.lng,
+    }));
+  }
+
   @override
   Widget builder(
     BuildContext context,
-    OrderOfferDialogModel viewModel,
+    OrderOfferDialogModel model,
     Widget? child,
   ) {
-    final data = (request.data is Map)
-        ? Map<String, dynamic>.from(request.data as Map)
-        : <String, dynamic>{};
-
-    final items = (data['items'] is List) ? data['items'] as List : const [];
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final type = SplgType.of(context);
+    final data = _data;
+    final order = model.order;
+    final total = order?.total ??
+        (data['totalAmount'] is num ? data['totalAmount'] as num : null);
+    final method = order?.paymentMethod ?? data['paymentMethod']?.toString();
+    final rating = model.customerRating;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _reject(model);
+      },
+      child: Dialog.fullscreen(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            const Text(
-              'Nuevo pedido',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-            ),
-            verticalSpaceSmall,
-            Text(
-              _formatTotal(data['totalAmount']),
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            verticalSpaceTiny,
-            Text(
-              _formatPaymentMethod(data['paymentMethod']),
-              style: TextStyle(fontSize: 14, color: context.brasa.muted),
-            ),
-            if (items.isNotEmpty) ...[
-              verticalSpaceMedium,
-              const Text(
-                'Detalle',
-                style: TextStyle(fontWeight: FontWeight.bold),
+            // El diálogo respeta las zonas seguras: el degradé se extiende
+            // hasta los bordes reales de la pantalla.
+            Positioned(
+              left: 0,
+              right: 0,
+              top: -MediaQueryData.fromView(View.of(context)).padding.top,
+              bottom: -MediaQueryData.fromView(View.of(context)).padding.bottom,
+              child: const DecoratedBox(
+                key: Key('offer-screen'),
+                decoration: BoxDecoration(gradient: SplgGradients.surface),
               ),
-              verticalSpaceTiny,
-              ...items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    '• ${_formatItem(item)}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ),
-            ],
-            verticalSpaceMedium,
-            _buildCountdownBar(context, viewModel),
-            verticalSpaceMedium,
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      viewModel.stop();
-                      completer(DialogResponse(confirmed: false));
-                    },
-                    child: const Text('Rechazar'),
-                  ),
-                ),
-                horizontalSpaceSmall,
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Volver',
+                          onPressed: () => _reject(model),
+                          icon: const Icon(SplgIcons.back, color: Colors.white),
+                        ),
+                        Expanded(
+                          child: Text('Datos del pedido',
+                              textAlign: TextAlign.center,
+                              style:
+                                  type.heading.copyWith(color: Colors.white)),
+                        ),
+                        const SizedBox(width: 48),
+                      ],
                     ),
-                    onPressed: () {
-                      viewModel.stop();
-                      completer(DialogResponse(confirmed: true));
-                    },
-                    child: Text('Aceptar (${viewModel.remainingSeconds}s)'),
-                  ),
+                    const Divider(color: Colors.white24, height: 8),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 12),
+                            Text(
+                                total == null
+                                    ? 'Monto no disponible'
+                                    : formatMoney(total),
+                                key: const Key('offer-total'),
+                                style:
+                                    type.amount.copyWith(color: Colors.white)),
+                            Text('Método de pago: ${paymentLabel(method)}',
+                                style: type.caption
+                                    .copyWith(color: Colors.white70)),
+                            const SizedBox(height: 14),
+                            _body(context, model, order, rating),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SplgCountdownBar(
+                      remaining: model.remainingSeconds,
+                      total: model.totalSeconds,
+                      onDark: true,
+                    ),
+                    const SizedBox(height: 12),
+                    SplgActionButton(
+                      title: 'Aceptar pedido',
+                      onPressed: model.isFinished
+                          ? null
+                          : () => _accept(context, model),
+                    ),
+                    const SizedBox(height: 8),
+                    SplgButton(
+                      title: 'Volver',
+                      style: SplgButtonStyle.ghost,
+                      onPressed: model.isFinished ? null : () => _reject(model),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -115,69 +189,85 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
     );
   }
 
-  /// Barra + texto de la cuenta regresiva de la oferta. Cuando llega a 0 el
-  /// modelo descarta la oferta solo (ver [OrderOfferDialogModel.start]).
-  Widget _buildCountdownBar(
-    BuildContext context,
-    OrderOfferDialogModel viewModel,
-  ) {
-    final remaining = viewModel.remainingSeconds;
-    final fraction = (remaining / 30).clamp(0.0, 1.0);
-    final color = remaining <= 10
-        ? context.brasa.danger
-        : Theme.of(context).colorScheme.primary;
+  Widget _body(BuildContext context, OrderOfferDialogModel model,
+      TripOrder? order, RatingSummary? rating) {
+    final type = SplgType.of(context);
+    if (model.loading && order == null) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+    if (order == null) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          model.loadError ?? 'No pudimos cargar los datos del pedido.',
+          key: const Key('offer-load-error'),
+          textAlign: TextAlign.center,
+          style: type.body.copyWith(color: Colors.white),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: fraction,
-            minHeight: 6,
-            backgroundColor: context.brasa.outline,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+        SplgPartyRow(
+          name: order.customerName ?? 'Cliente',
+          initials: _initials(order.customerName),
+          rating: rating?.average,
+          ratingCount: rating?.count,
+          onDark: true,
+          avatarRadius: 28,
+        ),
+        const SizedBox(height: 16),
+        SplgRouteRow(
+          icon: SplgIcons.location,
+          text: order.address ?? 'Dirección no disponible',
+          caption:
+              order.windowText == null ? null : 'Franja ${order.windowText}',
+          onDark: true,
+        ),
+        const SizedBox(height: 12),
+        SplgRouteRow(
+          icon: SplgIcons.flame,
+          text: order.lines.isEmpty ? 'Sin detalle' : order.linesText,
+          caption: 'Garrafas',
+          color: Colors.white24,
+          onDark: true,
+        ),
+        const SizedBox(height: 12),
+        SplgRouteRow(
+          icon: paymentIcon(order.paymentMethod),
+          text: paymentLabel(order.paymentMethod),
+          caption: order.isCash
+              ? 'Cobrás al entregar'
+              : 'Lo paga el cliente por la app',
+          color: Colors.white24,
+          onDark: true,
+        ),
+        if (order.notes != null || order.instructions != null) ...[
+          const SizedBox(height: 12),
+          SplgRouteRow(
+            icon: SplgIcons.notes,
+            text: [order.instructions, order.notes]
+                .whereType<String>()
+                .join(' - '),
+            caption: 'Indicaciones',
+            color: Colors.white24,
+            onDark: true,
           ),
-        ),
-        verticalSpaceTiny,
-        Text(
-          'La oferta vence en ${remaining}s',
-          style: TextStyle(fontSize: 12, color: color),
-        ),
+        ],
       ],
     );
   }
 
-  String _formatTotal(dynamic totalAmount) {
-    final value = (totalAmount is num) ? totalAmount.toDouble() : null;
-    if (value == null) return 'Total no disponible';
-    return _currencyFormat.format(value);
-  }
-
-  String _formatPaymentMethod(dynamic paymentMethod) {
-    switch (paymentMethod?.toString()) {
-      case 'cash':
-        return 'Efectivo';
-      case 'online':
-        return 'Pago online';
-      default:
-        return paymentMethod?.toString() ?? 'Método de pago no informado';
-    }
-  }
-
-  /// El shape exacto de cada item todavía no está 100% confirmado con el
-  /// backend (ver TODO en HomeViewModel), así que se intenta leer las claves
-  /// más probables y, si no calzan, se cae a mostrar el item crudo.
-  String _formatItem(dynamic item) {
-    if (item is! Map) return item.toString();
-    final quantity = item['quantity'] ?? item['qty'];
-    final name = item['name'] ??
-        item['description'] ??
-        item['cylinderType'] ??
-        item['type'];
-    if (name != null) {
-      return quantity != null ? '${quantity}x $name' : '$name';
-    }
-    return item.toString();
+  static String? _initials(String? name) {
+    if (name == null || name.trim().isEmpty) return null;
+    final parts = name.trim().split(RegExp(r'\s+'));
+    final a = parts.first[0];
+    final b = parts.length > 1 ? parts.last[0] : '';
+    return (a + b).toUpperCase();
   }
 
   @override
@@ -186,15 +276,20 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
 
   @override
   void onViewModelReady(OrderOfferDialogModel viewModel) {
-    final data = (request.data is Map)
-        ? Map<String, dynamic>.from(request.data as Map)
-        : <String, dynamic>{};
+    final data = _data;
     // Al vencer, se descarta la oferta como un rechazo (el backend ya la
-    // re-ofreció a otro chofer). Mismo camino que tocar "Rechazar".
+    // re-ofreció a otro chofer). Mismo camino que tocar "Volver".
     viewModel.start(
       data['expiresAt'],
-      () => completer(DialogResponse(confirmed: false)),
+      () {
+        // Con el pop-up de mapas abierto, el completer cerraría ESE y no la
+        // oferta: primero se cierra el pop-up.
+        viewModel.closeChooser();
+        completer(DialogResponse(confirmed: false));
+      },
     );
+    final id = data['orderId']?.toString();
+    if (id != null) viewModel.load(id);
     super.onViewModelReady(viewModel);
   }
 }

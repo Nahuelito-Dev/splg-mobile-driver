@@ -33,6 +33,13 @@ class LoginViewModel extends FormViewModel {
     );
   }
 
+  /// Vuelve a la Bienvenida. Navega explícito (no `pop`): tras cerrar sesión o
+  /// reabrir la app la Bienvenida no está en el stack.
+  Future<void> goBackToWelcome() async {
+    if (isBusy) return;
+    await _navigationService.clearStackAndShow(Routes.welcomeView);
+  }
+
   Future<void> onLogin() async {
     if (isBusy) return;
     errorMessage = null;

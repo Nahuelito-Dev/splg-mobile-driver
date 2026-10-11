@@ -13,6 +13,9 @@ import 'package:splg_lib/permissions/app_permission.dart';
 import 'package:splg_driver/services/foreground_service.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/trip_service.dart';
+import 'package:splg_driver/services/payment_repository.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';
@@ -33,11 +36,16 @@ import 'test_helpers.mocks.dart';
     MockSpec<AppPermissions>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<ApiClient>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<DriverApiService>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<TripService>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<PaymentRepository>(onMissingStub: OnMissingStub.returnDefault),
 // @stacked-mock-spec
   ],
 )
 void registerServices() {
+  provideDummy<Future<void>>(Future<void>.value());
   provideDummy<PermissionOutcome>(PermissionOutcome.granted);
+  provideDummy<TripOrder>(
+      const TripOrder(id: 'x', status: DriverOrderStatus.pending, total: 0));
   provideDummy<OrdersPage>(const OrdersPage(orders: [], total: 0, offset: 0));
   getAndRegisterNavigationService();
   getAndRegisterBottomSheetService();
@@ -50,7 +58,23 @@ void registerServices() {
   getAndRegisterFcmService();
   getAndRegisterAppPermissions();
   getAndRegisterDriverApiService();
+  getAndRegisterTripService();
+  getAndRegisterPaymentRepository();
 // @stacked-mock-register
+}
+
+MockPaymentRepository getAndRegisterPaymentRepository() {
+  _removeRegistrationIfExists<PaymentRepository>();
+  final service = MockPaymentRepository();
+  locator.registerSingleton<PaymentRepository>(service);
+  return service;
+}
+
+MockTripService getAndRegisterTripService() {
+  _removeRegistrationIfExists<TripService>();
+  final service = MockTripService();
+  locator.registerSingleton<TripService>(service);
+  return service;
 }
 
 MockNavigationService getAndRegisterNavigationService() {

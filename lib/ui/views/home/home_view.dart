@@ -57,7 +57,8 @@ class HomeView extends StackedView<HomeViewModel> {
         ),
         SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: EdgeInsets.fromLTRB(
+                8, viewModel.earned != null ? 112 : 0, 8, 0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -97,6 +98,16 @@ class HomeView extends StackedView<HomeViewModel> {
             ),
           ),
         ),
+        if (viewModel.earned != null)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: GestureDetector(
+              onTap: viewModel.dismissEarned,
+              child: SplgEarnedBanner(amount: formatMoney(viewModel.earned!)),
+            ),
+          ),
         if (viewModel.hasLocationPermission &&
             viewModel.currentLocation != null)
           Positioned(

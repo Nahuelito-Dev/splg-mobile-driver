@@ -1,240 +1,561 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/core/network/api_client.dart';
+import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
-import 'package:splg_driver/services/foreground_service.dart';
+import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
+import 'package:splg_driver/services/trip_service.dart';
+import 'package:splg_driver/ui/common/navigation_helpers.dart';
 
-/// Cada cuánto se hace polling de `GET /orders/:id` mientras la entrega está
-/// en curso, para enterarse de que el cliente confirmó la entrega escaneando
-/// el QR (el chofer no tiene otro aviso: la confirmación la dispara el
-/// cliente, no esta app).
-const Duration _kPollInterval = Duration(seconds: 5);
+/// Cada cuánto se relee `GET /orders/:id` mientras el pedido está en curso, para
+/// enterarse de que lo cancelaron o lo liberaron desde otro lado.
+const Duration kTripPollInterval = Duration(seconds: 5);
 
-/// ViewModel de la pantalla de entrega en curso: acompaña al pedido desde
-/// `accepted` hasta `delivered`.
+/// Pantalla del pedido en curso: desde que el chofer lo acepta hasta que sale
+/// hacia el cliente y llega ("Pedido aceptado" y "En camino"). La entrega con
+/// QR, el cobro y la calificación son pantallas siguientes.
 ///
-/// Nota sobre el `status` que viaja en las respuestas del backend: el estado
-/// interno `ON_THE_WAY` del pedido se serializa como el string
-/// `'out_for_delivery'` (ver `OrderMapper.mapStatus` en el backend y
-/// `OrderStatus.outForDelivery` en `splg_lib`), mientras que el PATCH
-/// para *fijar* ese estado espera literalmente `'on_the_way'` (el valor del
-/// enum de la entidad). Por eso `markOnTheWay()` manda `'on_the_way'` pero
-/// [isOnTheWay] compara contra `'out_for_delivery'`.
-///
-/// El parseo de la respuesta se hace a mano sobre el Map crudo (en vez de
-/// `Order.fromJson` de `splg_lib`) porque el shape real que devuelve
-/// `GET /orders/:id` no calza 1:1 con ese modelo compartido: `gas_cylinder`
-/// no trae `isActive` (campo requerido, no nullable, en `GasCylinder`) y
-/// `weight` viaja como número mientras el modelo lo tipa como `String`.
-/// Usar `Order.fromJson` tal cual rompería esta pantalla con cualquier
-/// pedido que tenga items. Queda como TODO para quien mantenga
-/// `splg_lib` alinear ese modelo con `OrderResponseDto`.
+/// Máquina de estados del back (`order-status.machine.ts`):
+/// `accepted -> on_the_way -> delivered`; el chofer sólo mueve `accepted` y
+/// `on_the_way`, la entrega la confirma el cliente escaneando el QR. Si el
+/// pedido vuelve a `pending`/`reserved` o pasa a `cancelled` se corta el
+/// reparto y se avisa.
 class DeliveryViewModel extends BaseViewModel {
-  DeliveryViewModel({required this.orderId});
+  DeliveryViewModel({
+    required this.orderId,
+    TripService? trips,
+    this.pollInterval = kTripPollInterval,
+    void Function()? goHome,
+    SplgRouteService? routes,
+    Future<BitmapDescriptor?> Function()? iconLoader,
+  })  : _tripsOverride = trips,
+        _goHome = goHome ?? popToHome,
+        _routesOverride = routes,
+        _iconLoader = iconLoader;
 
   final String orderId;
+  final Duration pollInterval;
+  final TripService? _tripsOverride;
+  final void Function() _goHome;
+  final SplgRouteService? _routesOverride;
+  final Future<BitmapDescriptor?> Function()? _iconLoader;
 
+  SplgRouteService get _routes => _routesOverride ?? _defaultRoutes;
+
+  static final SplgRouteService _defaultRoutes = SplgRouteService(
+    directionsKey: AppConfig.directionsApiKey,
+    preferOsrm: AppConfig.routeProvider == 'osrm',
+    log: (m) => debugPrint('[Ruta] $m'),
+  );
+
+  Future<void> _loadVehicleIcon() async {
+    try {
+      final loader = _iconLoader ??
+          () => SplgVehicleIcon.descriptor(body: AppColors.llama600);
+      final icon = await loader();
+      if (_disposed || icon == null) return;
+      vehicleIcon = icon;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('No se pudo dibujar el ícono del vehículo: $e');
+    }
+  }
+
+  TripService get _trips => _tripsOverride ?? locator<TripService>();
   final _apiClient = ApiClient();
   final _navigationService = locator<NavigationService>();
+  final _dialogService = locator<DialogService>();
   final _driverSocketService = locator<DriverSocketService>();
-  final _foregroundService = locator<DriverForegroundService>();
   final _uuid = const Uuid();
 
-  // Lazy a propósito, igual que en HomeViewModel: resolver DriverAuthService
-  // dispara `FirebaseAuth.instance` en su constructor.
+  // Lazy: resolver DriverAuthService dispara `FirebaseAuth.instance`.
   DriverAuthService get _driverAuthService => locator<DriverAuthService>();
+  LocationService get _location => locator<LocationService>();
 
   Timer? _pollTimer;
+  StreamSubscription<Position>? _positionSub;
+  StreamSubscription<Map<String, dynamic>>? _cancelSub;
+  bool _disposed = false;
+  bool _closing = false;
 
-  Map<String, dynamic>? _order;
+  /// La pantalla del QR está arriba: ella maneja la cancelación y el cobro.
+  bool _qrOpen = false;
 
-  bool _updatingStatus = false;
-  bool get isUpdatingStatus => _updatingStatus;
+  TripOrder? order;
+  RatingSummary? customerRating;
 
-  bool _loadingQr = false;
-  bool get isLoadingQr => _loadingQr;
-  String? qrError;
-  String? deliveryCode;
+  /// Fallo al cargar el pedido (la pantalla ofrece reintentar).
+  String? loadError;
 
-  /// El chofer ya avisó al cliente que llegó (CU-019). Es un flag local: el
-  /// backend no cambia el estado del pedido, solo notifica al cliente.
-  bool _arrivedNotified = false;
-  bool get arrivedNotified => _arrivedNotified;
-
-  /// Reporte de incidencia en curso (`POST /incidents`).
-  bool _reportingIncident = false;
-  bool get isReportingIncident => _reportingIncident;
-
-  /// Asignación de envases físicos al pedido en curso (`POST /cylinders/assign`).
-  bool _assigningCylinders = false;
-  bool get isAssigningCylinders => _assigningCylinders;
-
-  /// Cantidad de envases ya despachados para este pedido (acumulado). Se usa
-  /// para mostrarle al chofer que ya cargó los envases y que, al confirmarse la
-  /// entrega, el sistema los pasará solo a "con el cliente".
-  int _assignedCylinders = 0;
-  int get assignedCylinders => _assignedCylinders;
-  String? cylinderError;
-
-  /// Calificación del cliente ya enviada (`POST /ratings`), una por pedido.
-  bool _ratingSubmitted = false;
-  bool get ratingSubmitted => _ratingSubmitted;
-  bool _submittingRating = false;
-  bool get isSubmittingRating => _submittingRating;
-  String? ratingError;
-
-  /// Mensaje de error de la última operación (carga, "en camino", nav). Se
-  /// limpia al empezar una operación nueva.
+  /// Error de la última acción (salir, avisar llegada, llamar, navegar).
   String? errorMessage;
 
-  String? get status => _order?['status']?.toString();
-  bool get isPending => status == 'pending';
-  bool get isAccepted => status == 'accepted';
-  bool get isOnTheWay => status == 'out_for_delivery';
-  bool get isDelivered => status == 'delivered';
-  bool get isCancelled => status == 'cancelled';
+  /// Aviso no bloqueante (ej.: se abrió la web en vez de la app de mapas).
+  String? notice;
 
-  double get total {
-    final value = _order?['total_amount'];
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0;
-    return 0;
+  bool _updating = false;
+  bool get isUpdatingStatus => _updating;
+
+  /// El chofer ya avisó al cliente que llegó (`PATCH arrived`). El back no
+  /// cambia el estado, sólo notifica.
+  bool arrivedNotified = false;
+
+  LatLng? driverPosition;
+
+  /// Rumbo del vehículo en grados (0 = norte).
+  double vehicleHeading = 0;
+  LatLng? _previousPosition;
+
+  /// Ya hubo un rumbo propio (GPS o movimiento); antes, el vehículo mira hacia
+  /// donde va la ruta.
+  bool _headingKnown = false;
+
+  /// Ícono del vehículo en el mapa (null hasta que se dibuja).
+  BitmapDescriptor? vehicleIcon;
+
+  RouteTracker? _tracker;
+
+  /// La cámara sigue al vehículo; se apaga cuando el chofer toca el mapa y se
+  /// vuelve a prender con el botón de recentrar.
+  bool followCamera = true;
+
+  DriverOrderStatus? get status => order?.status;
+  bool get isAccepted => status == DriverOrderStatus.accepted;
+  bool get isOnTheWay => status == DriverOrderStatus.onTheWay;
+  bool get isDelivered => status == DriverOrderStatus.delivered;
+
+  /// Cancelado, o liberado/reasignado: el chofer ya no tiene el pedido.
+  bool get isLost =>
+      status == DriverOrderStatus.cancelled ||
+      status == DriverOrderStatus.pending ||
+      status == DriverOrderStatus.reserved;
+
+  LatLng? get destination => (order?.hasCoordinates ?? false)
+      ? LatLng(order!.lat!, order!.lng!)
+      : null;
+
+  /// Ruta vigente (por calles o, sin clave, la línea recta de respaldo).
+  SplgRoute? get route => _tracker?.route;
+
+  /// Metros que faltan hasta la dirección, siguiendo la ruta.
+  double? get distanceMeters {
+    final p = driverPosition;
+    if (p == null || destination == null) return null;
+    return _tracker?.remainingMeters(p) ?? Geo.distanceMeters(p, destination!);
   }
 
-  String? get paymentMethod => _order?['payment_method']?.toString();
-
-  Map<String, dynamic>? get _address {
-    final address = _order?['delivery_address'];
-    return address is Map ? Map<String, dynamic>.from(address) : null;
+  /// "1,2 km" / "350 m".
+  String? get distanceText {
+    final m = distanceMeters;
+    if (m == null) return null;
+    return m >= 1000
+        ? '${(m / 1000).toStringAsFixed(1).replaceAll('.', ',')} km'
+        : '${m.round()} m';
   }
 
-  /// Dirección lista para mostrar (calle + ciudad si está disponible).
-  String get addressText {
-    final address = _address;
-    final street = address?['street']?.toString();
-    if (street == null || street.isEmpty) return 'Dirección no disponible';
-    final city = address?['city']?.toString();
-    return (city != null && city.isNotEmpty) ? '$street, $city' : street;
+  /// "8 min" (nunca menos de "1 min"); null si la ruta no trae estimación.
+  String? get etaText {
+    final p = driverPosition;
+    final s = p == null ? null : _tracker?.remainingSeconds(p);
+    if (s == null) return null;
+    final min = (s / 60).ceil();
+    return min < 1 ? '1 min' : '$min min';
   }
 
-  double? get _lat => double.tryParse(_address?['latitude']?.toString() ?? '');
-  double? get _lng => double.tryParse(_address?['longitude']?.toString() ?? '');
+  /// "8 min - 1,2 km", o sólo la distancia si no hay estimación.
+  String? get tripSummary {
+    final d = distanceText;
+    if (d == null) return null;
+    final e = etaText;
+    return e == null ? d : '$e - $d';
+  }
 
-  bool get hasCoordinates => _lat != null && _lng != null;
+  /// Marcadores fijos (la dirección); el vehículo lo arma `SplgAnimatedVehicle`.
+  Set<Marker> get markers {
+    if (!identical(_markersFor, order)) {
+      _markersFor = order;
+      _markers = {
+        if (destination != null)
+          Marker(
+            markerId: const MarkerId('destination'),
+            position: destination!,
+            infoWindow: InfoWindow(title: order?.address ?? 'Entrega'),
+          ),
+      };
+    }
+    return _markers;
+  }
 
-  /// Items del pedido tal cual vienen de `order_items` (cada uno con
-  /// `quantity` y `gas_cylinder`), listos para que la View los formatee.
-  List<Map<String, dynamic>> get items {
-    final raw = _order?['order_items'];
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+  Set<Marker> _markers = const {};
+  TripOrder? _markersFor;
+
+  /// Ruta que falta recorrer, en color de marca; punteada si es de respaldo.
+  Set<Polyline> get polylines => _polylines;
+  Set<Polyline> _polylines = const {};
+
+  /// Se arma sólo cuando cambia la posición o la ruta, no en cada cuadro de la
+  /// animación del vehículo.
+  void _rebuildPolylines() {
+    final p = driverPosition, t = _tracker;
+    if (p == null || t == null || destination == null) {
+      _polylines = const {};
+      return;
+    }
+    _polylines = {
+      splgRoutePolyline(t.remainingPoints(p),
+          color: AppColors.llama600, dashed: t.route?.isFallback ?? true),
+    };
+  }
+
+  Completer<GoogleMapController> mapController = Completer();
+
+  Future<void> onMapCreated(GoogleMapController c) async {
+    if (!mapController.isCompleted) mapController.complete(c);
+    await _moveCamera();
+  }
+
+  /// El chofer tocó el mapa: deja de seguirlo.
+  void userMovedMap() {
+    if (!followCamera) return;
+    followCamera = false;
+    notifyListeners();
+  }
+
+  /// Botón de recentrar: vuelve a seguir al vehículo.
+  Future<void> recenter() async {
+    followCamera = true;
+    notifyListeners();
+    await _moveCamera(force: true);
+  }
+
+  DateTime _lastCameraMove = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// En camino la cámara sigue al vehículo (rumbo y leve inclinación, como
+  /// la referencia de diseño); antes de salir encuadra el chofer, la ruta y la dirección.
+  Future<void> _moveCamera({bool force = false}) async {
+    final d = destination;
+    if (d == null || !mapController.isCompleted) return;
+    if (!force && !followCamera) return;
+    final now = DateTime.now();
+    if (!force &&
+        now.difference(_lastCameraMove) < const Duration(milliseconds: 900)) {
+      return;
+    }
+    _lastCameraMove = now;
+    final p = driverPosition;
+    try {
+      final c = await mapController.future;
+      if (isOnTheWay && p != null) {
+        await c.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(
+          target: p,
+          zoom: 17,
+          bearing: vehicleHeading,
+          tilt: 45,
+        )));
+      } else if (p == null) {
+        await c.animateCamera(CameraUpdate.newLatLngZoom(d, 15));
+      } else {
+        final pts = [p, d, ...?_tracker?.remainingPoints(p)];
+        double minLat = pts.first.latitude, maxLat = minLat;
+        double minLng = pts.first.longitude, maxLng = minLng;
+        for (final q in pts) {
+          minLat = math.min(minLat, q.latitude);
+          maxLat = math.max(maxLat, q.latitude);
+          minLng = math.min(minLng, q.longitude);
+          maxLng = math.max(maxLng, q.longitude);
+        }
+        await c.animateCamera(CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+                southwest: LatLng(minLat, minLng),
+                northeast: LatLng(maxLat, maxLng)),
+            90));
+      }
+    } catch (e) {
+      debugPrint('No se pudo mover la cámara: $e');
+    }
+  }
+
+  /// Compatibilidad con el botón de encuadrar: recentra.
+  Future<void> fitRoute() => recenter();
+
+  void _onPosition(double lat, double lng, {double? heading, double? speed}) {
+    final pos = LatLng(lat, lng);
+    _headingKnown =
+        (heading != null && heading >= 0 && speed != null && speed >= 1) ||
+            (_previousPosition != null &&
+                Geo.distanceMeters(_previousPosition!, pos) >= 3) ||
+            _headingKnown;
+    vehicleHeading = resolveHeading(
+      gpsHeading: heading,
+      speedMps: speed,
+      previous: _previousPosition,
+      current: pos,
+      fallback: vehicleHeading,
+    );
+    if (_previousPosition == null ||
+        Geo.distanceMeters(_previousPosition!, pos) >= 3) {
+      _previousPosition = pos;
+    }
+    driverPosition = pos;
+    _rebuildPolylines();
+    notifyListeners();
+    _updateRoute(pos);
+    _moveCamera();
+  }
+
+  Future<void> _updateRoute(LatLng pos) async {
+    final d = destination;
+    if (d == null || _disposed) return;
+    final tracker = _tracker ??= RouteTracker(destination: d, service: _routes);
+    try {
+      final changed = await tracker.update(pos);
+      if (_disposed) return;
+      if (changed) {
+        final r = tracker.route;
+        // Sin rumbo propio (quieto), el vehículo mira hacia donde va la ruta.
+        if (r != null && r.points.length > 1 && !_headingKnown) {
+          vehicleHeading = Geo.bearing(r.points[0], r.points[1]);
+        }
+        _rebuildPolylines();
+        notifyListeners();
+        _moveCamera();
+      }
+    } catch (e) {
+      debugPrint('No se pudo actualizar la ruta: $e');
+    }
   }
 
   Future<void> initialize() async {
+    final cur = _location.currentPosition;
+    if (cur != null) {
+      _onPosition(cur.latitude, cur.longitude,
+          heading: cur.heading, speed: cur.speed);
+    }
+    _positionSub = _location.positionStream.listen((p) => _onPosition(
+        p.latitude, p.longitude,
+        heading: p.heading, speed: p.speed));
+    _loadVehicleIcon();
+    _cancelSub = _driverSocketService.orderCancelled.listen((payload) {
+      // Con el QR arriba, ese es el único que maneja la cancelación.
+      if (_qrOpen) return;
+      if (payload['orderId']?.toString() == orderId) {
+        _refresh(silent: true);
+      }
+    });
     setBusy(true);
-    await _fetchOrder();
+    await _refresh();
+    setBusy(false);
+    _startPolling();
+  }
+
+  Future<void> retry() async {
+    setBusy(true);
+    await _refresh();
     setBusy(false);
     _startPolling();
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _disposed = true;
+    _stopPolling();
+    _positionSub?.cancel();
+    _cancelSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _fetchOrder({bool silent = false}) async {
+  void _startPolling() {
+    _stopPolling();
+    if (_closing || isDelivered || isLost) return;
+    _pollTimer = Timer.periodic(pollInterval, (_) => _refresh(silent: true));
+  }
+
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  Future<void> _refresh({bool silent = false}) async {
+    if (_closing) return;
     try {
-      final token = await _driverAuthService.token;
-      final response = await _apiClient.get('orders/$orderId', token);
-
-      if (response.statusCode == 200 && response.data is Map) {
-        final wasDelivered = isDelivered;
-        _order = Map<String, dynamic>.from(response.data as Map);
-        if (!silent) errorMessage = null;
-
-        if (!wasDelivered && isDelivered) {
-          _onDeliveryConfirmed();
+      final fresh = await _trips.order(orderId);
+      if (_disposed) return;
+      final firstLoad = order == null;
+      order = fresh;
+      loadError = null;
+      if (firstLoad) {
+        final cid = fresh.customerId;
+        if (cid != null) {
+          _trips.customerRating(cid).then((r) {
+            if (_disposed) return;
+            customerRating = r;
+            notifyListeners();
+          });
         }
-      } else if (!silent) {
-        errorMessage =
-            'No pudimos cargar el pedido (HTTP ${response.statusCode}).';
+        final p = driverPosition;
+        if (p != null) _updateRoute(p);
+        _moveCamera(force: true);
       }
     } catch (e) {
-      debugPrint('Error trayendo el pedido $orderId: $e');
-      if (!silent) errorMessage = 'Error de red al cargar el pedido.';
+      if (!silent && order == null) loadError = _text(e);
+      debugPrint('Error leyendo el pedido $orderId: $e');
     }
+    if (_disposed) return;
     notifyListeners();
+    if (order != null && isLost) {
+      await _onLost();
+    } else if (isDelivered) {
+      await _onDelivered();
+    }
   }
 
-  void _startPolling() {
-    _pollTimer?.cancel();
-    if (isDelivered) return;
-
-    _pollTimer = Timer.periodic(_kPollInterval, (_) {
-      if (isDelivered) {
-        _pollTimer?.cancel();
-        return;
-      }
-      _fetchOrder(silent: true);
-    });
-  }
-
-  /// El cliente confirmó la entrega (detectado vía polling): frena el
-  /// broadcasting de GPS de esta entrega y revierte la notificación del
-  /// foreground service a "en línea" (el chofer sigue conectado y disponible).
-  void _onDeliveryConfirmed() {
-    _pollTimer?.cancel();
-    _driverSocketService.stopBroadcasting();
-    _foregroundService.update(
-      title: 'Estás en línea',
-      text: 'Recibiendo pedidos cercanos',
+  /// El pedido ya no es del chofer: se corta el reparto, se avisa y se vuelve
+  /// al Inicio (que sigue en línea).
+  Future<void> _onLost() async {
+    if (_closing) return;
+    _closing = true;
+    _stopPolling();
+    _driverSocketService.stopTracking();
+    final cancelled = status == DriverOrderStatus.cancelled;
+    await _dialogService.showDialog(
+      title: cancelled ? 'Pedido cancelado' : 'Pedido liberado',
+      description: cancelled
+          ? 'El pedido fue cancelado. Seguís en línea para recibir otros.'
+          : 'El pedido ya no está asignado a vos. Seguís en línea para recibir otros.',
     );
+    _trips.endFlow();
+    _goHome();
   }
 
-  /// Avisa al cliente que el chofer llegó (CU-019). Requiere que el pedido esté
-  /// "en camino"; el backend notifica al cliente (`order:arrived`) sin cambiar
-  /// el estado del pedido.
-  Future<void> markArrived() async {
-    if (_arrivedNotified) return;
-    final token = await _driverAuthService.token;
-    if (token == null) {
-      errorMessage = 'No se pudo avisar la llegada: falta la sesión.';
+  /// Lo entregó el cliente (escaneó el QR) mientras el chofer estaba acá:
+  /// sigue el cobro.
+  Future<void> _onDelivered() async {
+    if (_closing) return;
+    _closing = true;
+    _stopPolling();
+    _driverSocketService.stopTracking();
+    await _navigationService.replaceWithPaymentView(orderId: orderId);
+  }
+
+  String _text(Object e) => e is DioException
+      ? ApiErrorText.of(e.response?.statusCode, e.response?.data)
+      : 'No pudimos completar la acción. Probá de nuevo.';
+
+  /// "Salir hacia el cliente": `PATCH status on_the_way`.
+  Future<void> markOnTheWay() async {
+    if (_updating || !isAccepted) return;
+    _updating = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _trips.setStatus(orderId, 'on_the_way');
+      await _refresh();
+    } catch (e) {
+      errorMessage = _text(e);
+    }
+    _updating = false;
+    if (!_disposed) notifyListeners();
+  }
+
+  /// "Llegué / Entregar": avisa al cliente (`PATCH arrived`) y abre la entrega
+  /// con QR. Si el aviso falla se dice y no se avanza.
+  Future<void> arriveAndDeliver() async {
+    if (_updating || !isOnTheWay) return;
+    _updating = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      if (!arrivedNotified) {
+        await _trips.arrived(orderId);
+        arrivedNotified = true;
+      }
+    } catch (e) {
+      errorMessage = _text(e);
+      _updating = false;
       notifyListeners();
       return;
     }
-    try {
-      final response = await _apiClient.patch(
-        'orders/$orderId/arrived',
-        const {},
-        token,
-        {'Idempotency-Key': _uuid.v4()},
-      );
-      if (response.statusCode == 200) {
-        _arrivedNotified = true;
-        errorMessage = null;
-      } else {
-        errorMessage =
-            'No se pudo avisar la llegada (HTTP ${response.statusCode}).';
-      }
-    } catch (e) {
-      debugPrint('Error avisando llegada del pedido $orderId: $e');
-      errorMessage = 'Error de red al avisar la llegada.';
+    _updating = false;
+    notifyListeners();
+    await openDeliveryQr();
+  }
+
+  /// Abre la pantalla del QR. Mientras está abierta ella lleva el control del
+  /// pedido; al volver se retoma el seguimiento.
+  Future<void> openDeliveryQr() async {
+    _stopPolling();
+    _qrOpen = true;
+    await _navigationService.navigateToDeliveryQrView(orderId: orderId);
+    _qrOpen = false;
+    if (_disposed || _closing) return;
+    await _refresh(silent: true);
+    _startPolling();
+  }
+
+  /// `tel:` con el teléfono del cliente.
+  Future<void> callCustomer() async {
+    final phone = order?.customerPhone;
+    if (phone == null) {
+      errorMessage = 'El cliente no tiene teléfono cargado.';
+      notifyListeners();
+      return;
+    }
+    if (!await NavigationLauncher.dial(phone)) {
+      errorMessage = 'No pudimos abrir el teléfono.';
+      notifyListeners();
+    }
+  }
+
+  /// Abre [map] hacia la dirección; avisa si cayó a la web.
+  Future<void> navigateWith(MapApp map) async {
+    final d = destination;
+    if (d == null) {
+      errorMessage = 'No hay coordenadas de entrega para navegar.';
+      notifyListeners();
+      return;
+    }
+    final r = await NavigationLauncher.open(map, d.latitude, d.longitude);
+    if (r == MapLaunch.web) {
+      notice = NavigationLauncher.webNotice(map);
+    } else if (r == MapLaunch.failed) {
+      errorMessage = 'No pudimos abrir el mapa.';
     }
     notifyListeners();
   }
+
+  void clearMessages() {
+    errorMessage = null;
+    notice = null;
+  }
+
+  // --- Extras: incidencias y envases --------------------------------------
+
+  /// Reporte de incidencia en curso (`POST /incidents`).
+  bool _reportingIncident = false;
+  bool get isReportingIncident => _reportingIncident;
+
+  /// Asignación de envases físicos al pedido (`POST /cylinders/assign`).
+  bool _assigningCylinders = false;
+  bool get isAssigningCylinders => _assigningCylinders;
+  int _assignedCylinders = 0;
+  int get assignedCylinders => _assignedCylinders;
+  String? cylinderError;
 
   /// Reporta una incidencia de entrega (CU-024): `POST /incidents` con
   /// `{ orderId, type, description }`. `type` debe ser uno de los valores del
@@ -266,13 +587,9 @@ class DeliveryViewModel extends BaseViewModel {
         {'Idempotency-Key': _uuid.v4()},
       );
       ok = response.statusCode == 200 || response.statusCode == 201;
-      if (!ok) {
-        errorMessage =
-            'No se pudo reportar la incidencia (HTTP ${response.statusCode}).';
-      }
     } catch (e) {
       debugPrint('Error reportando incidencia del pedido $orderId: $e');
-      errorMessage = 'Error de red al reportar la incidencia.';
+      errorMessage = _text(e);
     }
 
     _reportingIncident = false;
@@ -322,161 +639,11 @@ class DeliveryViewModel extends BaseViewModel {
       }
     } catch (e) {
       debugPrint('Error asignando envases del pedido $orderId: $e');
-      cylinderError = 'Error de red al despachar los envases.';
+      cylinderError = _text(e);
     }
 
     _assigningCylinders = false;
     notifyListeners();
     return ok;
-  }
-
-  /// Califica al cliente una vez entregado el pedido (CU-025): `POST /ratings`
-  /// con `{ orderId, stars, comment? }`. El backend deriva a quién se califica
-  /// desde el pedido y solo lo permite en pedidos `delivered`. Una sola vez por
-  /// pedido y por lado.
-  Future<bool> rateCustomer({required int stars, String? comment}) async {
-    if (_submittingRating || _ratingSubmitted) return false;
-
-    final token = await _driverAuthService.token;
-    if (token == null) {
-      ratingError = 'Falta la sesión para calificar.';
-      notifyListeners();
-      return false;
-    }
-
-    _submittingRating = true;
-    ratingError = null;
-    notifyListeners();
-
-    var ok = false;
-    try {
-      final body = <String, dynamic>{'orderId': orderId, 'stars': stars};
-      final trimmed = comment?.trim();
-      if (trimmed != null && trimmed.isNotEmpty) body['comment'] = trimmed;
-
-      final response = await _apiClient.post(
-        'ratings',
-        body,
-        token,
-        {'Idempotency-Key': _uuid.v4()},
-      );
-      ok = response.statusCode == 200 || response.statusCode == 201;
-      if (ok) {
-        _ratingSubmitted = true;
-      } else {
-        ratingError =
-            'No se pudo enviar la calificación (HTTP ${response.statusCode}).';
-      }
-    } catch (e) {
-      debugPrint('Error calificando al cliente en el pedido $orderId: $e');
-      ratingError = 'Error de red al enviar la calificación.';
-    }
-
-    _submittingRating = false;
-    notifyListeners();
-    return ok;
-  }
-
-  /// Marca el pedido como "en camino" (`PATCH .../status {status: on_the_way}`)
-  /// y asegura que el broadcasting de GPS de la entrega esté activo (por si
-  /// esta pantalla se reabrió y el broadcasting no estaba corriendo, p.ej.
-  /// tras reiniciar la app).
-  Future<void> markOnTheWay() async {
-    if (_updatingStatus) return;
-
-    final token = await _driverAuthService.token;
-    final userId = _driverAuthService.userId;
-    if (token == null || userId == null) {
-      errorMessage = 'No se pudo actualizar: falta la sesión.';
-      notifyListeners();
-      return;
-    }
-
-    _updatingStatus = true;
-    errorMessage = null;
-    notifyListeners();
-
-    try {
-      final response = await _apiClient.patch(
-        'orders/$orderId/status',
-        {'status': 'on_the_way'},
-        token,
-        {'Idempotency-Key': _uuid.v4()},
-      );
-
-      if (response.statusCode == 200) {
-        debugPrint('Pedido $orderId en camino');
-        _driverSocketService.startBroadcasting(orderId, userId, token);
-        await _fetchOrder();
-      } else {
-        errorMessage =
-            'No se pudo marcar "en camino" (HTTP ${response.statusCode}).';
-      }
-    } catch (e) {
-      debugPrint('Error marcando en camino el pedido $orderId: $e');
-      errorMessage = 'Error de red al marcar "en camino".';
-    }
-
-    _updatingStatus = false;
-    notifyListeners();
-  }
-
-  /// Trae (una sola vez) el código secreto de entrega para renderizar el QR.
-  Future<void> showDeliveryCode() async {
-    if (deliveryCode != null || _loadingQr) return;
-
-    _loadingQr = true;
-    qrError = null;
-    notifyListeners();
-
-    try {
-      final token = await _driverAuthService.token;
-      final response =
-          await _apiClient.get('orders/$orderId/delivery-code', token);
-
-      if (response.statusCode == 200 && response.data is Map) {
-        deliveryCode = response.data['deliveryCode']?.toString();
-        if (deliveryCode == null || deliveryCode!.isEmpty) {
-          qrError = 'El pedido no tiene código de entrega todavía.';
-        }
-      } else {
-        qrError = 'No se pudo obtener el código de entrega '
-            '(HTTP ${response.statusCode}).';
-      }
-    } catch (e) {
-      debugPrint('Error trayendo el código de entrega de $orderId: $e');
-      qrError = 'Error de red al obtener el código de entrega.';
-    }
-
-    _loadingQr = false;
-    notifyListeners();
-  }
-
-  Future<void> openWaze() async {
-    final lat = _lat;
-    final lng = _lng;
-    if (lat == null || lng == null) {
-      errorMessage = 'No hay coordenadas de entrega para navegar.';
-      notifyListeners();
-      return;
-    }
-    await NavigationLauncher.openWaze(lat, lng);
-  }
-
-  Future<void> openGoogleMaps() async {
-    final lat = _lat;
-    final lng = _lng;
-    if (lat == null || lng == null) {
-      errorMessage = 'No hay coordenadas de entrega para navegar.';
-      notifyListeners();
-      return;
-    }
-    await NavigationLauncher.openGoogleMaps(lat, lng);
-  }
-
-  /// Vuelve al Home una vez confirmada la entrega (o si el chofer decide
-  /// salir de la pantalla).
-  Future<void> goHome() async {
-    await _navigationService.clearStackAndShow(Routes.homeView);
   }
 }

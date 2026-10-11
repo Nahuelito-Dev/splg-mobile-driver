@@ -30,6 +30,11 @@ import 'package:splg_driver/ui/views/notifications/notifications_view.dart';
 import 'package:splg_driver/ui/views/help/help_view.dart';
 import 'package:splg_driver/ui/views/about/about_view.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
+import 'package:splg_driver/services/trip_service.dart';
+import 'package:splg_driver/services/payment_repository.dart';
+import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_view.dart';
+import 'package:splg_driver/ui/views/payment/payment_view.dart';
+import 'package:splg_driver/ui/views/completed/completed_view.dart';
 // @stacked-import
 
 @StackedApp(
@@ -53,6 +58,9 @@ import 'package:splg_driver/services/driver_api_service.dart';
     MaterialRoute(page: NotificationsView),
     MaterialRoute(page: HelpView),
     MaterialRoute(page: AboutView),
+    MaterialRoute(page: DeliveryQrView),
+    MaterialRoute(page: PaymentView),
+    MaterialRoute(page: CompletedView),
 // @stacked-route
   ],
   dependencies: [
@@ -67,6 +75,8 @@ import 'package:splg_driver/services/driver_api_service.dart';
     LazySingleton(classType: FcmService),
     LazySingleton(classType: AppPermissions),
     LazySingleton(classType: DriverApiService),
+    LazySingleton(classType: TripService),
+    LazySingleton(classType: HttpPaymentRepository, asType: PaymentRepository),
 // @stacked-service
   ],
   bottomsheets: [

@@ -31,7 +31,7 @@ abstract class PaymentRepository {
 ///   { incident_id } }`.
 /// - `PUT /incidents/:id/photo` (multipart, campo `file`).
 /// Cada intención usa una `Idempotency-Key`, reusada mientras no haya respuesta
-/// del back (red caída). Mientras `PAYMENT_API` no sea `true` (por defecto) NO
+/// del back (red caída). Con `--dart-define=PAYMENT_API=false` NO
 /// llama al back: la confirmación es sólo local.
 class HttpPaymentRepository implements PaymentRepository {
   HttpPaymentRepository({
@@ -45,7 +45,7 @@ class HttpPaymentRepository implements PaymentRepository {
         _uuid = uuid ?? const Uuid();
 
   static const bool _kPaymentApi =
-      bool.fromEnvironment('PAYMENT_API', defaultValue: false);
+      bool.fromEnvironment('PAYMENT_API', defaultValue: true);
 
   static String receivedPath(String orderId) =>
       'orders/$orderId/payment/cash-received';

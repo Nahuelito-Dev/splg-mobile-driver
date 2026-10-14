@@ -299,23 +299,17 @@ void main() {
           ..now = () => _hoy;
 
     void pages(List<DriverOrder> orders) {
-      when(api.ordersPage(offset: anyNamed('offset'), limit: anyNamed('limit')))
-          .thenAnswer((_) async =>
-              OrdersPage(orders: orders, total: orders.length, offset: 0));
+      when(api.activeOrder())
+          .thenAnswer((_) async => orders.isEmpty ? null : orders.first);
     }
 
-    test('con varios pendientes abre sólo el último entregado hoy', () async {
+    test('abre el cobro del pedido que devuelve el back', () async {
       pages([
-        pedido('viejo', deliveredAt: _hoy.subtract(const Duration(hours: 5))),
         pedido('ultimo', deliveredAt: _hoy.subtract(const Duration(hours: 1))),
-        pedido('medio', deliveredAt: _hoy.subtract(const Duration(hours: 3))),
       ]);
       await home().resumeActiveOrder();
       await Future<void>.delayed(const Duration(milliseconds: 100));
       verify(nav.navigateToPaymentView(orderId: 'ultimo')).called(1);
-      for (final id in ['viejo', 'medio']) {
-        verifyNever(nav.navigateToPaymentView(orderId: id));
-      }
     });
 
     test('al terminar ese cobro no encadena el siguiente', () async {
@@ -647,9 +641,8 @@ void main() {
         'una oferta que llega mientras se busca un pedido retomado espera la '
         'decisión', () async {
       final ofertas = StreamController<Map<String, dynamic>>.broadcast();
-      final pagina = Completer<OrdersPage>();
-      when(api.ordersPage(offset: anyNamed('offset'), limit: anyNamed('limit')))
-          .thenAnswer((_) => pagina.future);
+      final pagina = Completer<DriverOrder?>();
+      when(api.activeOrder()).thenAnswer((_) => pagina.future);
       when(dialogs.showCustomDialog(
               variant: anyNamed('variant'),
               data: anyNamed('data'),
@@ -664,10 +657,7 @@ void main() {
           data: anyNamed('data'),
           barrierDismissible: anyNamed('barrierDismissible')));
       // Había un pedido en curso: se retoma y la oferta se rechaza por ocupado.
-      pagina.complete(OrdersPage(
-          orders: [pedido('curso', status: DriverOrderStatus.accepted)],
-          total: 1,
-          offset: 0));
+      pagina.complete(pedido('curso', status: DriverOrderStatus.accepted));
       await Future<void>.delayed(const Duration(milliseconds: 100));
       verify(nav.navigateToDeliveryView(orderId: 'curso')).called(1);
       verify(trips.reject('oferta')).called(1);

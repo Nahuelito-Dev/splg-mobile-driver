@@ -1848,6 +1848,16 @@ class MockDriverApiService extends _i1.Mock implements _i23.DriverApiService {
       ) as _i11.Future<_i5.OrdersPage>);
 
   @override
+  _i11.Future<_i5.DriverOrder?> activeOrder() => (super.noSuchMethod(
+        Invocation.method(
+          #activeOrder,
+          [],
+        ),
+        returnValue: _i11.Future<_i5.DriverOrder?>.value(),
+        returnValueForMissingStub: _i11.Future<_i5.DriverOrder?>.value(),
+      ) as _i11.Future<_i5.DriverOrder?>);
+
+  @override
   _i11.Future<List<_i5.DriverOrder>> orders() => (super.noSuchMethod(
         Invocation.method(
           #orders,

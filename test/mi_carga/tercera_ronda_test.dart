@@ -270,10 +270,8 @@ void main() {
           deliveredAt: s == DriverOrderStatus.delivered ? _hoy : null,
           paymentMethod: 'cash',
           paymentStatus: 'pending');
-      void pages(DriverOrder o) => when(api.ordersPage(
-              offset: anyNamed('offset'), limit: anyNamed('limit')))
-          .thenAnswer(
-              (_) async => OrdersPage(orders: [o], total: 1, offset: 0));
+      void pages(DriverOrder o) =>
+          when(api.activeOrder()).thenAnswer((_) async => o);
 
       pages(p(DriverOrderStatus.accepted));
       final flow = home.resumeActiveOrder();

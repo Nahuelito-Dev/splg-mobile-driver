@@ -193,19 +193,14 @@ void main() {
   });
 
   group('H2B: retomar el pedido en curso', () {
-    void stubOrders(List<DriverOrder> list) => when(driverApi.ordersPage(
-            offset: anyNamed('offset'), limit: anyNamed('limit')))
-        .thenAnswer((_) async =>
-            OrdersPage(orders: list, total: list.length, offset: 0));
+    void stubOrders(List<DriverOrder> list) => when(driverApi.activeOrder())
+        .thenAnswer((_) async => list.isEmpty ? null : list.first);
     DriverOrder o(String id, DriverOrderStatus s) => DriverOrder(
         id: id, status: s, total: 1, createdAt: DateTime(2026, 10, 11));
 
     test('con un pedido en camino abre su pantalla y retoma el tracking',
         () async {
-      stubOrders([
-        o('viejo', DriverOrderStatus.delivered),
-        o('o9', DriverOrderStatus.onTheWay),
-      ]);
+      stubOrders([o('o9', DriverOrderStatus.onTheWay)]);
       await HomeViewModel(trips: trips).resumeActiveOrder();
       verify(nav.navigateToDeliveryView(orderId: 'o9')).called(1);
       verify(socket.startBroadcasting('o9', 'u1', 'tok')).called(1);
@@ -218,38 +213,50 @@ void main() {
       verify(nav.navigateToDeliveryView(orderId: 'o8')).called(1);
     });
 
-    test('sin pedidos en curso no hace nada', () async {
-      stubOrders([
-        o('a', DriverOrderStatus.delivered),
-        o('b', DriverOrderStatus.cancelled)
-      ]);
+    test('sin pedidos en curso (204) no hace nada', () async {
+      stubOrders([]);
       await HomeViewModel(trips: trips).resumeActiveOrder();
-      verifyNever(nav.navigateToDeliveryView(orderId: 'a'));
-      verifyNever(nav.navigateToDeliveryView(orderId: 'b'));
+      verifyNever(nav.navigateToDeliveryView(orderId: 'antiguo'));
+      verifyNever(nav.navigateToPaymentView(orderId: 'antiguo'));
       verifyNever(trips.beginFlow(any));
+    });
+
+    test('un pedido viejo, fuera de los 20 más nuevos, también se retoma',
+        () async {
+      stubOrders([o('antiguo', DriverOrderStatus.accepted)]);
+      await HomeViewModel(trips: trips).resumeActiveOrder();
+      verify(nav.navigateToDeliveryView(orderId: 'antiguo')).called(1);
+    });
+
+    test('respeta `except`: no reabre el pedido que se acaba de cerrar',
+        () async {
+      stubOrders([o('o1', DriverOrderStatus.accepted)]);
+      await HomeViewModel(trips: trips).resumeActiveOrder(except: 'o1');
+      verifyNever(nav.navigateToDeliveryView(orderId: 'o1'));
+    });
+
+    test('si la consulta falla no rompe ni abre nada', () async {
+      when(driverApi.activeOrder()).thenThrow(Exception('sin red'));
+      await HomeViewModel(trips: trips).resumeActiveOrder();
+      verifyNever(nav.navigateToDeliveryView(orderId: 'o1'));
     });
 
     test('si ya hay un flujo activo no abre otra pantalla', () async {
       when(trips.activeOrderId).thenReturn('o1');
       stubOrders([o('o9', DriverOrderStatus.onTheWay)]);
       await HomeViewModel(trips: trips).resumeActiveOrder();
-      verifyNever(driverApi.ordersPage(
-          offset: anyNamed('offset'), limit: anyNamed('limit')));
+      verifyNever(driverApi.activeOrder());
     });
 
     test('no se solapan dos búsquedas', () async {
-      final gate = Completer<OrdersPage>();
-      when(driverApi.ordersPage(
-              offset: anyNamed('offset'), limit: anyNamed('limit')))
-          .thenAnswer((_) => gate.future);
+      final gate = Completer<DriverOrder?>();
+      when(driverApi.activeOrder()).thenAnswer((_) => gate.future);
       final m = HomeViewModel(trips: trips);
       final a = m.resumeActiveOrder();
       final b = m.resumeActiveOrder();
-      gate.complete(const OrdersPage(orders: [], total: 0, offset: 0));
+      gate.complete(null);
       await Future.wait([a, b]);
-      verify(driverApi.ordersPage(
-              offset: anyNamed('offset'), limit: anyNamed('limit')))
-          .called(1);
+      verify(driverApi.activeOrder()).called(1);
     });
   });
 

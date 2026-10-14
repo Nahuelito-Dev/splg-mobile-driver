@@ -140,11 +140,10 @@ void main() {
 
     void pages(List<List<DriverOrder>> responses) {
       var i = 0;
-      when(api.ordersPage(offset: anyNamed('offset'), limit: anyNamed('limit')))
-          .thenAnswer((_) async {
+      when(api.activeOrder()).thenAnswer((_) async {
         final list = responses[i < responses.length ? i : responses.length - 1];
         i++;
-        return OrdersPage(orders: list, total: list.length, offset: 0);
+        return list.isEmpty ? null : list.first;
       });
     }
 
@@ -178,10 +177,7 @@ void main() {
 
     test('un pedido en curso gana al cobro pendiente', () async {
       pages([
-        [
-          driverOrder('cobro', status: DriverOrderStatus.delivered),
-          driverOrder('curso'),
-        ]
+        [driverOrder('curso')]
       ]);
       await home().resumeActiveOrder();
       verify(nav.navigateToDeliveryView(orderId: 'curso')).called(1);
@@ -192,10 +188,7 @@ void main() {
         () async {
       pages([
         [driverOrder('o1')],
-        [
-          driverOrder('o2'),
-          driverOrder('o1', status: DriverOrderStatus.delivered)
-        ],
+        [driverOrder('o2')],
       ]);
       await home().resumeActiveOrder();
       await Future<void>.delayed(const Duration(milliseconds: 100));

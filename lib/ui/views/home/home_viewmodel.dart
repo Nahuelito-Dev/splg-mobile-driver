@@ -842,7 +842,8 @@ class HomeViewModel extends StreamViewModel<Position>
 
   /// Si el chofer tiene un pedido `accepted` u `on_the_way` (porque mató la app,
   /// se cayó o volvió del background), lo retoma abriendo la pantalla del
-  /// pedido. Se llama al abrir, al conectarse y al volver a primer plano.
+  /// pedido. Lo pregunta a `GET /orders/delivery/me/active` (sin importar cuándo
+  /// se creó). Se llama al abrir, al conectarse y al volver a primer plano.
   ///
   /// [collect] además retoma el cobro de la jornada: SÓLO el último pedido que
   /// el chofer entregó hoy en efectivo y sigue sin cobrar (nunca en cadena, ni
@@ -855,20 +856,15 @@ class HomeViewModel extends StreamViewModel<Position>
       final token = await _driverAuthService.token;
       final userId = _driverAuthService.userId;
       if (token == null || userId == null) return;
-      final page = await _driverApi.ordersPage(limit: 20);
+      final order = await _driverApi.activeOrder();
       DriverOrder? current;
       DriverOrder? toCollect;
-      for (final o in page.orders) {
-        if (o.id == except) continue;
-        if (o.status == DriverOrderStatus.accepted ||
-            o.status == DriverOrderStatus.onTheWay) {
-          current = o;
-          break;
-        }
-        if (collect && _isTodaysPendingCollection(o)) {
-          if (toCollect == null || o.date.isAfter(toCollect.date)) {
-            toCollect = o;
-          }
+      if (order != null && order.id != except) {
+        if (order.status == DriverOrderStatus.accepted ||
+            order.status == DriverOrderStatus.onTheWay) {
+          current = order;
+        } else if (collect && _isTodaysPendingCollection(order)) {
+          toCollect = order;
         }
       }
       if (_offerOpen || _trips.activeOrderId != null) return;

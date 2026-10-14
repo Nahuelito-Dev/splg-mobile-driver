@@ -168,6 +168,19 @@ void main() {
       m.dispose();
     });
 
+    test(
+        'cancelado: la tarjeta superior dice "Cancelado", no "Pedido aceptado"',
+        () async {
+      final m = build();
+      await m.initialize();
+      expect(m.statusText, 'Pedido aceptado');
+      when(trips.order('o1'))
+          .thenAnswer((_) async => trip(status: 'cancelled'));
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(m.statusText, 'Cancelado');
+      m.dispose();
+    });
+
     test('liberado a pending: también lo avisa', () async {
       final m = build();
       await m.initialize();
@@ -176,6 +189,7 @@ void main() {
       verify(dialogs.showDialog(
               title: 'Pedido liberado', description: anyNamed('description')))
           .called(1);
+      expect(m.statusText, 'Pedido liberado');
       expect(homeCalls, 1);
       m.dispose();
     });

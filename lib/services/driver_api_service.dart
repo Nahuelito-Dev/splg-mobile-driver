@@ -104,6 +104,16 @@ class DriverApiService {
     );
   }
 
+  /// `GET /orders/delivery/me/active`: el pedido en curso del chofer sin
+  /// importar cuándo se creó (en camino; si no, el aceptado más antiguo; si no,
+  /// el entregado hoy en efectivo con el cobro pendiente). `204` => null.
+  Future<DriverOrder?> activeOrder() async {
+    final res = await _api.get('orders/delivery/me/active', await _token());
+    final data = res.data;
+    if (res.statusCode == 204 || data is! Map || data.isEmpty) return null;
+    return DriverOrder.fromJson(Map<String, dynamic>.from(data));
+  }
+
   /// Todo el historial: recorre las páginas hasta llegar al `total` del back.
   Future<List<DriverOrder>> orders() async {
     final all = <DriverOrder>[];

@@ -206,12 +206,8 @@ class _AddressCard extends StatelessWidget {
                   Icon(model.isOnTheWay ? SplgIcons.truck : SplgIcons.clock,
                       size: 16, color: Colors.white),
                   const SizedBox(width: 6),
-                  Text(
-                      model.isOnTheWay
-                          ? (model.etaText == null
-                              ? 'En camino'
-                              : 'En camino - ${model.etaText}')
-                          : 'Pedido aceptado',
+                  Text(model.statusText,
+                      key: const Key('trip-status-text'),
                       style: type.body.copyWith(color: Colors.white)),
                 ],
               ),

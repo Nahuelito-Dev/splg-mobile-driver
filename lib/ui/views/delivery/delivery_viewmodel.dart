@@ -137,6 +137,18 @@ class DeliveryViewModel extends BaseViewModel {
   bool get isOnTheWay => status == DriverOrderStatus.onTheWay;
   bool get isDelivered => status == DriverOrderStatus.delivered;
 
+  /// Rótulo de la tarjeta superior según el estado del pedido.
+  String get statusText => switch (status) {
+        DriverOrderStatus.onTheWay =>
+          etaText == null ? 'En camino' : 'En camino - $etaText',
+        DriverOrderStatus.cancelled => 'Cancelado',
+        DriverOrderStatus.pending ||
+        DriverOrderStatus.reserved =>
+          'Pedido liberado',
+        DriverOrderStatus.delivered => 'Entregado',
+        _ => 'Pedido aceptado',
+      };
+
   /// Cancelado, o liberado/reasignado: el chofer ya no tiene el pedido.
   bool get isLost =>
       status == DriverOrderStatus.cancelled ||

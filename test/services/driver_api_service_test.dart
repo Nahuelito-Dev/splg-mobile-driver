@@ -85,6 +85,22 @@ void main() {
     });
   });
 
+  group('activeOrder', () {
+    test('lee el pedido en curso de GET orders/delivery/me/active', () async {
+      when(api.get('orders/delivery/me/active', 'tok'))
+          .thenAnswer((_) async => _res({..._order(7), 'status': 'accepted'}));
+      final o = await service.activeOrder();
+      expect(o!.id, 'o7');
+      expect(o.status, DriverOrderStatus.accepted);
+    });
+
+    test('204 sin cuerpo: no hay nada que retomar', () async {
+      when(api.get('orders/delivery/me/active', 'tok'))
+          .thenAnswer((_) async => _res('', 204));
+      expect(await service.activeOrder(), isNull);
+    });
+  });
+
   group('errorMessage', () {
     DioException err(int? status, [Object? data]) => DioException(
           requestOptions: RequestOptions(path: ''),

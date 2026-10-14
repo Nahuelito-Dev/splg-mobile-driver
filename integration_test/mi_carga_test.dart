@@ -15,7 +15,7 @@ import 'helpers.dart';
 ///
 ///   flutter test integration_test/mi_carga_test.dart -d `simulador` \
 ///     --dart-define=API_BASE_URL=http://localhost:3010 \
-///     --dart-define=PUSH_ENABLED=false --dart-define=ROUTE_PROVIDER=osrm \
+///     --dart-define=PUSH_ENABLED=false \
 ///     --dart-define=GO_FILE=/ruta/al/archivo
 ///
 /// Funciona con o sin sesión iniciada y con o sin permiso de ubicación (si el

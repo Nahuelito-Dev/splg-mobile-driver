@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
+import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
@@ -49,6 +52,8 @@ Map<String, dynamic> directionsOk() => {
         }
       ],
     };
+
+SplgRoute? lastRoute;
 
 void main() {
   late MockTripService trips;
@@ -204,6 +209,161 @@ void main() {
     expect(m.polylines, isEmpty);
     expect(m.distanceText, isNull);
     m.dispose();
+  });
+
+  group('ruta por el back (GET /routes/driving)', () {
+    const rutaBack = {
+      'provider': 'google',
+      'distanceMeters': 1500,
+      'durationSeconds': 200,
+      'points': [
+        {'lat': -27.3671, 'lng': -55.8961},
+        {'lat': -27.362, 'lng': -55.893},
+        {'lat': -27.357482, 'lng': -55.890404},
+      ],
+    };
+
+    Future<List<String>> run(String status, {Object? error}) async {
+      final paths = <String>[];
+      when(trips.order('o1')).thenAnswer((_) async => trip(status: status));
+      when(locator<DriverAuthService>().token).thenAnswer((_) async => 'tok');
+      final m = DeliveryViewModel(
+        orderId: 'o1',
+        trips: trips,
+        routeGet: (path, token) async {
+          paths.add('$path|$token');
+          if (error != null) throw error;
+          return Response(
+              requestOptions: RequestOptions(path: path),
+              statusCode: 200,
+              data: rutaBack);
+        },
+        pollInterval: const Duration(hours: 1),
+        iconLoader: () async => null,
+        goHome: () {},
+      );
+      await m.initialize();
+      positions.add(pos(origen.latitude, origen.longitude));
+      await settle();
+      lastRoute = m.route;
+      m.dispose();
+      return paths;
+    }
+
+    test('en camino: pide la ruta al back con el token y la dibuja', () async {
+      final paths = await run('out_for_delivery');
+      expect(paths, ['routes/driving?orderId=o1|tok']);
+      expect(lastRoute!.isFallback, false);
+      expect(lastRoute!.source, RouteSource.directions);
+      expect(lastRoute!.points, hasLength(3));
+    });
+
+    test('aceptado: el back también la da al chofer asignado', () async {
+      final paths = await run('accepted');
+      expect(paths, hasLength(1));
+      expect(lastRoute!.isFallback, false);
+    });
+
+    test('entregado: no pregunta', () async {
+      final paths = await run('delivered');
+      expect(paths, isEmpty);
+    });
+
+    test('si el back falla, recta sin romper', () async {
+      final paths = await run('out_for_delivery',
+          error: DioException(
+              requestOptions: RequestOptions(path: 'x'),
+              type: DioExceptionType.connectionError));
+      expect(paths, hasLength(1));
+      expect(lastRoute!.isFallback, true);
+    });
+  });
+
+  group('posición al back desde la pantalla del pedido', () {
+    late MockDriverSocketService socket;
+    setUp(() {
+      socket = locator<DriverSocketService>() as MockDriverSocketService;
+      when(socket.isConnected).thenReturn(true);
+      when(locator<DriverAuthService>().userId).thenReturn('u1');
+      when(locator<DriverAuthService>().token).thenAnswer((_) async => 'tok');
+      when(trips.order('o1')).thenAnswer((_) async => trip(status: 'accepted'));
+    });
+
+    DeliveryViewModel make({
+      Future<Response<dynamic>> Function(String, String)? routeGet,
+    }) =>
+        DeliveryViewModel(
+          orderId: 'o1',
+          trips: trips,
+          routeGet: routeGet ?? (p, t) async => throw UnimplementedError(),
+          noPositionRetry: const Duration(milliseconds: 20),
+          pollInterval: const Duration(hours: 1),
+          iconLoader: () async => null,
+          goHome: () {},
+        );
+
+    test('cada posición se manda por driver:update-location', () async {
+      final m = make();
+      await m.initialize();
+      positions.add(pos(-27.3671, -55.8961));
+      await settle();
+      positions.add(pos(-27.3665, -55.8958));
+      await settle();
+      verify(socket.sendLocation('u1', -27.3671, -55.8961))
+          .called(greaterThan(0));
+      verify(socket.sendLocation('u1', -27.3665, -55.8958))
+          .called(greaterThan(0));
+      m.dispose();
+    });
+
+    test('al retomar el pedido manda la posición que ya tenía', () async {
+      when(location.currentPosition).thenReturn(pos(-27.3671, -55.8961));
+      final m = make();
+      await m.initialize();
+      verify(socket.sendLocation('u1', -27.3671, -55.8961))
+          .called(greaterThan(0));
+      m.dispose();
+    });
+
+    test('socket desconectado: no emite', () async {
+      when(socket.isConnected).thenReturn(false);
+      final m = make();
+      await m.initialize();
+      positions.add(pos(-27.3671, -55.8961));
+      await settle();
+      verifyNever(socket.sendLocation(any, any, any));
+      m.dispose();
+    });
+
+    test('409 por falta de posición: reintenta la ruta enseguida', () async {
+      var calls = 0;
+      final m = make(routeGet: (path, token) async {
+        calls++;
+        if (calls == 1) {
+          throw DioException(
+              requestOptions: RequestOptions(path: path),
+              type: DioExceptionType.badResponse,
+              response: Response(
+                  requestOptions: RequestOptions(path: path), statusCode: 409));
+        }
+        return Response(
+            requestOptions: RequestOptions(path: path),
+            statusCode: 200,
+            data: {
+              'provider': 'osrm',
+              'points': [
+                {'lat': -27.3671, 'lng': -55.8961},
+                {'lat': -27.357482, 'lng': -55.890404},
+              ],
+            });
+      });
+      await m.initialize();
+      positions.add(pos(-27.3671, -55.8961));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(calls, 2);
+      expect(m.route!.isFallback, false);
+      m.dispose();
+    });
   });
 
   test('un fallo al dibujar el ícono no rompe la pantalla', () async {

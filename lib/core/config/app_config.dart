@@ -29,17 +29,6 @@ class AppConfig {
   static const bool pushEnabled =
       bool.fromEnvironment('PUSH_ENABLED', defaultValue: true);
 
-  /// Clave con la Directions API habilitada, para el recorrido por calles.
-  /// Va sólo por `--dart-define=DIRECTIONS_API_KEY=...`; sin ella el recorrido
-  /// se dibuja como línea recta punteada.
-  static const String directionsApiKey =
-      String.fromEnvironment('DIRECTIONS_API_KEY');
-
-  /// `--dart-define=ROUTE_PROVIDER=osrm` pide las rutas al servidor público de
-  /// OSRM (sin clave): sólo para desarrollo y demos.
-  static const String routeProvider =
-      String.fromEnvironment('ROUTE_PROVIDER', defaultValue: 'directions');
-
   /// Base de la REST API (con `/api`).
   static String get apiUrl => '$apiBaseUrl/api/';
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,11 +10,12 @@ import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
-import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/backend_route_service.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
@@ -40,26 +42,35 @@ class DeliveryViewModel extends BaseViewModel {
     this.pollInterval = kTripPollInterval,
     void Function()? goHome,
     SplgRouteService? routes,
+    Future<Response<dynamic>> Function(String path, String token)? routeGet,
+    this.noPositionRetry = const Duration(seconds: 3),
     Future<BitmapDescriptor?> Function()? iconLoader,
   })  : _tripsOverride = trips,
+        _routeGet = routeGet,
         _goHome = goHome ?? popToHome,
         _routesOverride = routes,
         _iconLoader = iconLoader;
 
   final String orderId;
   final Duration pollInterval;
+
+  /// Espera antes de volver a pedir la ruta cuando el back todavía no tiene la
+  /// posición del chofer (409).
+  final Duration noPositionRetry;
   final TripService? _tripsOverride;
   final void Function() _goHome;
   final SplgRouteService? _routesOverride;
+  final Future<Response<dynamic>> Function(String path, String token)?
+      _routeGet;
   final Future<BitmapDescriptor?> Function()? _iconLoader;
 
-  SplgRouteService get _routes => _routesOverride ?? _defaultRoutes;
-
-  static final SplgRouteService _defaultRoutes = SplgRouteService(
-    directionsKey: AppConfig.directionsApiKey,
-    preferOsrm: AppConfig.routeProvider == 'osrm',
-    log: (m) => debugPrint('[Ruta] $m'),
-  );
+  late final SplgRouteService _routes = _routesOverride ??
+      BackendRouteService(
+        orderId: orderId,
+        tokenProvider: () => locator<DriverAuthService>().token,
+        get: _routeGet,
+        canRequest: () => isAccepted || isOnTheWay,
+      );
 
   Future<void> _loadVehicleIcon() async {
     try {
@@ -85,6 +96,9 @@ class DeliveryViewModel extends BaseViewModel {
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<Map<String, dynamic>>? _cancelSub;
   bool _disposed = false;
+  Timer? _noPositionTimer;
+  int _noPositionRetries = 0;
+  static const int _maxNoPositionRetries = 5;
   bool _closing = false;
 
   /// El back dijo que el pedido ya no es del chofer (410, o 404/403 de un
@@ -322,10 +336,44 @@ class DeliveryViewModel extends BaseViewModel {
       _previousPosition = pos;
     }
     driverPosition = pos;
+    _reportPosition(pos);
     _rebuildPolylines();
     notifyListeners();
     _updateRoute(pos);
     _moveCamera();
+  }
+
+  /// Cada posición llega al back por `driver:update-location` también desde la
+  /// pantalla del pedido: el Home ya no está escuchando y sin posición el back
+  /// no puede trazar la ruta (409). Se reenvía con cada lectura del pedido para
+  /// cubrir un socket que conectó después de la primera posición.
+  void _reportPosition(LatLng pos) {
+    final userId = locator<DriverAuthService>().userId;
+    if (userId == null || !_driverSocketService.isConnected) return;
+    _driverSocketService.sendLocation(userId, pos.latitude, pos.longitude);
+  }
+
+  /// Con 409 el back todavía no tiene la posición: se vuelve a pedir enseguida
+  /// con un tracker nuevo, sin esperar los 90 s de la política de recálculo.
+  void _retryRouteSoon() {
+    final svc = _routes;
+    if (svc is! BackendRouteService || !svc.missingPosition) {
+      _noPositionRetries = 0;
+      return;
+    }
+    if (_noPositionRetries >= _maxNoPositionRetries ||
+        _noPositionTimer != null) {
+      return;
+    }
+    _noPositionRetries++;
+    _noPositionTimer = Timer(noPositionRetry, () {
+      _noPositionTimer = null;
+      final p = driverPosition;
+      if (_disposed || p == null) return;
+      _reportPosition(p);
+      _tracker = null;
+      _updateRoute(p);
+    });
   }
 
   Future<void> _updateRoute(LatLng pos) async {
@@ -335,6 +383,7 @@ class DeliveryViewModel extends BaseViewModel {
     try {
       final changed = await tracker.update(pos);
       if (_disposed) return;
+      if (changed) _retryRouteSoon();
       if (changed) {
         final r = tracker.route;
         // Sin rumbo propio (quieto), el vehículo mira hacia donde va la ruta.
@@ -384,6 +433,7 @@ class DeliveryViewModel extends BaseViewModel {
   void dispose() {
     _disposed = true;
     _stopPolling();
+    _noPositionTimer?.cancel();
     _positionSub?.cancel();
     _cancelSub?.cancel();
     super.dispose();
@@ -428,7 +478,10 @@ class DeliveryViewModel extends BaseViewModel {
           });
         }
         final p = driverPosition;
-        if (p != null) _updateRoute(p);
+        if (p != null) {
+          _reportPosition(p);
+          _updateRoute(p);
+        }
         _moveCamera(force: true);
       }
     } catch (e) {
@@ -440,6 +493,8 @@ class DeliveryViewModel extends BaseViewModel {
       }
     }
     if (_disposed) return;
+    final last = driverPosition;
+    if (last != null) _reportPosition(last);
     notifyListeners();
     if (_gone || (order != null && isLost)) {
       await _onLost();

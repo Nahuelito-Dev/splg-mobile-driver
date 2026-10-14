@@ -51,6 +51,7 @@ dependencies:
   flutter_markdown_plus: ^1.0.12
   # notificaciones locales (avisar ofertas de pedido cuando FCM llega en foreground)
   flutter_local_notifications: ^19.4.2
+  image: ^4.12.0
 
 dev_dependencies:
   flutter_test:

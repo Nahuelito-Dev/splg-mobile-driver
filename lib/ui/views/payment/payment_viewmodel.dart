@@ -7,9 +7,11 @@ import 'package:stacked_services/stacked_services.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
+import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
+import 'package:splg_driver/ui/common/navigation_helpers.dart';
 
 /// Cobro del pedido ya entregado: medio de pago, total a cobrar y detalle.
 ///
@@ -20,9 +22,15 @@ import 'package:splg_driver/services/trip_service.dart';
 /// paga el cliente: se muestra el estado, sin esos botones.
 class PaymentViewModel extends BaseViewModel {
   PaymentViewModel(
-      {required this.orderId, TripService? trips, PaymentRepository? payments})
+      {required this.orderId,
+      TripService? trips,
+      PaymentRepository? payments,
+      void Function()? goHome})
       : _tripsOverride = trips,
-        _paymentsOverride = payments;
+        _paymentsOverride = payments,
+        _goHome = goHome ?? popToHome;
+
+  final void Function() _goHome;
 
   final String orderId;
   final TripService? _tripsOverride;
@@ -57,8 +65,12 @@ class PaymentViewModel extends BaseViewModel {
   /// El pago ya está registrado como pagado (no hay nada que confirmar).
   bool get isPaid => order?.isPaid ?? false;
 
-  /// Hay que cobrar en efectivo y todavía no está registrado.
-  bool get needsCashConfirmation => isCash && !isPaid;
+  /// Ya se informó que el cliente no pagó (lo resuelve la distribuidora).
+  bool get isUnpaid => order?.isUnpaid ?? false;
+
+  /// Hay que cobrar en efectivo y todavía no está registrado ni informado como
+  /// impago (el back rechaza "Pago recibido" sobre un impago).
+  bool get needsCashConfirmation => isCash && order?.paymentStatus == 'pending';
 
   /// Estado del pago online para mostrar.
   String get onlineStatus => switch (order?.paymentStatus) {
@@ -74,11 +86,53 @@ class PaymentViewModel extends BaseViewModel {
       ? ApiErrorText.of(e.response?.statusCode, e.response?.data)
       : fallback;
 
+  /// El reporte de impago es idempotente por clave: reintentarlo con la nota
+  /// cambiada da 422. En ese caso lo que se registró antes manda, así que se
+  /// relee el pedido para mostrar su estado real.
+  Future<void> _refreshAfterConflict(Object e) async {
+    if (!isIdempotencyConflict(e) &&
+        !(e is DioException && e.response?.statusCode == 409)) {
+      return;
+    }
+    try {
+      order = await _trips.order(orderId);
+    } catch (_) {
+      // Se conserva el pedido que ya estaba en pantalla.
+    }
+  }
+
+  /// Texto al pie según el estado del cobro.
+  String get footerText {
+    if (needsCashConfirmation) {
+      return 'Cuando recibas el dinero, tocá el botón para registrar el pago.';
+    }
+    if (isCash && !isPaid && !isUnpaid) {
+      return 'El cobro ya no está pendiente: lo resuelve tu distribuidora. '
+          'Seguí cuando quieras.';
+    }
+    if (isUnpaid) {
+      return 'Ya informaste que el cliente no pagó: lo resuelve tu '
+          'distribuidora. Seguí cuando quieras.';
+    }
+    return 'El pedido ya figura como pagado; seguí cuando quieras.';
+  }
+
+  /// "Más tarde": sale sin registrar nada y deja el Inicio libre. El cobro
+  /// queda en "Cobros pendientes". También sirve cuando el pedido no carga.
+  void later() {
+    _trips.endFlow();
+    _goHome();
+  }
+
   /// "Pago recibido" (efectivo pendiente) o "Continuar" (ya pagado / online).
   Future<void> confirm() async {
     if (submitting) return;
     if (!needsCashConfirmation) {
-      await _nav.replaceWithCompletedView(orderId: orderId);
+      if (isUnpaid) {
+        await _nav.replaceWithCompletedView(orderId: orderId, unpaid: true);
+      } else {
+        await _nav.replaceWithCompletedView(orderId: orderId);
+      }
       return;
     }
     submitting = true;
@@ -89,6 +143,7 @@ class PaymentViewModel extends BaseViewModel {
       paid = await _payments.confirmReceived(orderId);
     } catch (e) {
       actionError = _text(e, 'No pudimos registrar el pago. Probá de nuevo.');
+      await _refreshAfterConflict(e);
       submitting = false;
       notifyListeners();
       return;
@@ -109,8 +164,9 @@ class PaymentViewModel extends BaseViewModel {
     try {
       incidentId = await _payments.reportUnpaid(orderId, note: note);
     } catch (e) {
-      actionError =
-          _text(e, 'No pudimos registrar el reporte. Probá de nuevo.');
+      actionError = actionErrorText(e,
+          fallback: 'No pudimos registrar el reporte. Probá de nuevo.');
+      await _refreshAfterConflict(e);
       submitting = false;
       notifyListeners();
       return;

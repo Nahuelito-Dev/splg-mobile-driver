@@ -60,7 +60,8 @@ class LoginViewModel extends FormViewModel {
       // Best-effort, no bloquea la navegación: registra el token FCM del
       // chofer para poder recibir ofertas de pedido con la app cerrada.
       unawaited(_fcmService.registerForCurrentUser(_authService));
-      _navigationService.replaceWithHomeView();
+      // Pila limpia: sin la Bienvenida ni el Login debajo del Inicio.
+      await _navigationService.clearStackAndShow(Routes.homeView);
     } else {
       errorMessage = 'No pudimos iniciar sesión. Revisá tus datos.';
       notifyListeners();

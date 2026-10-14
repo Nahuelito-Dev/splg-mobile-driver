@@ -12,6 +12,7 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/firebase_options.dart';
 import 'package:splg_driver/app/app.bottomsheets.dart';
 import 'package:splg_driver/services/fcm_service.dart';
+import 'package:splg_driver/ui/common/navigation_helpers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +43,7 @@ class MainApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       onGenerateRoute: StackedRouter().onGenerateRoute,
       navigatorKey: StackedService.navigatorKey,
-      navigatorObservers: [StackedService.routeObserver],
+      navigatorObservers: [StackedService.routeObserver, appRouteObserver],
     );
   }
 }

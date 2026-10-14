@@ -49,7 +49,7 @@ String? _dayTotal(List<DriverOrder> orders) {
   final delivered =
       orders.where((o) => o.status == DriverOrderStatus.delivered);
   if (delivered.isEmpty) return null;
-  return formatMoney(delivered.fold<num>(0, (s, o) => s + o.total));
+  return formatMoney(delivered.fold<num>(0, (s, o) => s + o.amountToCollect));
 }
 
 class _DeliveriesListState extends State<_DeliveriesList> {
@@ -109,7 +109,7 @@ class _DeliveriesListState extends State<_DeliveriesList> {
               SplgListRow(
                 title: '${formatTime(o.date)} hs'
                     '${o.customerName != null ? ' - ${o.customerName}' : ''}',
-                trailing: formatMoney(o.total),
+                trailing: formatMoney(o.amountToCollect),
                 badge: o.status == DriverOrderStatus.delivered
                     ? null
                     : OrderStatusChip(status: o.status),

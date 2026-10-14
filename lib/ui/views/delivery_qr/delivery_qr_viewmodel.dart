@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
+import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
@@ -70,6 +70,11 @@ class DeliveryQrViewModel extends BaseViewModel {
       }
       code = await _trips.deliveryCode(orderId);
     } catch (e) {
+      if (isOrderGone(e, known: order != null) && !_closing) {
+        setBusy(false);
+        await _lost(false);
+        return;
+      }
       loadError = _text(e);
     }
     setBusy(false);
@@ -77,7 +82,7 @@ class DeliveryQrViewModel extends BaseViewModel {
   }
 
   String _text(Object e) => e is DioException
-      ? ApiErrorText.of(e.response?.statusCode, e.response?.data)
+      ? actionErrorText(e)
       : (e is StateError ? e.message : 'No pudimos cargar el código.');
 
   void _startPolling() {
@@ -101,8 +106,11 @@ class DeliveryQrViewModel extends BaseViewModel {
           fresh.status == DriverOrderStatus.reserved) {
         await _lost(fresh.status == DriverOrderStatus.cancelled);
       }
-    } catch (_) {
-      // Sin red: se sigue esperando, el próximo ciclo reintenta.
+    } catch (e) {
+      if (isOrderGone(e, known: order != null) && !_disposed && !_closing) {
+        await _lost(false);
+      }
+      // Otro fallo (sin red): se sigue esperando, el próximo ciclo reintenta.
     } finally {
       _checking = false;
     }

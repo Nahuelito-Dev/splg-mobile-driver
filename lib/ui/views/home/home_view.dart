@@ -5,6 +5,7 @@ import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/ui/common/navigation_helpers.dart';
 import 'package:splg_driver/ui/widgets/driver_menu_drawer.dart';
 
 import 'home_viewmodel.dart';
@@ -25,12 +26,15 @@ class HomeView extends StackedView<HomeViewModel> {
 
   @override
   Widget builder(BuildContext context, HomeViewModel viewModel, Widget? child) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      drawer: DriverMenuDrawer(onLogout: viewModel.logout),
-      body: viewModel.isBusy
-          ? const Center(child: CircularProgressIndicator())
-          : _buildBody(context, viewModel),
+    return _RouteVisibility(
+      onChanged: viewModel.setRouteVisible,
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        drawer: DriverMenuDrawer(onLogout: viewModel.logout),
+        body: viewModel.isBusy
+            ? const Center(child: CircularProgressIndicator())
+            : _buildBody(context, viewModel),
+      ),
     );
   }
 
@@ -59,41 +63,54 @@ class HomeView extends StackedView<HomeViewModel> {
           child: Padding(
             padding: EdgeInsets.fromLTRB(
                 8, viewModel.earned != null ? 112 : 0, 8, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Column(
+                if (viewModel.noOrdersReason != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: _NoOrdersNotice(
+                      message: viewModel.noOrdersReason!,
+                      onTap: viewModel.openMyLoad,
+                    ),
+                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Builder(
-                      builder: (ctx) => SplgFloatingButton(
-                        key: const Key('home-menu'),
-                        tooltip: 'Menú',
-                        icon: SplgIcons.menu,
-                        onPressed: () => Scaffold.of(ctx).openDrawer(),
-                      ),
+                    Column(
+                      children: [
+                        Builder(
+                          builder: (ctx) => SplgFloatingButton(
+                            key: const Key('home-menu'),
+                            tooltip: 'Menú',
+                            icon: SplgIcons.menu,
+                            onPressed: () => Scaffold.of(ctx).openDrawer(),
+                          ),
+                        ),
+                        Builder(
+                          builder: (ctx) => SplgFloatingButton(
+                            key: const Key('home-status'),
+                            tooltip: 'Estado',
+                            label: viewModel.statusLabel,
+                            icon: SplgIcons.online,
+                            color: !viewModel.isOnline
+                                ? Theme.of(context).colorScheme.inverseSurface
+                                : (viewModel.isConnected
+                                    ? context.brasa.success
+                                    : context.brasa.warn),
+                            onPressed: () => _showStatus(ctx, viewModel),
+                          ),
+                        ),
+                      ],
                     ),
-                    Builder(
-                      builder: (ctx) => SplgFloatingButton(
-                        key: const Key('home-status'),
-                        tooltip: 'Estado',
-                        label: viewModel.statusLabel,
-                        icon: SplgIcons.online,
-                        color: !viewModel.isOnline
-                            ? Theme.of(context).colorScheme.inverseSurface
-                            : (viewModel.isConnected
-                                ? context.brasa.success
-                                : context.brasa.warn),
-                        onPressed: () => _showStatus(ctx, viewModel),
+                    const Spacer(),
+                    if (viewModel.todayCount > 0)
+                      _TodayTotal(
+                        total: viewModel.todayTotal,
+                        count: viewModel.todayCount,
                       ),
-                    ),
                   ],
                 ),
-                const Spacer(),
-                if (viewModel.todayCount > 0)
-                  _TodayTotal(
-                    total: viewModel.todayTotal,
-                    count: viewModel.todayCount,
-                  ),
               ],
             ),
           ),
@@ -199,6 +216,91 @@ class HomeView extends StackedView<HomeViewModel> {
   void onViewModelReady(HomeViewModel viewModel) {
     viewModel.initialize();
     super.onViewModelReady(viewModel);
+  }
+}
+
+/// Avisa si la ruta del Inicio está al frente o tapada por otra pantalla
+/// (`RouteObserver` del navegador de la app).
+class _RouteVisibility extends StatefulWidget {
+  const _RouteVisibility({required this.onChanged, required this.child});
+
+  final ValueChanged<bool> onChanged;
+  final Widget child;
+
+  @override
+  State<_RouteVisibility> createState() => _RouteVisibilityState();
+}
+
+class _RouteVisibilityState extends State<_RouteVisibility> with RouteAware {
+  RouteObserver<PageRoute<dynamic>>? _observer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    final observer = appRouteObserver;
+    if (route is PageRoute && _observer == null) {
+      _observer = observer;
+      observer.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPushNext() => widget.onChanged(false);
+
+  @override
+  void didPopNext() => widget.onChanged(true);
+
+  @override
+  void dispose() {
+    _observer?.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// El back no le da pedidos por su carga del camión (D5 sin carga, carga sin
+/// salir o ya devuelta): muestra el motivo que da el back. Al tocarlo abre
+/// Mi carga.
+class _NoOrdersNotice extends StatelessWidget {
+  const _NoOrdersNotice({required this.message, required this.onTap});
+
+  final String message;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brasa = context.brasa;
+    final type = SplgType.of(context);
+    return Material(
+      key: const Key('home-no-orders-notice'),
+      color: brasa.warnSoft,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(SplgIcons.truck, color: brasa.warn),
+              const SizedBox(width: 12),
+              Expanded(
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.3,
+                  child: Text(message,
+                      style: type.bodyStrong.copyWith(color: brasa.ink2)),
+                ),
+              ),
+              Icon(SplgIcons.next, color: brasa.warn),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

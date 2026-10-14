@@ -16,6 +16,9 @@ class TripOrder {
     required this.total,
     this.paymentMethod,
     this.paymentStatus,
+    this.depositAmount = 0,
+    this.depositPaid = false,
+    this.remainingBalance,
     this.address,
     this.lat,
     this.lng,
@@ -39,6 +42,14 @@ class TripOrder {
 
   /// `pending`, `paid`, etc. (`paymentStatus` del back).
   final String? paymentStatus;
+
+  /// Seña de la reserva (0 si no es reserva) y si ya está paga.
+  final num depositAmount;
+  final bool depositPaid;
+
+  /// Saldo a cobrar al entregar (total - seña paga), tal como lo calcula el
+  /// back; null si no lo trae.
+  final num? remainingBalance;
   final String? address;
   final double? lat;
   final double? lng;
@@ -56,6 +67,16 @@ class TripOrder {
 
   bool get isCash => paymentMethod == 'cash';
   bool get isPaid => paymentStatus == 'paid';
+
+  /// Lo que el chofer tiene que cobrar: el saldo si hay seña paga, si no el
+  /// total. Cobrar el total con la seña ya paga cobra la seña dos veces.
+  num get amountToCollect => depositPaid ? (remainingBalance ?? total) : total;
+
+  /// La seña ya está paga y se descuenta del total.
+  bool get hasPaidDeposit => depositPaid && depositAmount > 0;
+
+  /// El chofer ya informó que el cliente no pagó.
+  bool get isUnpaid => paymentStatus == 'unpaid';
   bool get hasCoordinates => lat != null && lng != null;
 
   /// "08:00 a 12:00" si el pedido tiene franja.
@@ -86,6 +107,11 @@ class TripOrder {
       total: _n(json['total_amount']),
       paymentMethod: _s(json['payment_method']),
       paymentStatus: _s(json['paymentStatus']),
+      depositAmount: _n(json['depositAmount']),
+      depositPaid: json['depositPaid'] == true,
+      remainingBalance: json['remainingBalance'] == null
+          ? null
+          : _n(json['remainingBalance']),
       address: (streetLine == null || streetLine.isEmpty) ? null : streetLine,
       lat: address is Map ? double.tryParse('${address['latitude']}') : null,
       lng: address is Map ? double.tryParse('${address['longitude']}') : null,

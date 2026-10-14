@@ -8,10 +8,10 @@ import 'delivery_viewmodel.dart';
 /// Tipos de incidencia que puede reportar el chofer. El primer valor de cada
 /// tupla es el string exacto del enum `IncidentType` del backend.
 const List<(String, String, IconData)> kIncidentTypes = [
-  ('damaged', 'Garrafa dañada', Icons.report_gmailerrorred_outlined),
-  ('out_of_stock', 'Sin stock para entregar', Icons.inventory_2_outlined),
-  ('no_show', 'El cliente no estaba', Icons.person_off_outlined),
-  ('other', 'Otro problema', Icons.more_horiz),
+  ('damaged', 'Garrafa dañada', SplgIcons.error),
+  ('out_of_stock', 'Sin stock para entregar', SplgIcons.remove),
+  ('no_show', 'El cliente no estaba', SplgIcons.userMinus),
+  ('other', 'Otro problema', SplgIcons.more),
 ];
 
 /// Hoja para reportar una incidencia: elegir tipo + describir, y enviar a
@@ -213,7 +213,7 @@ class CylinderAssignCardState extends State<CylinderAssignCard> {
         children: [
           Row(
             children: [
-              Icon(Icons.propane_tank_outlined,
+              Icon(SplgIcons.flame,
                   size: 20, color: Theme.of(context).colorScheme.primary),
               horizontalSpaceSmall,
               const Text(
@@ -267,7 +267,7 @@ class CylinderAssignCardState extends State<CylinderAssignCard> {
                 onPressed: viewModel.isAssigningCylinders ? null : _addSerial,
                 style: IconButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary),
-                icon: const Icon(Icons.add),
+                icon: const Icon(SplgIcons.plus),
               ),
             ],
           ),

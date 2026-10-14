@@ -55,7 +55,7 @@ class DeliveryDetailView extends StatelessWidget {
             divider,
             SplgSoftCard(
               label: 'Método de pago: ${paymentLabel(order.paymentMethod)}',
-              amount: formatMoney(order.total),
+              amount: formatMoney(order.amountToCollect),
               amountKey: const Key('detail-total'),
             ),
             const SizedBox(height: 10),

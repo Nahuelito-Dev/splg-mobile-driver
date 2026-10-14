@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
-import 'package:splg_driver/services/jpeg_sanitizer.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/photo_picker.dart';
 import 'package:splg_driver/ui/views/completed/completed_viewmodel.dart';
@@ -240,57 +239,6 @@ void main() {
               contentType: 'image/jpeg',
               token: 'tok'))
           .called(1);
-    });
-  });
-
-  group('JpegSanitizer', () {
-    List<int> seg(int marker, List<int> body) => [
-          0xFF,
-          marker,
-          (body.length + 2) >> 8,
-          (body.length + 2) & 0xFF,
-          ...body
-        ];
-    final scan = [0xFF, 0xDA, 0, 4, 1, 2, 9, 9, 0xFF, 0x00, 7, 0xFF, 0xD9];
-    Uint8List jpeg() => Uint8List.fromList([
-          0xFF, 0xD8,
-          ...seg(0xE0, [0x4A, 0x46, 0x49, 0x46, 0]), // JFIF
-          ...seg(0xE1, 'Exif\u0000\u0000GPSLatitude'.codeUnits), // EXIF
-          ...seg(0xE1, 'http://ns.adobe.com/xap/1.0/'.codeUnits), // XMP
-          ...seg(0xFE, 'comentario'.codeUnits),
-          ...seg(0xDB, List.filled(65, 3)), // DQT
-          ...scan,
-        ]);
-
-    test('saca EXIF, XMP y comentarios y deja intacta la imagen', () {
-      final out = JpegSanitizer.stripMetadata(jpeg());
-      final text = String.fromCharCodes(out);
-      expect(text.contains('GPSLatitude'), false);
-      expect(text.contains('adobe'), false);
-      expect(text.contains('comentario'), false);
-      expect(out.sublist(0, 2), [0xFF, 0xD8]);
-      expect(out.contains(0xE0), true, reason: 'JFIF se conserva');
-      // DQT y el scan quedan idénticos.
-      expect(out.sublist(out.length - scan.length), scan);
-      expect(out.length, lessThan(jpeg().length));
-    });
-
-    test('un JPEG sin metadatos queda igual', () {
-      final clean = Uint8List.fromList([
-        0xFF,
-        0xD8,
-        ...seg(0xDB, List.filled(65, 3)),
-        ...scan,
-      ]);
-      expect(JpegSanitizer.stripMetadata(clean), clean);
-    });
-
-    test('no JPEG o cortado: lanza en vez de dejar pasar', () {
-      expect(
-          () => JpegSanitizer.stripMetadata(Uint8List.fromList([1, 2, 3, 4])),
-          throwsFormatException);
-      expect(() => JpegSanitizer.stripMetadata(jpeg().sublist(0, 20)),
-          throwsFormatException);
     });
   });
 

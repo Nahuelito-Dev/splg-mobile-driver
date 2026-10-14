@@ -2,7 +2,6 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:stacked_services/stacked_services.dart';
-import 'package:splg_driver/services/order_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
@@ -14,6 +13,7 @@ import 'package:splg_driver/services/foreground_service.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/models/truck_load.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 // @stacked-import
@@ -26,7 +26,6 @@ import 'test_helpers.mocks.dart';
     MockSpec<NavigationService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<BottomSheetService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<DialogService>(onMissingStub: OnMissingStub.returnDefault),
-    MockSpec<OrderService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<LocationService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<DriverSocketService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<DriverAuthService>(onMissingStub: OnMissingStub.returnDefault),
@@ -46,11 +45,11 @@ void registerServices() {
   provideDummy<PermissionOutcome>(PermissionOutcome.granted);
   provideDummy<TripOrder>(
       const TripOrder(id: 'x', status: DriverOrderStatus.pending, total: 0));
+  provideDummy<MyTruckLoad>(const MyTruckLoad());
   provideDummy<OrdersPage>(const OrdersPage(orders: [], total: 0, offset: 0));
   getAndRegisterNavigationService();
   getAndRegisterBottomSheetService();
   getAndRegisterDialogService();
-  getAndRegisterOrderService();
   getAndRegisterLocationService();
   getAndRegisterDriverSocketService();
   getAndRegisterDriverAuthService();
@@ -128,13 +127,6 @@ MockDialogService getAndRegisterDialogService() {
   _removeRegistrationIfExists<DialogService>();
   final service = MockDialogService();
   locator.registerSingleton<DialogService>(service);
-  return service;
-}
-
-MockOrderService getAndRegisterOrderService() {
-  _removeRegistrationIfExists<OrderService>();
-  final service = MockOrderService();
-  locator.registerSingleton<OrderService>(service);
   return service;
 }
 

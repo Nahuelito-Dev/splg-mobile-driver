@@ -53,6 +53,12 @@ class PaymentView extends StackedView<PaymentViewModel> {
                                 title: 'Reintentar',
                                 style: SplgButtonStyle.white,
                                 onPressed: model.load),
+                            const SizedBox(height: 8),
+                            SplgButton(
+                                key: const Key('payment-later'),
+                                title: 'Más tarde',
+                                style: SplgButtonStyle.ghost,
+                                onPressed: () => _later(context, model)),
                           ],
                         ),
                       )
@@ -95,10 +101,17 @@ class PaymentView extends StackedView<PaymentViewModel> {
                                           : 'Total del pedido',
                                       style: type.body
                                           .copyWith(color: Colors.white70)),
-                                  Text(formatMoney(order.total),
+                                  Text(formatMoney(order.amountToCollect),
                                       key: const Key('payment-total'),
                                       style: type.amount
                                           .copyWith(color: Colors.white)),
+                                  if (order.hasPaidDeposit)
+                                    Text(
+                                        'Total del pedido ${formatMoney(order.total)} - seña ya paga ${formatMoney(order.depositAmount)}',
+                                        key: const Key('payment-deposit'),
+                                        textAlign: TextAlign.center,
+                                        style: type.caption
+                                            .copyWith(color: Colors.white70)),
                                   if (!model.isCash)
                                     Text(model.onlineStatus,
                                         key: const Key('payment-online-status'),
@@ -162,11 +175,18 @@ class PaymentView extends StackedView<PaymentViewModel> {
                                     : () => _unpaid(context, model),
                               ),
                             ],
+                            if (!model.submitting) ...[
+                              const SizedBox(height: 8),
+                              SplgButton(
+                                key: const Key('payment-later'),
+                                title: 'Más tarde',
+                                style: SplgButtonStyle.ghost,
+                                onPressed: () => _later(context, model),
+                              ),
+                            ],
                             const SizedBox(height: 8),
-                            Text(
-                                model.needsCashConfirmation
-                                    ? 'Cuando recibas el dinero, tocá el botón para registrar el pago.'
-                                    : 'El pedido ya figura como pagado; seguí cuando quieras.',
+                            Text(model.footerText,
+                                key: const Key('payment-footer'),
                                 textAlign: TextAlign.center,
                                 style: type.caption
                                     .copyWith(color: Colors.white70)),
@@ -177,6 +197,17 @@ class PaymentView extends StackedView<PaymentViewModel> {
         ),
       ),
     );
+  }
+
+  /// Sale sin registrar nada y avisa dónde queda el cobro.
+  void _later(BuildContext context, PaymentViewModel model) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(
+        content: Text('Cobro pendiente: lo encontrás en "Cobros pendientes" '
+            'del menú.'),
+      ));
+    model.later();
   }
 
   /// Confirmación de "El cliente no pagó" con una nota opcional.

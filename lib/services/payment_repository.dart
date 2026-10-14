@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 
@@ -75,9 +76,9 @@ class HttpPaymentRepository implements PaymentRepository {
       _keys.remove(action);
       return r;
     } catch (e) {
-      // Con respuesta del back (rechazo) la clave se descarta; sin respuesta
-      // (red) se conserva para reintentar sin duplicar.
-      if (e is DioException && e.response != null) _keys.remove(action);
+      // Con un rechazo de negocio la clave se descarta; sin respuesta, 5xx, 429,
+      // 409 "en curso" o 422 de clave ya usada se conserva para no duplicar.
+      if (!keepIdempotencyKey(e)) _keys.remove(action);
       rethrow;
     }
   }

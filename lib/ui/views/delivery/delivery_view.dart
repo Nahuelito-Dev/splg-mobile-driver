@@ -278,7 +278,7 @@ class _TripSheet extends StatelessWidget {
             icon: SplgIcons.flame,
             text: order.lines.isEmpty ? 'Sin detalle' : order.linesText,
             caption:
-                '${paymentLabel(order.paymentMethod)} - ${formatTotal(order.total)}',
+                '${paymentLabel(order.paymentMethod)} - ${formatTotal(order.amountToCollect)}',
             color: brasa.primaryStrong,
           ),
           if (model.errorMessage != null || model.notice != null) ...[

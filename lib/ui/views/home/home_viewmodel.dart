@@ -40,15 +40,38 @@ class HomeViewModel extends StreamViewModel<Position>
   HomeViewModel({
     ApiClient? apiClient,
     this.searchTimeout = const Duration(seconds: 6),
+    this.loadPollInterval = const Duration(seconds: 20),
     TripService? trips,
+    bool Function()? isHomeVisible,
   })  : _apiClient = apiClient ?? ApiClient(),
-        _tripsOverride = trips;
+        _tripsOverride = trips,
+        _isHomeVisibleOverride = isHomeVisible;
+
+  final bool Function()? _isHomeVisibleOverride;
+
+  /// El Inicio está al frente: ninguna pantalla (entrega, cobro, calificación,
+  /// Mi carga…) se apoya encima. Lo informa la vista con un `RouteAware`; no se
+  /// deduce del largo de la pila porque tras iniciar sesión hay rutas debajo.
+  bool routeVisible = true;
+
+  bool _isHomeVisible() => _isHomeVisibleOverride?.call() ?? routeVisible;
+
+  /// La vista avisa que el Inicio quedó tapado o volvió a quedar al frente.
+  void setRouteVisible(bool visible) {
+    if (routeVisible == visible) return;
+    routeVisible = visible;
+    if (visible) unawaited(refreshNoOrdersReason());
+  }
 
   final TripService? _tripsOverride;
 
   /// Cuánto se muestra "Buscando pedidos…" antes de pasar a "Sin pedidos
   /// disponibles" si no llegó ninguna oferta.
   final Duration searchTimeout;
+
+  /// Cada cuánto se pregunta al back si el chofer puede recibir pedidos: así
+  /// el aviso se va solo cuando el administrador abre la carga.
+  final Duration loadPollInterval;
 
   final _locationService = locator<LocationService>();
   final _navigationService = locator<NavigationService>();
@@ -84,6 +107,13 @@ class HomeViewModel extends StreamViewModel<Position>
   int todayCount = 0;
 
   StreamSubscription<Map<String, dynamic>>? _incomingOrdersSubscription;
+
+  /// Por qué el back no le va a dar pedidos por su carga del camión (la
+  /// distribuidora exige carga abierta y no tiene, la carga no salió o ya
+  /// volvió); null si puede recibir. Es el texto del back, el Inicio lo avisa.
+  String? noOrdersReason;
+  int _reasonSeq = 0;
+  Timer? _loadTimer;
 
   /// true una vez que el socket de choferes está conectado y el chofer quedó
   /// unido a su sala (`driver:join` emitido).
@@ -137,8 +167,10 @@ class HomeViewModel extends StreamViewModel<Position>
   /// empieza el tracking si se concede.
   Future<void> initialize() async {
     WidgetsBinding.instance.addObserver(this);
+    _startLoadPolling();
     await _resolveLocation(interactive: true);
     await loadToday();
+    await refreshNoOrdersReason();
     unawaited(resumeActiveOrder());
   }
 
@@ -158,6 +190,51 @@ class HomeViewModel extends StreamViewModel<Position>
       todayCount = 0;
     }
     notifyListeners();
+  }
+
+  /// Pregunta al back por qué el chofer no recibe pedidos (`GET
+  /// /orders/available`: `message` con `openLoadRequired`). Si falla se
+  /// conserva el último estado: un corte de red no prende ni apaga el aviso.
+  Future<void> refreshNoOrdersReason() async {
+    // Gana la última pregunta: una respuesta lenta de una anterior no pisa a
+    // la más nueva.
+    final seq = ++_reasonSeq;
+    try {
+      final reason = await _driverApi.noOrdersReason();
+      if (seq != _reasonSeq) return;
+      if (noOrdersReason != reason) {
+        noOrdersReason = reason;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('No se pudo leer si puede recibir pedidos: $e');
+    }
+  }
+
+  /// Sólo consulta con la app en primer plano y el Inicio a la vista.
+  void _startLoadPolling() {
+    _loadTimer?.cancel();
+    _loadTimer = Timer.periodic(loadPollInterval, (_) {
+      if (!_isHomeVisible()) return;
+      unawaited(refreshNoOrdersReason());
+      // Respaldo del socket: en línea pero sin conexión (se cayó o venció el
+      // token), se renuevan las credenciales y se busca si le asignaron algo.
+      if (isOnline && !isConnected) {
+        unawaited(_driverSocketService.ensureConnected());
+        unawaited(resumeActiveOrder());
+      }
+    });
+  }
+
+  void _stopLoadPolling() {
+    _loadTimer?.cancel();
+    _loadTimer = null;
+  }
+
+  /// Toca el aviso: abre Mi carga y al volver relee.
+  Future<void> openMyLoad() async {
+    await _navigationService.navigateToMyLoadView();
+    await refreshNoOrdersReason();
   }
 
   void _startSearching() {
@@ -182,16 +259,25 @@ class HomeViewModel extends StreamViewModel<Position>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _startLoadPolling();
       if (!hasLocationPermission) _resolveLocation(interactive: false);
+      if (_isHomeVisible()) unawaited(refreshNoOrdersReason());
       unawaited(resumeActiveOrder());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _stopLoadPolling();
     }
   }
 
   @override
   void dispose() {
     _searchTimer?.cancel();
+    _loadTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _incomingOrdersSubscription?.cancel();
+    _rejectedSubscription?.cancel();
     _locationService.stopTracking();
     mapController.future.then((controller) => controller.dispose());
     super.dispose();
@@ -475,6 +561,8 @@ class HomeViewModel extends StreamViewModel<Position>
     await _foregroundService.stop();
     _incomingOrdersSubscription?.cancel();
     _incomingOrdersSubscription = null;
+    _rejectedSubscription?.cancel();
+    _rejectedSubscription = null;
     _driverSocketService.disconnect();
   }
 
@@ -507,7 +595,25 @@ class HomeViewModel extends StreamViewModel<Position>
     }
   }
 
+  StreamSubscription<void>? _rejectedSubscription;
+
+  /// El servidor cortó el socket varias veces seguidas apenas conectar: la
+  /// sesión no es válida. Se baja al chofer de línea y se le avisa.
+  Future<void> _onSocketRejected() async {
+    await _rollbackOnline();
+    notifyListeners();
+    await _dialogService.showDialog(
+      title: 'Se cortó tu conexión',
+      description: 'El servidor cerró la conexión varias veces seguidas, así '
+          'que quedaste fuera de línea. Cerrá sesión y volvé a ingresar; si '
+          'sigue pasando, consultá con tu distribuidora.',
+    );
+  }
+
   void _subscribeToIncomingOrders() {
+    _rejectedSubscription?.cancel();
+    _rejectedSubscription =
+        _driverSocketService.rejected.listen((_) => _onSocketRejected());
     _incomingOrdersSubscription?.cancel();
     _incomingOrdersSubscription =
         _driverSocketService.incomingOrders.listen(_showOrderOfferDialog);
@@ -528,6 +634,10 @@ class HomeViewModel extends StreamViewModel<Position>
       debugPrint('Oferta de pedido sin orderId, se ignora: $offer');
       return;
     }
+    // Mientras se busca un pedido para retomar, la oferta espera la decisión:
+    // si no, el diálogo y la pantalla del pedido retomado se pisarían.
+    final deciding = _resumeDecision;
+    if (_resuming && deciding != null) await deciding.future;
     if (_offerOpen || _trips.activeOrderId != null) {
       // Ocupado: se rechaza explícitamente para que el back la pase a otro
       // chofer enseguida, en vez de esperar a que venza.
@@ -566,6 +676,9 @@ class HomeViewModel extends StreamViewModel<Position>
       await rejectOrder(orderId);
     } finally {
       _offerOpen = false;
+      final done = _justFinished;
+      _justFinished = null;
+      if (done != null) _resumeSoon(done);
     }
   }
 
@@ -659,6 +772,9 @@ class HomeViewModel extends StreamViewModel<Position>
     double? lat,
     double? lng,
   }) async {
+    // Si el flujo termina en el cobro y el chofer toca "Más tarde", no se le
+    // reabre solo al volver de segundo plano.
+    _promptedPayments.add(orderId);
     _trips.beginFlow(orderId);
     _stopSearching();
     _driverSocketService.startBroadcasting(orderId, userId, token);
@@ -671,7 +787,30 @@ class HomeViewModel extends StreamViewModel<Position>
     }
     await _navigationService.navigateToDeliveryView(orderId: orderId);
     await _trips.waitFlow();
+    await _afterFlow(orderId);
+  }
 
+  /// Pedido entregado en efectivo y sin cobrar (la app se cerró en medio del
+  /// cobro): se retoma directo en la pantalla de cobro.
+  Future<void> _runPaymentFlow(String orderId) async {
+    // Una sola vez por sesión: si lo deja para después ("Más tarde"), no se
+    // le vuelve a abrir solo.
+    _promptedPayments.add(orderId);
+    _trips.beginFlow(orderId);
+    _stopSearching();
+    await _navigationService.navigateToPaymentView(orderId: orderId);
+    await _trips.waitFlow();
+    await _afterFlow(orderId);
+  }
+
+  /// Pedido que terminó su flujo hace un instante: el reintento de retomar
+  /// lo saltea para no volver a abrir el mismo si quedó sin terminar.
+  String? _justFinished;
+
+  /// Cobros que ya se le abrieron al chofer en esta sesión.
+  final Set<String> _promptedPayments = {};
+
+  Future<void> _afterFlow(String orderId) async {
     await _foregroundService.update(
       title: 'Estás en línea',
       text: 'Recibiendo pedidos cercanos',
@@ -680,37 +819,88 @@ class HomeViewModel extends StreamViewModel<Position>
     if (isOnline) _startSearching();
     notifyListeners();
     await loadToday();
+    // Si el admin le asignó otro pedido mientras tanto, la oferta se rechazó
+    // por estar ocupado: ahora que quedó libre, el pedido asignado aparece.
+    // (Dentro de una oferta lo hace el cierre de `_showOrderOfferDialog`.)
+    if (_offerOpen) {
+      _justFinished = orderId;
+    } else {
+      _resumeSoon(orderId);
+    }
   }
 
+  /// Después de que termine la llamada que está retomando (su bandera
+  /// `_resuming` sigue arriba hasta entonces).
+  void _resumeSoon(String except) => unawaited(Future<void>.delayed(
+      Duration.zero, () => resumeActiveOrder(except: except, collect: false)));
+
   bool _resuming = false;
+
+  /// Se completa cuando `resumeActiveOrder` decidió qué hacer (retomar algo o
+  /// nada), antes de abrir la pantalla.
+  Completer<void>? _resumeDecision;
 
   /// Si el chofer tiene un pedido `accepted` u `on_the_way` (porque mató la app,
   /// se cayó o volvió del background), lo retoma abriendo la pantalla del
   /// pedido. Se llama al abrir, al conectarse y al volver a primer plano.
-  Future<void> resumeActiveOrder() async {
+  ///
+  /// [collect] además retoma el cobro de la jornada: SÓLO el último pedido que
+  /// el chofer entregó hoy en efectivo y sigue sin cobrar (nunca en cadena, ni
+  /// los de días anteriores, que quedan en "Cobros pendientes").
+  Future<void> resumeActiveOrder({String? except, bool collect = true}) async {
     if (_resuming || _offerOpen || _trips.activeOrderId != null) return;
     _resuming = true;
+    final decision = _resumeDecision = Completer<void>();
     try {
       final token = await _driverAuthService.token;
       final userId = _driverAuthService.userId;
       if (token == null || userId == null) return;
       final page = await _driverApi.ordersPage(limit: 20);
       DriverOrder? current;
+      DriverOrder? toCollect;
       for (final o in page.orders) {
+        if (o.id == except) continue;
         if (o.status == DriverOrderStatus.accepted ||
             o.status == DriverOrderStatus.onTheWay) {
           current = o;
           break;
         }
+        if (collect && _isTodaysPendingCollection(o)) {
+          if (toCollect == null || o.date.isAfter(toCollect.date)) {
+            toCollect = o;
+          }
+        }
       }
-      if (current == null) return;
-      debugPrint('Retomando el pedido en curso ${current.id}');
-      await _runOrderFlow(current.id, token: token, userId: userId);
+      if (_offerOpen || _trips.activeOrderId != null) return;
+      if (current != null) {
+        debugPrint('Retomando el pedido en curso ${current.id}');
+        // La oferta que espera se reanuda en un microtask, cuando el flujo ya
+        // marcó el pedido como activo (primera línea de `_runOrderFlow`).
+        decision.complete();
+        await _runOrderFlow(current.id, token: token, userId: userId);
+      } else if (toCollect != null) {
+        debugPrint('Retomando el cobro del pedido ${toCollect.id}');
+        decision.complete();
+        await _runPaymentFlow(toCollect.id);
+      }
     } catch (e) {
       debugPrint('No se pudo buscar un pedido en curso: $e');
     } finally {
       _resuming = false;
+      if (!decision.isCompleted) decision.complete();
     }
+  }
+
+  bool _isTodaysPendingCollection(DriverOrder o) {
+    if (!o.isCashCollectionPending || _promptedPayments.contains(o.id)) {
+      return false;
+    }
+    final d = o.deliveredAt;
+    final today = now();
+    return d != null &&
+        d.year == today.year &&
+        d.month == today.month &&
+        d.day == today.day;
   }
 
   /// Monto del último pedido terminado, para el cartel "¡Ganaste!" del mapa.

@@ -4,6 +4,7 @@ import 'package:splg_lib/splg_lib.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/truck_load.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 
 /// Lecturas del chofer contra el back: perfil, foto, vehículo, historial de
@@ -54,6 +55,25 @@ class DriverApiService {
     final data = res.data;
     if (data is! Map || data.isEmpty) return null;
     return DriverVehicle.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// `GET /truck-loads/mine`: la carga abierta del chofer (o `load` null) y si
+  /// la distribuidora exige carga abierta para recibir pedidos.
+  Future<MyTruckLoad> myTruckLoad() async {
+    final res = await _api.get('truck-loads/mine', await _token());
+    return MyTruckLoad.fromJson(Map<String, dynamic>.from(res.data as Map));
+  }
+
+  /// Por qué el chofer no recibe pedidos por su carga del camión (sin carga con
+  /// el control D5, carga sin salir, ya devuelta, otro vehículo), o null si
+  /// puede. Es el `message` que el back da en `GET /orders/available` cuando
+  /// `openLoadRequired` es true; se pide una sola fila para no traer el pool.
+  Future<String?> noOrdersReason() async {
+    final res = await _api.get('orders/available?limit=1', await _token());
+    final data = res.data;
+    if (data is! Map || data['openLoadRequired'] != true) return null;
+    final m = data['message']?.toString();
+    return (m == null || m.isEmpty) ? null : m;
   }
 
   /// Tamaño de página con el que se recorre todo el historial (máximo del back).

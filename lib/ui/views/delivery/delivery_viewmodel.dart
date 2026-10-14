@@ -1,22 +1,19 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/config/app_config.dart';
+import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/app/app.router.dart';
-import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
-import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
@@ -78,21 +75,21 @@ class DeliveryViewModel extends BaseViewModel {
   }
 
   TripService get _trips => _tripsOverride ?? locator<TripService>();
-  final _apiClient = ApiClient();
   final _navigationService = locator<NavigationService>();
   final _dialogService = locator<DialogService>();
   final _driverSocketService = locator<DriverSocketService>();
-  final _uuid = const Uuid();
-
-  // Lazy: resolver DriverAuthService dispara `FirebaseAuth.instance`.
-  DriverAuthService get _driverAuthService => locator<DriverAuthService>();
   LocationService get _location => locator<LocationService>();
 
   Timer? _pollTimer;
+  bool _pollInFlight = false;
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<Map<String, dynamic>>? _cancelSub;
   bool _disposed = false;
   bool _closing = false;
+
+  /// El back dijo que el pedido ya no es del chofer (410, o 404/403 de un
+  /// pedido que tenía en curso).
+  bool _gone = false;
 
   /// La pantalla del QR está arriba: ella maneja la cancelación y el cobro.
   bool _qrOpen = false;
@@ -383,7 +380,17 @@ class DeliveryViewModel extends BaseViewModel {
   void _startPolling() {
     _stopPolling();
     if (_closing || isDelivered || isLost) return;
-    _pollTimer = Timer.periodic(pollInterval, (_) => _refresh(silent: true));
+    _pollTimer = Timer.periodic(pollInterval, (_) async {
+      // Con la red lenta una lectura puede tardar más que el intervalo: no se
+      // apilan consultas.
+      if (_pollInFlight) return;
+      _pollInFlight = true;
+      try {
+        await _refresh(silent: true);
+      } finally {
+        _pollInFlight = false;
+      }
+    });
   }
 
   void _stopPolling() {
@@ -413,12 +420,16 @@ class DeliveryViewModel extends BaseViewModel {
         _moveCamera(force: true);
       }
     } catch (e) {
-      if (!silent && order == null) loadError = _text(e);
       debugPrint('Error leyendo el pedido $orderId: $e');
+      if (isOrderGone(e, known: order != null)) {
+        _gone = true;
+      } else if (!silent && order == null) {
+        loadError = _text(e);
+      }
     }
     if (_disposed) return;
     notifyListeners();
-    if (order != null && isLost) {
+    if (_gone || (order != null && isLost)) {
       await _onLost();
     } else if (isDelivered) {
       await _onDelivered();
@@ -432,7 +443,7 @@ class DeliveryViewModel extends BaseViewModel {
     _closing = true;
     _stopPolling();
     _driverSocketService.stopTracking();
-    final cancelled = status == DriverOrderStatus.cancelled;
+    final cancelled = !_gone && status == DriverOrderStatus.cancelled;
     await _dialogService.showDialog(
       title: cancelled ? 'Pedido cancelado' : 'Pedido liberado',
       description: cancelled
@@ -453,9 +464,8 @@ class DeliveryViewModel extends BaseViewModel {
     await _navigationService.replaceWithPaymentView(orderId: orderId);
   }
 
-  String _text(Object e) => e is DioException
-      ? ApiErrorText.of(e.response?.statusCode, e.response?.data)
-      : 'No pudimos completar la acción. Probá de nuevo.';
+  String _text(Object e) => actionErrorText(e,
+      fallback: 'No pudimos completar la acción. Probá de nuevo.');
 
   /// "Salir hacia el cliente": `PATCH status on_the_way`.
   Future<void> markOnTheWay() async {
@@ -567,29 +577,18 @@ class DeliveryViewModel extends BaseViewModel {
   }) async {
     if (_reportingIncident) return false;
 
-    final token = await _driverAuthService.token;
-    if (token == null) {
-      errorMessage = 'No se pudo reportar: falta la sesión.';
-      notifyListeners();
-      return false;
-    }
-
     _reportingIncident = true;
     errorMessage = null;
     notifyListeners();
 
     var ok = false;
     try {
-      final response = await _apiClient.post(
-        'incidents',
-        {'orderId': orderId, 'type': type, 'description': description},
-        token,
-        {'Idempotency-Key': _uuid.v4()},
-      );
+      final response = await _trips.reportIncident(orderId, type, description);
       ok = response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       debugPrint('Error reportando incidencia del pedido $orderId: $e');
       errorMessage = _text(e);
+      if (isIdempotencyConflict(e)) await _refresh(silent: true);
     }
 
     _reportingIncident = false;
@@ -605,25 +604,13 @@ class DeliveryViewModel extends BaseViewModel {
   Future<bool> assignCylinders(List<String> serials) async {
     if (_assigningCylinders || serials.isEmpty) return false;
 
-    final token = await _driverAuthService.token;
-    if (token == null) {
-      cylinderError = 'Falta la sesión para despachar los envases.';
-      notifyListeners();
-      return false;
-    }
-
     _assigningCylinders = true;
     cylinderError = null;
     notifyListeners();
 
     var ok = false;
     try {
-      final response = await _apiClient.post(
-        'cylinders/assign',
-        {'orderId': orderId, 'serials': serials},
-        token,
-        {'Idempotency-Key': _uuid.v4()},
-      );
+      final response = await _trips.assignCylinders(orderId, serials);
       ok = response.statusCode == 200 || response.statusCode == 201;
       if (ok) {
         _assignedCylinders += serials.length;
@@ -640,6 +627,7 @@ class DeliveryViewModel extends BaseViewModel {
     } catch (e) {
       debugPrint('Error asignando envases del pedido $orderId: $e');
       cylinderError = _text(e);
+      if (isIdempotencyConflict(e)) await _refresh(silent: true);
     }
 
     _assigningCylinders = false;

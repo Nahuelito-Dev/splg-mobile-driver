@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:math' show Random, min, pow;
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:stacked/stacked.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/config/app_config.dart';
+import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 
 /// Namespace de Socket.IO donde el backend expone el gateway de choferes.
@@ -26,9 +29,76 @@ final String _kDriversNamespace = AppConfig.driversNamespace;
 /// locator<DriverSocketService>().stopBroadcasting();
 /// ```
 class DriverSocketService with ListenableServiceMixin {
-  DriverSocketService() {
+  DriverSocketService({
+    Future<String?> Function()? tokenProvider,
+    @visibleForTesting
+    io.Socket Function(String uri, Map<String, dynamic> opts)? socketFactory,
+    @visibleForTesting DateTime Function()? now,
+    @visibleForTesting Random? random,
+  })  : _tokenProvider = tokenProvider,
+        _socketFactory = socketFactory,
+        _now = now ?? DateTime.now,
+        _random = random ?? Random() {
     listenToReactiveValues([_isConnected]);
   }
+
+  /// Token de Firebase vigente. El del handshake vence a la hora: cada vez que
+  /// hay que volver a conectar se pide uno nuevo en vez de reusar el primero.
+  final Future<String?> Function()? _tokenProvider;
+  final io.Socket Function(String uri, Map<String, dynamic> opts)?
+      _socketFactory;
+  bool _refreshing = false;
+
+  final DateTime Function() _now;
+  final Random _random;
+
+  /// Reintentos tras un corte: espera exponencial con tope y jitter. Sin esto
+  /// un servidor que corta siempre (chofer bloqueado, sin usuario, base caída)
+  /// recibía miles de conexiones por segundo.
+  static const Duration reconnectBase = Duration(seconds: 1);
+  static const Duration reconnectMax = Duration(seconds: 60);
+
+  /// Una conexión que dura menos que esto cuenta como un rechazo.
+  static const Duration stableAfter = Duration(seconds: 10);
+
+  /// Cortes seguidos del servidor, sin llegar a estabilizarse, tras los cuales
+  /// se deja de insistir y se avisa por [rejected].
+  static const int maxServerCuts = 6;
+
+  int _attempts = 0;
+  int _serverCuts = 0;
+  DateTime? _connectedAt;
+  Timer? _retryTimer;
+  bool _gaveUp = false;
+
+  final _rejectedController = StreamController<void>.broadcast();
+
+  /// El servidor cortó varias veces seguidas apenas conectar (la sesión no es
+  /// válida: cuenta inhabilitada, sin usuario…): se dejó de reconectar y la app
+  /// tiene que avisar y pedir iniciar sesión de nuevo.
+  Stream<void> get rejected => _rejectedController.stream;
+
+  /// Espera antes del intento [attempt] (0 = el primero): 1 s, 2 s, 4 s… hasta
+  /// [reconnectMax], con jitter de 50 % a 100 %.
+  @visibleForTesting
+  Duration backoff(int attempt) {
+    final exp = reconnectBase.inMilliseconds * pow(2, attempt.clamp(0, 20));
+    final capped = min(exp.toDouble(), reconnectMax.inMilliseconds.toDouble());
+    return Duration(
+        milliseconds: (capped * (0.5 + _random.nextDouble() / 2)).round());
+  }
+
+  void _scheduleReconnect() {
+    if (_gaveUp || _retryTimer?.isActive == true || _socket == null) return;
+    final wait = backoff(_attempts++);
+    _retryTimer = Timer(wait, () {
+      _retryTimer = null;
+      unawaited(ensureConnected());
+    });
+  }
+
+  Future<String?> _freshToken() =>
+      (_tokenProvider ?? () => locator<DriverAuthService>().token)();
 
   final _locationService = locator<LocationService>();
 
@@ -81,16 +151,15 @@ class DriverSocketService with ListenableServiceMixin {
 
     log('Conectando a $_kDriversNamespace', name: 'DriverSocketService');
 
-    final socket = io.io(
-      _kDriversNamespace,
-      io.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': token})
-          .setExtraHeaders({'Authorization': 'Bearer $token'})
-          .enableReconnection()
-          .enableForceNew()
-          .build(),
-    );
+    final options = io.OptionBuilder()
+        .setTransports(['websocket'])
+        .setAuth({'token': token})
+        .setExtraHeaders({'Authorization': 'Bearer $token'})
+        .enableReconnection()
+        .enableForceNew()
+        .build();
+    final socket = _socketFactory?.call(_kDriversNamespace, options) ??
+        io.io(_kDriversNamespace, options);
     _socket = socket;
 
     // Se registra una sola vez por conexión; sobrevive a reconexiones
@@ -112,19 +181,42 @@ class DriverSocketService with ListenableServiceMixin {
     });
 
     socket.onConnect((_) {
+      _connectedAt = _now();
       _isConnected.value = true;
       log('Conectado (driverId=$driverId), emitiendo driver:join',
           name: 'DriverSocketService');
       socket.emit('driver:join', {'driverId': driverId});
     });
 
-    socket.onDisconnect((_) {
+    socket.onDisconnect((reason) {
       _isConnected.value = false;
-      log('Desconectado', name: 'DriverSocketService');
+      log('Desconectado ($reason)', name: 'DriverSocketService');
+      final since = _connectedAt;
+      _connectedAt = null;
+      if (since != null && _now().difference(since) >= stableAfter) {
+        _attempts = 0;
+        _serverCuts = 0;
+      }
+      // Si lo cortó el servidor el cliente no reintenta solo: se reintenta con
+      // espera creciente y token nuevo; con varios cortes seguidos se renuncia.
+      // (Los demás cortes los reintenta el propio cliente.)
+      if (reason == 'io server disconnect') {
+        if (++_serverCuts >= maxServerCuts) {
+          _gaveUp = true;
+          _retryTimer?.cancel();
+          _retryTimer = null;
+          _rejectedController.add(null);
+        } else {
+          _scheduleReconnect();
+        }
+      }
     });
 
     socket.onConnectError((error) {
       log('Error de conexión: $error', name: 'DriverSocketService');
+      // Típico con el token vencido: se renuevan las credenciales y se
+      // reintenta con espera creciente.
+      _scheduleReconnect();
     });
 
     socket.onError((error) {
@@ -137,6 +229,39 @@ class DriverSocketService with ListenableServiceMixin {
     });
 
     socket.connect();
+  }
+
+  /// Pone en el socket el token de Firebase actual, tanto en el `auth` del
+  /// handshake como en el header `Authorization` (el gateway valida ambos).
+  @visibleForTesting
+  Future<void> applyFreshToken(io.Socket socket) async {
+    final token = await _freshToken();
+    if (token == null) return;
+    socket.auth = {'token': token};
+    socket.io.options?['extraHeaders'] = {'Authorization': 'Bearer $token'};
+  }
+
+  /// Si el socket existe y está caído: renueva el token y vuelve a conectar.
+  /// Lo usan los errores de conexión y el sondeo del Inicio como respaldo.
+  Future<void> ensureConnected() async {
+    final socket = _socket;
+    if (socket == null ||
+        _isConnected.value ||
+        _refreshing ||
+        _gaveUp ||
+        _retryTimer?.isActive == true) {
+      return;
+    }
+    _refreshing = true;
+    try {
+      await applyFreshToken(socket);
+      if (identical(socket, _socket) && !_isConnected.value) socket.connect();
+    } catch (e) {
+      log('No se pudo renovar el token del socket: $e',
+          name: 'DriverSocketService');
+    } finally {
+      _refreshing = false;
+    }
   }
 
   /// Emite la posición actual del chofer al backend (`driver:update-location`).
@@ -226,6 +351,12 @@ class DriverSocketService with ListenableServiceMixin {
 
   /// Cierra la conexión de socket y limpia todos sus listeners.
   void disconnect() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _attempts = 0;
+    _serverCuts = 0;
+    _gaveUp = false;
+    _connectedAt = null;
     _socket?.dispose();
     _socket = null;
     _isConnected.value = false;
@@ -237,5 +368,6 @@ class DriverSocketService with ListenableServiceMixin {
     disconnect();
     _incomingOrdersController.close();
     _cancelledController.close();
+    _rejectedController.close();
   }
 }

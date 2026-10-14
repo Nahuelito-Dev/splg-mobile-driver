@@ -96,6 +96,10 @@ class DriverOrder {
     required this.createdAt,
     this.deliveredAt,
     this.paymentMethod,
+    this.paymentStatus,
+    this.depositAmount = 0,
+    this.depositPaid = false,
+    this.remainingBalance,
     this.address,
     this.customerName,
     this.cancellationReason,
@@ -108,13 +112,33 @@ class DriverOrder {
   final DateTime createdAt;
   final DateTime? deliveredAt;
   final String? paymentMethod;
+
+  /// `pending`, `paid`, `unpaid`… (`paymentStatus` del back).
+  final String? paymentStatus;
+
+  /// Seña de la reserva y saldo a cobrar al entregar (total - seña paga).
+  final num depositAmount;
+  final bool depositPaid;
+  final num? remainingBalance;
   final String? address;
   final String? customerName;
   final String? cancellationReason;
   final List<OrderLine> lines;
 
+  /// Lo que se cobró (o se cobra) en la entrega: el saldo si la seña ya estaba
+  /// paga, si no el total. Es la única cifra de "monto" que usa la app, igual
+  /// que la pantalla de cobro.
+  num get amountToCollect => depositPaid ? (remainingBalance ?? total) : total;
+
   /// Fecha que se muestra: la entrega si ya se hizo, si no la del pedido.
   DateTime get date => deliveredAt ?? createdAt;
+
+  /// Entregado en efectivo y todavía sin cobrar ni informar como impago: al
+  /// chofer le falta pasar por la pantalla de cobro.
+  bool get isCashCollectionPending =>
+      status == DriverOrderStatus.delivered &&
+      paymentMethod == 'cash' &&
+      paymentStatus == 'pending';
 
   factory DriverOrder.fromJson(Map<String, dynamic> json) {
     final address = json['delivery_address'];
@@ -129,6 +153,12 @@ class DriverOrder {
       deliveredAt: DateTime.tryParse(_str(json['actual_delivery_date']) ?? '')
           ?.toLocal(),
       paymentMethod: _str(json['payment_method']),
+      paymentStatus: _str(json['paymentStatus']),
+      depositAmount: _num(json['depositAmount']),
+      depositPaid: json['depositPaid'] == true,
+      remainingBalance: json['remainingBalance'] == null
+          ? null
+          : _num(json['remainingBalance']),
       address: address is Map
           ? (_str(address['formatted_address']) ?? _str(address['street']))
           : null,
@@ -216,27 +246,30 @@ class EarningsSummary {
     var todayCount = 0, weekCount = 0, totalCount = 0;
     var yesterdayAmount = 0.0, monthAmount = 0.0;
     var yesterdayCount = 0, monthCount = 0;
-    for (final o
-        in orders.where((o) => o.status == DriverOrderStatus.delivered)) {
+    // Lo informado impago (o dado de baja) no es ganado.
+    for (final o in orders.where((o) =>
+        o.status == DriverOrderStatus.delivered &&
+        o.paymentStatus != 'unpaid' &&
+        o.paymentStatus != 'written_off')) {
       final d = DateTime(o.date.year, o.date.month, o.date.day);
       final daysAgo = today.difference(d).inDays;
-      totalAmount += o.total;
+      totalAmount += o.amountToCollect;
       totalCount++;
       if (daysAgo >= 0 && daysAgo < 7) {
-        weekAmount += o.total;
+        weekAmount += o.amountToCollect;
         weekCount++;
-        perDay[6 - daysAgo] += o.total;
+        perDay[6 - daysAgo] += o.amountToCollect;
       }
       if (daysAgo == 0) {
-        todayAmount += o.total;
+        todayAmount += o.amountToCollect;
         todayCount++;
       }
       if (daysAgo == 1) {
-        yesterdayAmount += o.total;
+        yesterdayAmount += o.amountToCollect;
         yesterdayCount++;
       }
       if (d.year == today.year && d.month == today.month && daysAgo >= 0) {
-        monthAmount += o.total;
+        monthAmount += o.amountToCollect;
         monthCount++;
       }
     }

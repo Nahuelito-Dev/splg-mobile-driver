@@ -19,7 +19,6 @@ import '../services/driver_socket_service.dart';
 import '../services/fcm_service.dart';
 import '../services/foreground_service.dart';
 import '../services/location_service.dart';
-import '../services/order_service.dart';
 import '../services/payment_repository.dart';
 import '../services/trip_service.dart';
 
@@ -37,7 +36,6 @@ Future<void> setupLocator({
   locator.registerLazySingleton(() => BottomSheetService());
   locator.registerLazySingleton(() => DialogService());
   locator.registerLazySingleton(() => NavigationService());
-  locator.registerLazySingleton(() => OrderService());
   locator.registerLazySingleton(() => LocationService());
   locator.registerLazySingleton(() => DriverSocketService());
   locator.registerLazySingleton(() => DriverAuthService());

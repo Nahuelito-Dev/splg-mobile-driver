@@ -85,8 +85,9 @@ class EarningsView extends StackedView<EarningsViewModel> {
               row('Monto total entregado', formatMoney(s.total)),
               const SizedBox(height: 10),
               Text(
-                'Son los montos de los pedidos entregados, de todo tu '
-                'historial. No incluyen descuentos ni comisiones.',
+                'Son los montos cobrados de los pedidos entregados, de todo tu '
+                'historial: si había seña paga, cuenta el saldo. No incluyen '
+                'descuentos ni comisiones.',
                 style: type.caption,
               ),
             ],

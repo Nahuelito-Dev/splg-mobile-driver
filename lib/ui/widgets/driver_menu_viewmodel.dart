@@ -11,6 +11,9 @@ class DriverMenuViewModel extends BaseViewModel {
 
   Future<void> openProfile() => _nav.navigateToProfileView();
   Future<void> openDeliveries() => _nav.navigateToDeliveriesView();
+  Future<void> openPendingCollections() =>
+      _nav.navigateToPendingCollectionsView();
+  Future<void> openMyLoad() => _nav.navigateToMyLoadView();
   Future<void> openEarnings() => _nav.navigateToEarningsView();
   Future<void> openRating() => _nav.navigateToRatingView();
   Future<void> openNotifications() => _nav.navigateToNotificationsView();

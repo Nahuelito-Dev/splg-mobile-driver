@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
@@ -16,7 +17,9 @@ import 'package:splg_driver/services/driver_auth_service.dart';
 ///
 /// Los PATCH/POST idempotentes reusan la misma `Idempotency-Key` mientras el
 /// intento siga sin respuesta del back (red caída): un reintento no duplica la
-/// acción. Con una respuesta (éxito o rechazo) la clave se descarta.
+/// acción. Con una respuesta definitiva (éxito o rechazo de negocio) la clave se
+/// descarta; ante 5xx, 429, el 409 "en curso" y el 422 de clave ya usada se
+/// conserva (el primer envío pudo haber llegado).
 class TripService {
   TripService({ApiClient? api, DriverAuthService? auth, Uuid? uuid})
       : _api = api ?? ApiClient(),
@@ -88,7 +91,7 @@ class TripService {
       _keys.remove(action);
       return r;
     } on DioException catch (e) {
-      if (e.response != null) _keys.remove(action);
+      if (!keepIdempotencyKey(e)) _keys.remove(action);
       rethrow;
     }
   }
@@ -146,6 +149,39 @@ class TripService {
       throw StateError('El pedido no tiene código de entrega todavía.');
     }
     return code;
+  }
+
+  /// `POST /incidents`: reporta una incidencia de la entrega. La clave es una
+  /// por intención (acción + pedido + tipo): un reintento sin respuesta la
+  /// reusa.
+  Future<Response> reportIncident(
+      String orderId, String type, String description) {
+    final action = 'incident:$orderId:$type';
+    return _once(action, () async {
+      return _api.post(
+        'incidents',
+        {'orderId': orderId, 'type': type, 'description': description},
+        await _token(),
+        _idem(action),
+      );
+    });
+  }
+
+  /// `POST /cylinders/assign`: asigna y despacha envases (por serial) a un
+  /// pedido. Misma regla de clave que [reportIncident], con los envases como
+  /// parte de la intención.
+  Future<Response> assignCylinders(String orderId, List<String> serials) {
+    // Mismo orden en la clave y en el cuerpo: el hash del back respeta el orden.
+    final sorted = [...serials]..sort();
+    final action = 'cylinders:$orderId:${sorted.join(',')}';
+    return _once(action, () async {
+      return _api.post(
+        'cylinders/assign',
+        {'orderId': orderId, 'serials': sorted},
+        await _token(),
+        _idem(action),
+      );
+    });
   }
 
   /// `POST /ratings` (chofer califica al cliente).

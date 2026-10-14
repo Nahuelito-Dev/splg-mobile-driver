@@ -5,7 +5,6 @@ import 'package:splg_driver/ui/views/startup/startup_view.dart';
 import 'package:stacked/stacked_annotations.dart';
 import 'package:stacked_services/stacked_services.dart';
 import 'package:splg_driver/ui/views/login/login_view.dart';
-import 'package:splg_driver/services/order_service.dart';
 import 'package:splg_driver/ui/views/directions/directions_view.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_view.dart';
 import 'package:splg_driver/ui/bottom_sheets/order_info/order_info_sheet.dart';
@@ -35,6 +34,8 @@ import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_view.dart';
 import 'package:splg_driver/ui/views/payment/payment_view.dart';
 import 'package:splg_driver/ui/views/completed/completed_view.dart';
+import 'package:splg_driver/ui/views/my_load/my_load_view.dart';
+import 'package:splg_driver/ui/views/pending_collections/pending_collections_view.dart';
 // @stacked-import
 
 @StackedApp(
@@ -61,13 +62,14 @@ import 'package:splg_driver/ui/views/completed/completed_view.dart';
     MaterialRoute(page: DeliveryQrView),
     MaterialRoute(page: PaymentView),
     MaterialRoute(page: CompletedView),
+    MaterialRoute(page: MyLoadView),
+    MaterialRoute(page: PendingCollectionsView),
 // @stacked-route
   ],
   dependencies: [
     LazySingleton(classType: BottomSheetService),
     LazySingleton(classType: DialogService),
     LazySingleton(classType: NavigationService),
-    LazySingleton(classType: OrderService),
     LazySingleton(classType: LocationService),
     LazySingleton(classType: DriverSocketService),
     LazySingleton(classType: DriverAuthService),

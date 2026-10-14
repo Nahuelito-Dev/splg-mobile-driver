@@ -90,7 +90,7 @@ class CompletedViewModel extends BaseViewModel {
   void finish() {
     // "¡Ganaste!" cuenta sólo lo efectivamente cobrado.
     final collected = paid || (order?.isPaid ?? false);
-    _trips.endFlow(earned: collected ? order?.total : null);
+    _trips.endFlow(earned: collected ? order?.amountToCollect : null);
     _goHome();
   }
 }

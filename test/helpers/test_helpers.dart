@@ -16,6 +16,8 @@ import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/models/truck_load.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/services/payment_repository.dart';
+import 'package:splg_driver/services/driver_ops_repository.dart';
+import 'package:splg_driver/models/driver_ops.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';
@@ -37,6 +39,7 @@ import 'test_helpers.mocks.dart';
     MockSpec<DriverApiService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<TripService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<PaymentRepository>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<DriverOpsRepository>(onMissingStub: OnMissingStub.returnDefault),
 // @stacked-mock-spec
   ],
 )
@@ -45,6 +48,22 @@ void registerServices() {
   provideDummy<PermissionOutcome>(PermissionOutcome.granted);
   provideDummy<TripOrder>(
       const TripOrder(id: 'x', status: DriverOrderStatus.pending, total: 0));
+  provideDummy<Workday>(
+      Workday(id: 'w', workDate: '2026-10-18', checkInAt: DateTime(2026)));
+  provideDummy<Settlement>(const Settlement(
+      id: 's',
+      number: 1,
+      businessDate: '2026-10-18',
+      status: SettlementStatus.open,
+      expectedCash: 0));
+  provideDummy<MyCommissions>(const MyCommissions());
+  provideDummy<FuelLoadRecord>(const FuelLoadRecord(
+      carPatent: null,
+      liters: 0,
+      totalAmount: 0,
+      odometerKm: 0,
+      anomaly: false));
+  provideDummy<AccidentRecord>(const AccidentRecord(vehicleUnusable: false));
   provideDummy<MyTruckLoad>(const MyTruckLoad());
   provideDummy<OrdersPage>(const OrdersPage(orders: [], total: 0, offset: 0));
   getAndRegisterNavigationService();
@@ -59,7 +78,15 @@ void registerServices() {
   getAndRegisterDriverApiService();
   getAndRegisterTripService();
   getAndRegisterPaymentRepository();
+  getAndRegisterDriverOpsRepository();
 // @stacked-mock-register
+}
+
+MockDriverOpsRepository getAndRegisterDriverOpsRepository() {
+  _removeRegistrationIfExists<DriverOpsRepository>();
+  final service = MockDriverOpsRepository();
+  locator.registerSingleton<DriverOpsRepository>(service);
+  return service;
 }
 
 MockPaymentRepository getAndRegisterPaymentRepository() {

@@ -316,7 +316,7 @@ void main() {
 
   group('Menú lateral', () {
     Future<void> openDrawer(WidgetTester t, VoidCallback onLogout) async {
-      await t.binding.setSurfaceSize(const Size(400, 900));
+      await t.binding.setSurfaceSize(const Size(400, 1200));
       addTearDown(() => t.binding.setSurfaceSize(null));
       await t.pumpWidget(MaterialApp(
         theme: AppTheme.lightTheme,
@@ -335,6 +335,11 @@ void main() {
       for (final label in [
         'Mi perfil',
         'Mis entregas',
+        'Mi jornada',
+        'Mi rendición',
+        'Mis comisiones',
+        'Cargar combustible',
+        'Reportar siniestro',
         'Estadísticas',
         'Tu calificación',
         'Ayuda',
@@ -349,6 +354,20 @@ void main() {
 
     for (final (label, check)
         in <(String, void Function(MockNavigationService))>[
+      ('Mi jornada', (n) => verify(n.navigateToWorkdayView()).called(1)),
+      ('Mi rendición', (n) => verify(n.navigateToSettlementView()).called(1)),
+      (
+        'Mis comisiones',
+        (n) => verify(n.navigateToCommissionsView()).called(1)
+      ),
+      (
+        'Cargar combustible',
+        (n) => verify(n.navigateToFuelLoadView()).called(1)
+      ),
+      (
+        'Reportar siniestro',
+        (n) => verify(n.navigateToAccidentView()).called(1)
+      ),
       ('Estadísticas', (n) => verify(n.navigateToEarningsView()).called(1)),
       ('Tu calificación', (n) => verify(n.navigateToRatingView()).called(1)),
       ('Ayuda', (n) => verify(n.navigateToHelpView()).called(1)),

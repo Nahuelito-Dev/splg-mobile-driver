@@ -14,6 +14,7 @@ import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/app_permissions.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
+import 'package:splg_driver/services/driver_ops_repository.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/foreground_service.dart';
@@ -170,6 +171,7 @@ class HomeViewModel extends StreamViewModel<Position>
     _startLoadPolling();
     await _resolveLocation(interactive: true);
     await loadToday();
+    unawaited(loadWorkday());
     await refreshNoOrdersReason();
     unawaited(resumeActiveOrder());
   }
@@ -229,6 +231,32 @@ class HomeViewModel extends StreamViewModel<Position>
   void _stopLoadPolling() {
     _loadTimer?.cancel();
     _loadTimer = null;
+  }
+
+  /// Jornada marcada en esta sesión: `Jornada · 08:12` si está abierta; si no,
+  /// sólo `Jornada` (el back no permite leer la jornada, sólo marcarla).
+  String get workdayLabel {
+    final w = locator<DriverOpsRepository>().workday;
+    if (w == null || !w.isOpen) return 'Jornada';
+    return w.isFromPastDay(now())
+        ? 'Jornada sin cerrar'
+        : 'Jornada · ${formatTime(w.checkInAt)}';
+  }
+
+  /// Lee la jornada abierta del back para el botón del Inicio; si falla, el
+  /// botón queda sin hora.
+  Future<void> loadWorkday() async {
+    try {
+      await locator<DriverOpsRepository>().currentWorkday();
+    } catch (e) {
+      debugPrint('No se pudo leer la jornada: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> openWorkday() async {
+    await _navigationService.navigateToWorkdayView();
+    notifyListeners();
   }
 
   /// Toca el aviso: abre Mi carga y al volver relee.

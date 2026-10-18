@@ -95,6 +95,23 @@ class DriverMenuDrawer extends StackedView<DriverMenuViewModel> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Column(
                     children: [
+                      item('Mi jornada', SplgIcons.clock, model.openWorkday),
+                      item('Mi rendición', SplgIcons.invoice,
+                          model.openSettlement),
+                      item('Mis comisiones', SplgIcons.cash,
+                          model.openCommissions),
+                      item('Cargar combustible', SplgIcons.flame,
+                          model.openFuelLoad),
+                      item('Reportar siniestro', SplgIcons.error,
+                          model.openAccident),
+                    ],
+                  ),
+                ),
+                line(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    children: [
                       item('Estadísticas', SplgIcons.chart, model.openEarnings),
                       item('Tu calificación', SplgIcons.star, model.openRating),
                     ],

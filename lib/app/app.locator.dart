@@ -15,6 +15,7 @@ import 'package:stacked_shared/stacked_shared.dart';
 import '../services/app_permissions.dart';
 import '../services/driver_api_service.dart';
 import '../services/driver_auth_service.dart';
+import '../services/driver_ops_repository.dart';
 import '../services/driver_socket_service.dart';
 import '../services/fcm_service.dart';
 import '../services/foreground_service.dart';
@@ -46,4 +47,6 @@ Future<void> setupLocator({
   locator.registerLazySingleton(() => TripService());
   locator
       .registerLazySingleton<PaymentRepository>(() => HttpPaymentRepository());
+  locator.registerLazySingleton<DriverOpsRepository>(
+      () => HttpDriverOpsRepository());
 }

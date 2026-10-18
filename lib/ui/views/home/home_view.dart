@@ -101,6 +101,13 @@ class HomeView extends StackedView<HomeViewModel> {
                             onPressed: () => _showStatus(ctx, viewModel),
                           ),
                         ),
+                        SplgFloatingButton(
+                          key: const Key('home-workday'),
+                          tooltip: 'Mi jornada',
+                          label: viewModel.workdayLabel,
+                          icon: SplgIcons.clock,
+                          onPressed: viewModel.openWorkday,
+                        ),
                       ],
                     ),
                     const Spacer(),

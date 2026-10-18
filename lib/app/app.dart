@@ -36,6 +36,12 @@ import 'package:splg_driver/ui/views/payment/payment_view.dart';
 import 'package:splg_driver/ui/views/completed/completed_view.dart';
 import 'package:splg_driver/ui/views/my_load/my_load_view.dart';
 import 'package:splg_driver/ui/views/pending_collections/pending_collections_view.dart';
+import 'package:splg_driver/ui/views/workday/workday_view.dart';
+import 'package:splg_driver/ui/views/settlement/settlement_view.dart';
+import 'package:splg_driver/ui/views/commissions/commissions_view.dart';
+import 'package:splg_driver/ui/views/fuel_load/fuel_load_view.dart';
+import 'package:splg_driver/ui/views/accident/accident_view.dart';
+import 'package:splg_driver/services/driver_ops_repository.dart';
 // @stacked-import
 
 @StackedApp(
@@ -64,6 +70,11 @@ import 'package:splg_driver/ui/views/pending_collections/pending_collections_vie
     MaterialRoute(page: CompletedView),
     MaterialRoute(page: MyLoadView),
     MaterialRoute(page: PendingCollectionsView),
+    MaterialRoute(page: WorkdayView),
+    MaterialRoute(page: SettlementView),
+    MaterialRoute(page: CommissionsView),
+    MaterialRoute(page: FuelLoadView),
+    MaterialRoute(page: AccidentView),
 // @stacked-route
   ],
   dependencies: [
@@ -79,6 +90,8 @@ import 'package:splg_driver/ui/views/pending_collections/pending_collections_vie
     LazySingleton(classType: DriverApiService),
     LazySingleton(classType: TripService),
     LazySingleton(classType: HttpPaymentRepository, asType: PaymentRepository),
+    LazySingleton(
+        classType: HttpDriverOpsRepository, asType: DriverOpsRepository),
 // @stacked-service
   ],
   bottomsheets: [

@@ -94,16 +94,19 @@ class InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = SplgType.of(context);
-    final style = strong ? type.subtitle : type.bodyStrong;
+    final labelStyle = strong ? type.subtitle : type.body;
+    final valueStyle = strong
+        ? type.subtitle
+        : type.body.copyWith(fontWeight: FontWeight.w700);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label, style: style)),
+          Expanded(child: Text(label, style: labelStyle)),
           const SizedBox(width: 12),
-          Text(value, style: style),
+          Text(value, style: valueStyle),
         ],
       ),
     );

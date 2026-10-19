@@ -28,6 +28,7 @@ class PendingCollectionsView extends StackedView<PendingCollectionsViewModel> {
       builder: (context) {
         if (model.orders.isEmpty) {
           return const SplgEmptyState(
+            illustration: SplgIllustration.success,
             title: 'Todo cobrado',
             message: 'No tenés entregas en efectivo con el cobro pendiente.',
           );

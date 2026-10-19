@@ -47,7 +47,9 @@ class SettlementView extends StackedView<SettlementViewModel> {
               InfoRow('Pedidos en efectivo', '${s.orders.length}'),
               for (final o in s.orders)
                 InfoRow(
-                    '  ${o.deliveredAt == null ? '' : formatTime(o.deliveredAt!)}',
+                    o.deliveredAt == null
+                        ? 'Pedido ${_short(o.orderId)}'
+                        : formatDateTime(o.deliveredAt!),
                     formatMoney(o.amountToCollect)),
               if (s.collections.isNotEmpty) ...[
                 const SizedBox(height: 6),
@@ -63,6 +65,8 @@ class SettlementView extends StackedView<SettlementViewModel> {
       },
     );
   }
+
+  static String _short(String id) => id.length > 8 ? id.substring(0, 8) : id;
 
   List<Widget> _result(Settlement s) => [
         InfoRow('Efectivo entregado',
@@ -168,6 +172,7 @@ class _ExpenseCard extends StatelessWidget {
           DropdownButtonFormField<String>(
             key: const Key('expense-category'),
             initialValue: draft.categoryId,
+            decoration: SplgTextField.decoration(context),
             hint: const Text('Categoría'),
             items: [
               for (final c in model.categories)

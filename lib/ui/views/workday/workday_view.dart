@@ -35,7 +35,7 @@ class WorkdayView extends StackedView<WorkdayViewModel> {
                 child: SplgEmptyState(
                   illustration: model.closedToday != null && !model.isOpen
                       ? SplgIllustration.success
-                      : SplgIllustration.emptyList,
+                      : SplgIllustration.calendar,
                   title: title,
                   message: message,
                 ),

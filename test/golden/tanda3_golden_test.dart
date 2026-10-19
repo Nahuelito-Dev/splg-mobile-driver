@@ -178,7 +178,7 @@ void main() {
       expect(find.text('Pedido aceptado'), findsOneWidget);
       expect(find.text('Salir hacia el cliente'), findsWidgets);
       expect(find.text('Llegué / Entregar'), findsNothing);
-      expect(find.text('Llamar al cliente'), findsOneWidget);
+      expect(find.text('Llamar'), findsOneWidget);
       expect(find.text('Navegar'), findsOneWidget);
       await check(t, 'delivery_accepted');
       await leave(t);
@@ -193,6 +193,19 @@ void main() {
       expect(find.text('Llegué / Entregar'), findsOneWidget);
       expect(find.byKey(const Key('trip-leave')), findsNothing);
       await check(t, 'delivery_on_the_way');
+      await leave(t);
+    });
+
+    testWidgets('con el pedido en curso el menú está a mano y abre', (t) async {
+      await pump(t, const DeliveryView(orderId: 'o1'));
+      expect(find.byKey(const Key('trip-menu')), findsOneWidget);
+      await t.tap(find.byKey(const Key('trip-menu')));
+      await t.pumpAndSettle();
+      expect(find.text('Mi jornada'), findsOneWidget);
+      expect(find.text('Mi rendición'), findsOneWidget);
+      expect(find.text('Cargar combustible'), findsOneWidget);
+      expect(find.text('Reportar siniestro'), findsOneWidget);
+      expect(find.text('Cerrar sesión'), findsNothing);
       await leave(t);
     });
 

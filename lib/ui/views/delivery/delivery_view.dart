@@ -6,6 +6,7 @@ import 'package:stacked/stacked.dart';
 
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
+import 'package:splg_driver/ui/widgets/driver_menu_drawer.dart';
 import 'package:splg_driver/ui/dialogs/order_offer/order_offer_dialog.dart'
     show paymentLabel;
 
@@ -34,6 +35,7 @@ class DeliveryView extends StackedView<DeliveryViewModel> {
     return PopScope(
       canPop: false,
       child: Scaffold(
+        drawer: model.order == null ? null : const DriverMenuDrawer(),
         body: model.isBusy
             ? const Center(child: CircularProgressIndicator())
             : model.order == null
@@ -140,7 +142,21 @@ class _Trip extends StatelessWidget {
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: _AddressCard(model: model, order: order),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Builder(
+                  builder: (ctx) => SplgFloatingButton(
+                    key: const Key('trip-menu'),
+                    tooltip: 'Menú',
+                    icon: SplgIcons.menu,
+                    onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(child: _AddressCard(model: model, order: order)),
+              ],
+            ),
           ),
         ),
         Positioned(
@@ -292,7 +308,7 @@ class _TripSheet extends StatelessWidget {
               Expanded(
                 child: SplgButton(
                   key: const Key('trip-call'),
-                  title: 'Llamar al cliente',
+                  title: 'Llamar',
                   style: SplgButtonStyle.outlined,
                   onPressed:
                       order.customerPhone == null ? null : model.callCustomer,

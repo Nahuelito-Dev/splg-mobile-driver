@@ -80,12 +80,14 @@ class AccidentView extends StackedView<AccidentViewModel> {
             LabeledField(
               key: const Key('accident-description'),
               label: 'Qué pasó',
+              hint: 'Contá qué ocurrió',
               enabled: !model.isBusy,
               maxLength: 2000,
               onChanged: (v) => model.change(description: v),
             ),
             LabeledField(
               label: 'Dónde (calle, ruta, km)',
+              hint: 'Ej.: Ruta 12 km 1340',
               enabled: !model.isBusy,
               maxLength: 300,
               onChanged: (v) => model.change(address: v),
@@ -113,6 +115,7 @@ class AccidentView extends StackedView<AccidentViewModel> {
             const SizedBox(height: 4),
             LabeledField(
               label: 'N.º de denuncia policial (opcional)',
+              hint: 'Si ya hiciste la denuncia',
               enabled: !model.isBusy,
               maxLength: 40,
               onChanged: (v) => model.change(policeReport: v),

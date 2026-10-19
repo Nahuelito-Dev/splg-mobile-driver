@@ -56,6 +56,7 @@ class FuelLoadView extends StackedView<FuelLoadViewModel> {
             LabeledField(
               key: const Key('fuel-liters'),
               label: 'Litros cargados',
+              hint: 'Ej.: 40',
               number: true,
               enabled: !model.isBusy,
               onChanged: (v) => model.change(liters: v),
@@ -63,6 +64,7 @@ class FuelLoadView extends StackedView<FuelLoadViewModel> {
             LabeledField(
               key: const Key('fuel-price'),
               label: 'Precio por litro',
+              hint: 'Ej.: 1250',
               number: true,
               enabled: !model.isBusy,
               onChanged: (v) => model.change(unitPrice: v),
@@ -73,6 +75,7 @@ class FuelLoadView extends StackedView<FuelLoadViewModel> {
             LabeledField(
               key: const Key('fuel-odometer'),
               label: 'Kilometraje del tablero',
+              hint: 'Ej.: 85000',
               number: true,
               enabled: !model.isBusy,
               onChanged: (v) => model.change(odometer: v),
@@ -81,6 +84,7 @@ class FuelLoadView extends StackedView<FuelLoadViewModel> {
             const SizedBox(height: 6),
             DropdownButtonFormField<FuelPayment>(
               key: const Key('fuel-payment'),
+              decoration: SplgTextField.decoration(context),
               initialValue: model.payment,
               items: [
                 for (final p in FuelPayment.values)
@@ -97,16 +101,19 @@ class FuelLoadView extends StackedView<FuelLoadViewModel> {
             const SizedBox(height: 14),
             LabeledField(
               label: 'Estación (opcional)',
+              hint: 'Nombre o dirección',
               maxLength: 120,
               onChanged: (v) => model.change(station: v),
             ),
             LabeledField(
               label: 'Comprobante (opcional)',
+              hint: 'N.º de ticket o factura',
               maxLength: 40,
               onChanged: (v) => model.change(receipt: v),
             ),
             LabeledField(
               label: 'Notas (opcional)',
+              hint: 'Algo que quieras aclarar',
               maxLength: 2000,
               onChanged: (v) => model.change(notes: v),
             ),

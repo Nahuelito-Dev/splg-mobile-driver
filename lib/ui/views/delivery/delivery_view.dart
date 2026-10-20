@@ -251,7 +251,7 @@ class _TripSheet extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(SplgIcons.down, size: 18, color: brasa.primaryStrong),
+              Icon(SplgIcons.down, size: 18, color: brasa.ink2),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -272,7 +272,7 @@ class _TripSheet extends StatelessWidget {
               IconButton(
                 key: const Key('trip-more'),
                 tooltip: 'Más opciones',
-                icon: Icon(SplgIcons.more, color: brasa.primaryStrong),
+                icon: Icon(SplgIcons.more, color: brasa.ink2),
                 onPressed: () => _showMore(context, model),
               ),
             ],

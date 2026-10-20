@@ -68,7 +68,7 @@ class EarningsView extends StackedView<EarningsViewModel> {
                     days[today.subtract(Duration(days: 6 - i)).weekday - 1],
                 ],
               ),
-              Divider(color: brasa.primaryStrong, height: 30),
+              Divider(color: brasa.outline, height: 30),
               Align(
                 alignment: Alignment.centerLeft,
                 child: SplgChoiceChips(
@@ -80,7 +80,7 @@ class EarningsView extends StackedView<EarningsViewModel> {
               const SizedBox(height: 12),
               row('Entregas realizadas', '$count'),
               row('Monto entregado', formatMoney(amount)),
-              Divider(color: brasa.primaryStrong, height: 30),
+              Divider(color: brasa.outline, height: 30),
               row('Entregas en total', '${s.totalCount}'),
               row('Monto total entregado', formatMoney(s.total)),
               const SizedBox(height: 10),

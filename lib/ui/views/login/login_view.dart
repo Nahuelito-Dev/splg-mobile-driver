@@ -116,7 +116,7 @@ class LoginView extends StackedView<LoginViewModel> with $LoginView {
                                 : viewModel.onForgotPassword,
                             child: Text(
                               loginForgotPassword,
-                              style: type.captionStrong.copyWith(
+                              style: type.action.copyWith(
                                 fontSize: context.sp(10),
                               ),
                             ),

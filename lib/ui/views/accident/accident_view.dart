@@ -83,6 +83,7 @@ class AccidentView extends StackedView<AccidentViewModel> {
               hint: 'Contá qué ocurrió',
               enabled: !model.isBusy,
               maxLength: 2000,
+              lines: 4,
               onChanged: (v) => model.change(description: v),
             ),
             LabeledField(

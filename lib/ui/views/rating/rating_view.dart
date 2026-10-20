@@ -68,7 +68,7 @@ class RatingView extends StackedView<RatingViewModel> {
                   ),
                 ],
               ),
-              Divider(color: brasa.primaryStrong, height: 40),
+              Divider(color: brasa.outline, height: 40),
               Row(
                 children: [
                   Text(s.average.toStringAsFixed(1),
@@ -91,7 +91,7 @@ class RatingView extends StackedView<RatingViewModel> {
                   ),
                 ],
               ),
-              Divider(color: brasa.primaryStrong, height: 30),
+              Divider(color: brasa.outline, height: 30),
               Text(
                 'El detalle por estrella y los comentarios todavía no están '
                 'disponibles en la app.',

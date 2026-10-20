@@ -51,7 +51,8 @@ class ChangePasswordView extends StackedView<ChangePasswordViewModel> {
                             child: TextButton(
                               onPressed: model.forgotPassword,
                               child: Text('Olvidé mi contraseña',
-                                  style: type.captionStrong.copyWith(
+                                  style: type.action.copyWith(
+                                      fontSize: context.sp(10),
                                       decoration: TextDecoration.underline)),
                             ),
                           ),

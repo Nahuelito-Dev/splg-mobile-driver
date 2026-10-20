@@ -84,7 +84,7 @@ void main() {
       expect(find.text('Carga N° 12'), findsOneWidget);
       expect(find.text('En ruta'), findsOneWidget);
       expect(find.text('AB123CD'), findsOneWidget);
-      expect(find.text('• Depósito central'), findsOneWidget);
+      expect(find.text('Depósito central'), findsOneWidget);
       // El tipo ya trae la palabra "Garrafa": se muestra tal cual.
       expect(find.text('Garrafa 25kg'), findsOneWidget);
       expect(find.textContaining('Garrafa Garrafa'), findsNothing);

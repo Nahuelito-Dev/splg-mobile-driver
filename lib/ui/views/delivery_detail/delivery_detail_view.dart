@@ -25,13 +25,13 @@ class DeliveryDetailView extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = SplgType.of(context);
     final brasa = context.brasa;
-    final divider = Divider(color: brasa.primaryStrong, height: 30);
+    final divider = Divider(color: brasa.outline, height: 30);
 
     Widget box(IconData icon, String text) => Container(
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: brasa.primaryStrong.withValues(alpha: 0.1),
+            color: brasa.primarySoft,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(

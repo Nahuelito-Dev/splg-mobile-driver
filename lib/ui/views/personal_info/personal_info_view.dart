@@ -33,9 +33,7 @@ class PersonalInfoView extends StackedView<PersonalInfoViewModel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Registro del chofer', style: type.subtitle),
-              Divider(
-                  color: brasa.primaryStrong.withValues(alpha: 0.35),
-                  height: 30),
+              Divider(color: brasa.outline, height: 30),
               SplgInfoSection(
                 icon: SplgIcons.user,
                 title: 'Datos del chofer',

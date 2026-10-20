@@ -13,6 +13,7 @@ class LabeledField extends StatefulWidget {
     this.enabled = true,
     this.maxLength,
     this.initial = '',
+    this.lines = 1,
   });
 
   final String label;
@@ -21,6 +22,9 @@ class LabeledField extends StatefulWidget {
   final bool number;
   final bool enabled;
   final int? maxLength;
+
+  /// Más de 1 lo vuelve multilínea (descripciones y notas).
+  final int lines;
 
   /// Texto con el que arranca (para no perder lo tipeado si la pantalla se rearma).
   final String initial;
@@ -46,11 +50,13 @@ class _LabeledFieldState extends State<LabeledField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.label, style: type.bodyStrong),
+          Text(widget.label, style: type.fieldLabel),
           const SizedBox(height: 6),
           SplgTextField(
             controller: _controller,
             hint: widget.hint,
+            minLines: widget.lines > 1 ? widget.lines : null,
+            maxLines: widget.lines > 1 ? widget.lines + 3 : 1,
             enabled: widget.enabled,
             onChanged: widget.onChanged,
             inputFormatters: widget.maxLength == null

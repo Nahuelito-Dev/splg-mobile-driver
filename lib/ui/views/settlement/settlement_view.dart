@@ -117,6 +117,7 @@ class SettlementView extends StackedView<SettlementViewModel> {
         label: 'Notas (opcional)',
         initial: model.notes,
         maxLength: 500,
+        lines: 3,
         enabled: !model.submitting,
         onChanged: model.setNotes,
       ),

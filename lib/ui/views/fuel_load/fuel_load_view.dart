@@ -80,7 +80,7 @@ class FuelLoadView extends StackedView<FuelLoadViewModel> {
               enabled: !model.isBusy,
               onChanged: (v) => model.change(odometer: v),
             ),
-            Text('Cómo se pagó', style: type.bodyStrong),
+            Text('Cómo se pagó', style: type.fieldLabel),
             const SizedBox(height: 6),
             DropdownButtonFormField<FuelPayment>(
               key: const Key('fuel-payment'),
@@ -115,6 +115,7 @@ class FuelLoadView extends StackedView<FuelLoadViewModel> {
               label: 'Notas (opcional)',
               hint: 'Algo que quieras aclarar',
               maxLength: 2000,
+              lines: 3,
               onChanged: (v) => model.change(notes: v),
             ),
             if (model.failure != null) ActionError(model.failure!),

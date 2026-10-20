@@ -38,9 +38,7 @@ class VehicleView extends StackedView<VehicleViewModel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Registro del vehículo', style: type.subtitle),
-              Divider(
-                  color: brasa.primaryStrong.withValues(alpha: 0.35),
-                  height: 30),
+              Divider(color: brasa.outline, height: 30),
               SplgSoftCard(
                 label: '${v.brand} ${v.model}',
                 amount: v.patent,

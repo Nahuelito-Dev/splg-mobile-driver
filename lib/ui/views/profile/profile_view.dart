@@ -58,7 +58,7 @@ class ProfileView extends StackedView<ProfileViewModel> {
                   ],
                 ),
               ),
-              Divider(color: brasa.primaryStrong, height: 16),
+              Divider(color: brasa.outline, height: 16),
               SplgMenuItem(
                 label: 'Información personal',
                 selected: model.selected == 0,
@@ -77,7 +77,7 @@ class ProfileView extends StackedView<ProfileViewModel> {
                 icon: SplgIcons.key,
                 onTap: model.openChangePassword,
               ),
-              Divider(color: brasa.primaryStrong, height: 30),
+              Divider(color: brasa.outline, height: 30),
             ],
           ),
         );

@@ -127,6 +127,8 @@ void main() {
                 'orders': [
                   {
                     'orderId': 'o1',
+                    'customerName': 'Ana Gómez',
+                    'deliveryAddress': 'Mitre 1200, Posadas',
                     'amountToCollect': 12000,
                     'paymentStatus': 'paid',
                     'deliveredAt': '2026-10-18T13:00:00Z'
@@ -141,6 +143,8 @@ void main() {
       expect(s.isOpen, isTrue);
       expect(s.expectedCash, 54000);
       expect(s.orders.single.amountToCollect, 12000);
+      expect(s.orders.single.customerName, 'Ana Gómez');
+      expect(s.orders.single.deliveryAddress, 'Mitre 1200, Posadas');
       expect(s.collections.single.businessName, 'La Espiga');
 
       when(api.get('driver-settlements/mine?date=2026-10-17', 'tok'))

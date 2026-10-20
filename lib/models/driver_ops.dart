@@ -73,12 +73,16 @@ class SettlementOrder {
     required this.amountToCollect,
     required this.paymentStatus,
     this.deliveredAt,
+    this.customerName,
+    this.deliveryAddress,
   });
 
   final String orderId;
   final num amountToCollect;
   final String paymentStatus;
   final DateTime? deliveredAt;
+  final String? customerName;
+  final String? deliveryAddress;
 
   factory SettlementOrder.fromJson(Map<String, dynamic> json) =>
       SettlementOrder(
@@ -86,6 +90,8 @@ class SettlementOrder {
         amountToCollect: _num(json['amountToCollect']),
         paymentStatus: _str(json['paymentStatus']) ?? '',
         deliveredAt: _date(json['deliveredAt']),
+        customerName: _str(json['customerName']),
+        deliveryAddress: _str(json['deliveryAddress']),
       );
 }
 

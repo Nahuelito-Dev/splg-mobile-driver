@@ -45,12 +45,7 @@ class SettlementView extends StackedView<SettlementViewModel> {
               ),
               const SizedBox(height: 14),
               InfoRow('Pedidos en efectivo', '${s.orders.length}'),
-              for (final o in s.orders)
-                InfoRow(
-                    o.deliveredAt == null
-                        ? 'Pedido ${_short(o.orderId)}'
-                        : formatDateTime(o.deliveredAt!),
-                    formatMoney(o.amountToCollect)),
+              for (final o in s.orders) _EntregaRow(o),
               if (s.collections.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text('Cobros de cuenta corriente', style: type.subtitle),
@@ -65,8 +60,6 @@ class SettlementView extends StackedView<SettlementViewModel> {
       },
     );
   }
-
-  static String _short(String id) => id.length > 8 ? id.substring(0, 8) : id;
 
   List<Widget> _result(Settlement s) => [
         InfoRow('Efectivo entregado',
@@ -202,6 +195,37 @@ class _ExpenseCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Una entrega de la rendición: el cliente y el monto, y debajo la dirección y
+/// la hora para reconocerla.
+class _EntregaRow extends StatelessWidget {
+  const _EntregaRow(this.order);
+
+  final SettlementOrder order;
+
+  static String _short(String id) => id.length > 8 ? id.substring(0, 8) : id;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = SplgType.of(context);
+    final detalle = [
+      if (order.deliveryAddress != null) order.deliveryAddress!,
+      if (order.deliveredAt != null) formatDateTime(order.deliveredAt!),
+    ].join(' · ');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InfoRow(order.customerName ?? 'Pedido ${_short(order.orderId)}',
+            formatMoney(order.amountToCollect)),
+        if (detalle.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(detalle, style: type.caption),
+          ),
+      ],
     );
   }
 }

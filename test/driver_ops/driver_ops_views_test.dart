@@ -87,11 +87,23 @@ void main() {
     await t.binding.setSurfaceSize(const Size(400, 1000));
     addTearDown(() => t.binding.setSurfaceSize(null));
     when(ops.mySettlement()).thenAnswer((_) async => const Settlement(
-        id: 's1',
-        number: 4,
-        businessDate: '2026-10-18',
-        status: SettlementStatus.open,
-        expectedCash: 50000));
+            id: 's1',
+            number: 4,
+            businessDate: '2026-10-18',
+            status: SettlementStatus.open,
+            expectedCash: 50000,
+            orders: [
+              SettlementOrder(
+                  orderId: 'o1',
+                  amountToCollect: 12000,
+                  paymentStatus: 'paid',
+                  customerName: 'Ana Gómez',
+                  deliveryAddress: 'Mitre 1200, Posadas'),
+              SettlementOrder(
+                  orderId: 'o2abcdefgh',
+                  amountToCollect: 5000,
+                  paymentStatus: 'paid'),
+            ]));
     when(ops.expenseCategories()).thenAnswer((_) async => const []);
     when(ops.submitSettlement('s1',
             declaredCash: anyNamed('declaredCash'),
@@ -110,6 +122,9 @@ void main() {
     await settle(t);
     expect(find.byKey(const Key('settlement-expected')), findsOneWidget);
     expect(find.text('\$50.000'), findsOneWidget);
+    expect(find.text('Ana Gómez'), findsOneWidget);
+    expect(find.text('Mitre 1200, Posadas'), findsOneWidget);
+    expect(find.text('Pedido o2abcdef'), findsOneWidget);
     expect(
         t
             .widget<SplgButton>(find.byKey(const Key('settlement-submit')))

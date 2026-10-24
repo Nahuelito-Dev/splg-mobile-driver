@@ -1,13 +1,4 @@
-# splg_driver
+# splg-app-chofer — App del chofer
 
-A new Flutter project.
-
-## Golden Tests
-
-Golden tests are already setup for this project. To run the tests and update the golden files, run:
-
-```bash
-flutter test --update-goldens
-```
-
-The golden test screenshots will be stored under `test/golden/`.
+Parte de **SPLG** (Sistema de Pedidos y Logística de Garrafas). La documentación —qué es, cómo se
+levanta, convenciones y contratos— está en el repositorio de documentación: `splg-docs` (`documentos/` y `sistema/`).

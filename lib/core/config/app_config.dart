@@ -29,8 +29,8 @@ class AppConfig {
   static const bool pushEnabled =
       bool.fromEnvironment('PUSH_ENABLED', defaultValue: true);
 
-  /// Base de la REST API (con `/api`).
-  static String get apiUrl => '$apiBaseUrl/api/';
+  /// Base de la REST API v1 (`/api/v1/`; ver «Versiones de la API» en el back).
+  static String get apiUrl => '$apiBaseUrl/api/v1/';
 
   /// Namespace de Socket.IO del gateway de choferes.
   static String get driversNamespace => '$apiBaseUrl/drivers';

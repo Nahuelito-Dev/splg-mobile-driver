@@ -1061,6 +1061,21 @@ class MockDriverSocketService extends _i1.Mock
       ) as _i12.Stream<Map<String, dynamic>>);
 
   @override
+  _i12.Stream<Map<String, dynamic>> get orderAddressChanged =>
+      (super.noSuchMethod(
+        Invocation.getter(#orderAddressChanged),
+        returnValue: _i12.Stream<Map<String, dynamic>>.empty(),
+        returnValueForMissingStub: _i12.Stream<Map<String, dynamic>>.empty(),
+      ) as _i12.Stream<Map<String, dynamic>>);
+
+  @override
+  bool get accessRevoked => (super.noSuchMethod(
+        Invocation.getter(#accessRevoked),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool);
+
+  @override
   bool get hasSocket => (super.noSuchMethod(
         Invocation.getter(#hasSocket),
         returnValue: false,

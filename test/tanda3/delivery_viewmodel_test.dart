@@ -217,6 +217,28 @@ void main() {
       await c.close();
     });
 
+    test('el cliente cambió la dirección: relee el pedido y avisa', () async {
+      final c = StreamController<Map<String, dynamic>>.broadcast();
+      when(socket.orderAddressChanged).thenAnswer((_) => c.stream);
+      final m = DeliveryViewModel(
+          orderId: 'o1',
+          trips: trips,
+          pollInterval: const Duration(hours: 1),
+          goHome: () => homeCalls++);
+      await m.initialize();
+      clearInteractions(trips);
+      c.add({'orderId': 'otro'});
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      verifyNever(trips.order(any));
+      expect(m.notice, isNull);
+      c.add({'orderId': 'o1', 'message': 'cambió'});
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      verify(trips.order('o1')).called(1);
+      expect(m.notice, contains('cambió la dirección'));
+      m.dispose();
+      await c.close();
+    });
+
     test('lo entregó el cliente: corta tracking y sigue al cobro', () async {
       final m = build();
       await m.initialize();

@@ -71,6 +71,13 @@ class DriverSocketService with ListenableServiceMixin {
   Timer? _retryTimer;
   bool _gaveUp = false;
 
+  /// El back avisó que bloqueó o dio de baja la cuenta (`server:access-revoked`):
+  /// el corte que sigue no se reintenta.
+  bool _accessRevoked = false;
+
+  /// El último corte fue porque se bloqueó o se dio de baja la cuenta.
+  bool get accessRevoked => _accessRevoked;
+
   final _rejectedController = StreamController<void>.broadcast();
 
   /// El servidor cortó varias veces seguidas apenas conectar (la sesión no es
@@ -130,6 +137,13 @@ class DriverSocketService with ListenableServiceMixin {
   Stream<Map<String, dynamic>> get orderCancelled =>
       _cancelledController.stream;
 
+  /// El cliente cambió la dirección de entrega del pedido en curso
+  /// (`order:address-changed`): hay que releerlo y rehacer la ruta.
+  final _addressChangedController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get orderAddressChanged =>
+      _addressChangedController.stream;
+
   /// orderId de la entrega para la que se está emitiendo posición
   /// actualmente (null si no hay broadcasting activo).
   String? _activeOrderId;
@@ -180,6 +194,14 @@ class DriverSocketService with ListenableServiceMixin {
       }
     });
 
+    socket.on('order:address-changed', (data) {
+      if (data is Map) {
+        _addressChangedController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    socket.on('server:access-revoked', (_) => _accessRevoked = true);
+
     socket.onConnect((_) {
       _connectedAt = _now();
       _isConnected.value = true;
@@ -201,7 +223,7 @@ class DriverSocketService with ListenableServiceMixin {
       // espera creciente y token nuevo; con varios cortes seguidos se renuncia.
       // (Los demás cortes los reintenta el propio cliente.)
       if (reason == 'io server disconnect') {
-        if (++_serverCuts >= maxServerCuts) {
+        if (_accessRevoked || ++_serverCuts >= maxServerCuts) {
           _gaveUp = true;
           _retryTimer?.cancel();
           _retryTimer = null;
@@ -356,6 +378,7 @@ class DriverSocketService with ListenableServiceMixin {
     _attempts = 0;
     _serverCuts = 0;
     _gaveUp = false;
+    _accessRevoked = false;
     _connectedAt = null;
     _socket?.dispose();
     _socket = null;
@@ -368,6 +391,7 @@ class DriverSocketService with ListenableServiceMixin {
     disconnect();
     _incomingOrdersController.close();
     _cancelledController.close();
+    _addressChangedController.close();
     _rejectedController.close();
   }
 }

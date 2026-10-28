@@ -162,6 +162,41 @@ void main() {
       svc.disconnect();
     });
 
+    testWidgets('con el acceso revocado no reintenta y avisa al toque',
+        (t) async {
+      var attempts = 0;
+      final svc = service(provider: () async {
+        attempts++;
+        return 't';
+      });
+      var avisos = 0;
+      final sub = svc.rejected.listen((_) => avisos++);
+      svc.connect('t', 'd1');
+      created.emitReserved('server:access-revoked', {'motivo': 'bloqueo'});
+      created.onclose('io server disconnect');
+      await t.pump(const Duration(minutes: 5));
+      expect(avisos, 1);
+      expect(attempts, 0);
+      unawaited(sub.cancel());
+      svc.disconnect();
+    });
+
+    testWidgets('el aviso del cambio de dirección sale por su stream',
+        (t) async {
+      final svc = service(provider: () async => 't');
+      final avisos = <Map<String, dynamic>>[];
+      final sub = svc.orderAddressChanged.listen(avisos.add);
+      svc.connect('t', 'd1');
+      created.emitReserved('order:address-changed', {'orderId': 'o1'});
+      created.emitReserved('order:address-changed', 'basura');
+      await t.pump();
+      expect(avisos, [
+        {'orderId': 'o1'}
+      ]);
+      unawaited(sub.cancel());
+      svc.disconnect();
+    });
+
     testWidgets('una conexión estable reinicia la cuenta de cortes', (t) async {
       var ahora = DateTime(2026, 1, 1);
       final svc = service(provider: () async => 't', now: () => ahora);
@@ -223,6 +258,20 @@ void main() {
       verify(socket.disconnect()).called(greaterThan(0));
       verify(dialogs.showDialog(
               title: 'Se cortó tu conexión',
+              description: anyNamed('description')))
+          .called(1);
+      await rechazos.close();
+    });
+
+    test('si la distribuidora le cortó el acceso, el aviso lo dice', () async {
+      final rechazos = StreamController<void>.broadcast();
+      final m = enLinea(rechazos);
+      when(socket.accessRevoked).thenReturn(true);
+      await m.connect();
+      rechazos.add(null);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verify(dialogs.showDialog(
+              title: 'Tu cuenta no está habilitada',
               description: anyNamed('description')))
           .called(1);
       await rechazos.close();

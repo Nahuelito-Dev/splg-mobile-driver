@@ -95,6 +95,7 @@ class DeliveryViewModel extends BaseViewModel {
   bool _pollInFlight = false;
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<Map<String, dynamic>>? _cancelSub;
+  StreamSubscription<Map<String, dynamic>>? _addressSub;
   bool _disposed = false;
   Timer? _noPositionTimer;
   int _noPositionRetries = 0;
@@ -416,10 +417,28 @@ class DeliveryViewModel extends BaseViewModel {
         _refresh(silent: true);
       }
     });
+    _addressSub = _driverSocketService.orderAddressChanged.listen((payload) {
+      if (payload['orderId']?.toString() == orderId) {
+        unawaited(_onAddressChanged());
+      }
+    });
     setBusy(true);
     await _refresh();
     setBusy(false);
     _startPolling();
+  }
+
+  /// El cliente cambió adónde se entrega: se relee el pedido, la ruta va al
+  /// destino nuevo y se avisa en la tarjeta del viaje.
+  Future<void> _onAddressChanged() async {
+    await _refresh(silent: true);
+    if (_disposed) return;
+    _tracker = null;
+    notice = 'El cliente cambió la dirección de entrega: la ruta se actualizó.';
+    final p = driverPosition;
+    if (p != null) unawaited(_updateRoute(p));
+    _moveCamera(force: true);
+    notifyListeners();
   }
 
   Future<void> retry() async {
@@ -436,6 +455,7 @@ class DeliveryViewModel extends BaseViewModel {
     _noPositionTimer?.cancel();
     _positionSub?.cancel();
     _cancelSub?.cancel();
+    _addressSub?.cancel();
     super.dispose();
   }
 

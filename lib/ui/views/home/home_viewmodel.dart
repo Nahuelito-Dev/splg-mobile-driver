@@ -628,13 +628,18 @@ class HomeViewModel extends StreamViewModel<Position>
   /// El servidor cortó el socket varias veces seguidas apenas conectar: la
   /// sesión no es válida. Se baja al chofer de línea y se le avisa.
   Future<void> _onSocketRejected() async {
+    // Se lee antes de volver a fuera de línea: cerrar el socket lo limpia.
+    final revoked = _driverSocketService.accessRevoked;
     await _rollbackOnline();
     notifyListeners();
     await _dialogService.showDialog(
-      title: 'Se cortó tu conexión',
-      description: 'El servidor cerró la conexión varias veces seguidas, así '
-          'que quedaste fuera de línea. Cerrá sesión y volvé a ingresar; si '
-          'sigue pasando, consultá con tu distribuidora.',
+      title: revoked ? 'Tu cuenta no está habilitada' : 'Se cortó tu conexión',
+      description: revoked
+          ? 'La distribuidora bloqueó o dio de baja tu cuenta, así que '
+              'quedaste fuera de línea. Consultá con tu distribuidora.'
+          : 'El servidor cerró la conexión varias veces seguidas, así '
+              'que quedaste fuera de línea. Cerrá sesión y volvé a ingresar; si '
+              'sigue pasando, consultá con tu distribuidora.',
     );
   }
 

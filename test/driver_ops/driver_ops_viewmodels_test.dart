@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -159,6 +162,60 @@ void main() {
       expect(m.settlement!.expectedCash, 50000);
       expect(m.canDeclareExpenses, isTrue);
       expect(m.isEditable, isTrue);
+    });
+
+    test(
+        'baja el PDF de la rendición y lo comparte, también si no es la abierta',
+        () async {
+      final bytes = Uint8List.fromList([1, 2, 3]);
+      when(ops.mySettlement())
+          .thenAnswer((_) async => _s(status: SettlementStatus.approved));
+      when(ops.settlementPdf('s1')).thenAnswer((_) async => bytes);
+      Uint8List? sent;
+      String? name;
+      final m = SettlementViewModel(sharePdf: (b, f) async {
+        sent = b;
+        name = f;
+        return true;
+      });
+      expect(m.canDownloadPdf, isFalse, reason: 'sin rendición cargada');
+      await m.load();
+      expect(m.canDownloadPdf, isTrue);
+      await m.downloadPdf();
+      expect(sent, bytes);
+      expect(name, 'rendicion-3.pdf');
+      expect(m.pdfError, isNull);
+      expect(m.downloadingPdf, isFalse);
+    });
+
+    test('mientras baja el PDF queda deshabilitado', () async {
+      final c = Completer<Uint8List>();
+      when(ops.mySettlement()).thenAnswer((_) async => _s());
+      when(ops.expenseCategories()).thenAnswer((_) async => const []);
+      when(ops.settlementPdf('s1')).thenAnswer((_) => c.future);
+      final m = SettlementViewModel(sharePdf: (b, f) async => true);
+      await m.load();
+      final f = m.downloadPdf();
+      expect(m.downloadingPdf, isTrue);
+      expect(m.canDownloadPdf, isFalse);
+      c.complete(Uint8List(1));
+      await f;
+      expect(m.canDownloadPdf, isTrue);
+    });
+
+    test('si el back rechaza el PDF muestra su mensaje y no comparte',
+        () async {
+      when(ops.mySettlement()).thenAnswer((_) async => _s());
+      when(ops.expenseCategories()).thenAnswer((_) async => const []);
+      when(ops.settlementPdf('s1'))
+          .thenAnswer((_) async => throw _fail(409, 'No es tu rendición'));
+      var shared = false;
+      final m = SettlementViewModel(sharePdf: (b, f) async => shared = true);
+      await m.load();
+      await m.downloadPdf();
+      expect(shared, isFalse);
+      expect(m.pdfError, contains('No es tu rendición'));
+      expect(m.canDownloadPdf, isTrue);
     });
 
     test('presentada no pide categorías y no es editable', () async {

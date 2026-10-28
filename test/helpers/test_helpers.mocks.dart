@@ -4,7 +4,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i12;
-import 'dart:typed_data' as _i27;
+import 'dart:typed_data' as _i24;
 import 'dart:ui' as _i13;
 
 import 'package:dio/dio.dart' as _i4;
@@ -19,15 +19,15 @@ import 'package:splg_driver/models/driver_ops.dart' as _i8;
 import 'package:splg_driver/models/trip_order.dart' as _i7;
 import 'package:splg_driver/models/truck_load.dart' as _i6;
 import 'package:splg_driver/services/app_permissions.dart' as _i22;
-import 'package:splg_driver/services/driver_api_service.dart' as _i24;
+import 'package:splg_driver/services/driver_api_service.dart' as _i25;
 import 'package:splg_driver/services/driver_auth_service.dart' as _i19;
 import 'package:splg_driver/services/driver_ops_repository.dart' as _i28;
 import 'package:splg_driver/services/driver_socket_service.dart' as _i17;
 import 'package:splg_driver/services/fcm_service.dart' as _i21;
 import 'package:splg_driver/services/foreground_service.dart' as _i20;
 import 'package:splg_driver/services/location_service.dart' as _i14;
-import 'package:splg_driver/services/payment_repository.dart' as _i26;
-import 'package:splg_driver/services/trip_service.dart' as _i25;
+import 'package:splg_driver/services/payment_repository.dart' as _i27;
+import 'package:splg_driver/services/trip_service.dart' as _i26;
 import 'package:splg_lib/permissions/app_permission.dart' as _i16;
 import 'package:splg_lib/permissions/permission_gateway.dart' as _i2;
 import 'package:splg_lib/permissions/permission_prompter.dart' as _i3;
@@ -1776,12 +1776,30 @@ class MockApiClient extends _i1.Mock implements _i23.ApiClient {
           ),
         )),
       ) as _i12.Future<_i4.Response<dynamic>>);
+
+  @override
+  _i12.Future<_i24.Uint8List> getBytes(
+    String? path,
+    String? token,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getBytes,
+          [
+            path,
+            token,
+          ],
+        ),
+        returnValue: _i12.Future<_i24.Uint8List>.value(_i24.Uint8List(0)),
+        returnValueForMissingStub:
+            _i12.Future<_i24.Uint8List>.value(_i24.Uint8List(0)),
+      ) as _i12.Future<_i24.Uint8List>);
 }
 
 /// A class which mocks [DriverApiService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockDriverApiService extends _i1.Mock implements _i24.DriverApiService {
+class MockDriverApiService extends _i1.Mock implements _i25.DriverApiService {
   @override
   _i12.Future<_i5.DriverProfile> profile({bool? refresh = false}) =>
       (super.noSuchMethod(
@@ -1950,7 +1968,7 @@ class MockDriverApiService extends _i1.Mock implements _i24.DriverApiService {
 /// A class which mocks [TripService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockTripService extends _i1.Mock implements _i25.TripService {
+class MockTripService extends _i1.Mock implements _i26.TripService {
   @override
   set activeOrderId(String? _activeOrderId) => super.noSuchMethod(
         Invocation.setter(
@@ -2202,7 +2220,7 @@ class MockTripService extends _i1.Mock implements _i25.TripService {
 /// A class which mocks [PaymentRepository].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockPaymentRepository extends _i1.Mock implements _i26.PaymentRepository {
+class MockPaymentRepository extends _i1.Mock implements _i27.PaymentRepository {
   @override
   _i12.Future<bool> confirmReceived(String? orderId) => (super.noSuchMethod(
         Invocation.method(
@@ -2231,7 +2249,7 @@ class MockPaymentRepository extends _i1.Mock implements _i26.PaymentRepository {
   @override
   _i12.Future<void> uploadIncidentPhoto(
     String? incidentId,
-    _i27.Uint8List? jpeg,
+    _i24.Uint8List? jpeg,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -2394,6 +2412,18 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
       ) as _i12.Future<_i8.Settlement>);
+
+  @override
+  _i12.Future<_i24.Uint8List> settlementPdf(String? settlementId) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #settlementPdf,
+          [settlementId],
+        ),
+        returnValue: _i12.Future<_i24.Uint8List>.value(_i24.Uint8List(0)),
+        returnValueForMissingStub:
+            _i12.Future<_i24.Uint8List>.value(_i24.Uint8List(0)),
+      ) as _i12.Future<_i24.Uint8List>);
 
   @override
   _i12.Future<_i8.MyCommissions> myCommissions(

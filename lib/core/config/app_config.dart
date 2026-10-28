@@ -32,6 +32,9 @@ class AppConfig {
   /// Base de la REST API v1 (`/api/v1/`; ver «Versiones de la API» en el back).
   static String get apiUrl => '$apiBaseUrl/api/v1/';
 
+  /// Base de la REST API v2 (`/api/v2/`): PDFs generados por el back.
+  static String get apiV2Url => '$apiBaseUrl/api/v2/';
+
   /// Namespace de Socket.IO del gateway de choferes.
   static String get driversNamespace => '$apiBaseUrl/drivers';
 }

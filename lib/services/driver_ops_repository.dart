@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/network/action_error_text.dart';
+import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_ops.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
@@ -41,6 +44,9 @@ abstract class DriverOpsRepository {
     String? idempotencyKey,
   });
 
+  /// `GET /api/v2/driver-settlements/:id/pdf`: el PDF de la rendición.
+  Future<Uint8List> settlementPdf(String settlementId);
+
   /// `GET /commissions/mine?from&to`.
   Future<MyCommissions> myCommissions(DateTime from, DateTime to);
 
@@ -73,6 +79,8 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
   static const fuelPath = 'fleet/fuel-loads/mine';
   static const accidentPath = 'fleet/accidents/mine';
   static String submitPath(String id) => 'driver-settlements/$id/submit';
+  static String settlementPdfPath(String id) =>
+      '${AppConfig.apiV2Url}driver-settlements/$id/pdf';
   static String commissionsPath(DateTime from, DateTime to) =>
       'commissions/mine?from=${apiDay(from)}&to=${apiDay(to)}&limit=100';
 
@@ -123,6 +131,10 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
 
   static Map<String, dynamic> _map(Response r) =>
       Map<String, dynamic>.from(r.data as Map);
+
+  @override
+  Future<Uint8List> settlementPdf(String settlementId) async =>
+      _api.getBytes(settlementPdfPath(settlementId), await _token());
 
   @override
   Future<Workday?> currentWorkday() async {

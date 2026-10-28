@@ -24,8 +24,7 @@ void main() {
 
     final menu = tester.getTopLeft(find.byKey(const Key('home-menu'))).dx;
     final estado = tester.getTopLeft(find.byKey(const Key('home-status'))).dx;
-    final jornada =
-        tester.getTopLeft(find.byKey(const Key('home-workday'))).dx;
+    final jornada = tester.getTopLeft(find.byKey(const Key('home-workday'))).dx;
 
     expect(estado, menu);
     expect(jornada, menu);

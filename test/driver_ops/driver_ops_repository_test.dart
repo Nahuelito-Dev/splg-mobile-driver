@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -116,6 +118,21 @@ void main() {
   });
 
   group('rendición', () {
+    test('settlementPdf baja los bytes de la v2 con el token', () async {
+      final bytes = Uint8List.fromList([37, 80, 68, 70]);
+      when(api.getBytes(any, 'tok')).thenAnswer((_) async => bytes);
+      expect(await repo.settlementPdf('s1'), bytes);
+      final path = verify(api.getBytes(captureAny, 'tok')).captured.single;
+      expect(path, endsWith('/api/v2/driver-settlements/s1/pdf'));
+      expect(path, HttpDriverOpsRepository.settlementPdfPath('s1'));
+    });
+
+    test('settlementPdf deja pasar el error del back', () async {
+      when(api.getBytes(any, 'tok'))
+          .thenAnswer((_) async => throw _fail(403, {'message': 'No'}));
+      await expectLater(repo.settlementPdf('s1'), throwsA(isA<DioException>()));
+    });
+
     test('mySettlement lee con y sin fecha', () async {
       when(api.get('driver-settlements/mine', 'tok'))
           .thenAnswer((_) async => _res({

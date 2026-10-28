@@ -43,6 +43,15 @@ class SettlementView extends StackedView<SettlementViewModel> {
                 caption: 'Rendición ${s.number} del ${s.businessDate} · '
                     '${s.status.label}',
               ),
+              const SizedBox(height: 10),
+              SplgButton(
+                key: const Key('settlement-pdf'),
+                title: 'Rendición (PDF)',
+                style: SplgButtonStyle.outlined,
+                loading: model.downloadingPdf,
+                onPressed: model.canDownloadPdf ? model.downloadPdf : null,
+              ),
+              if (model.pdfError != null) ActionError(model.pdfError!),
               const SizedBox(height: 14),
               InfoRow('Pedidos en efectivo', '${s.orders.length}'),
               for (final o in s.orders) _EntregaRow(o),

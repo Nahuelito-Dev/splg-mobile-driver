@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -156,5 +157,45 @@ class ApiClient {
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// `GET` binario (PDF). [path] puede ser absoluto (otra versión de la API).
+  /// Si el back rechaza, el cuerpo del error llega como bytes: se decodifica a
+  /// JSON para que [ApiErrorText] lea su mensaje igual que en el resto.
+  Future<Uint8List> getBytes(String path, String token) async {
+    try {
+      final response = await dio.get<List<int>>(
+        path,
+        options: Options(
+          responseType: ResponseType.bytes,
+          // Armar un PDF tarda más que una consulta: el tope general de 10 s lo cortaría.
+          receiveTimeout: const Duration(seconds: 30),
+          headers: {
+            'Accept': 'application/pdf',
+            'X-Client-Source': 'driver-app',
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+      return Uint8List.fromList(response.data ?? const []);
+    } on DioException catch (e) {
+      throw decodeBytesError(e);
+    }
+  }
+
+  /// Reemplaza un cuerpo de error en bytes por su JSON decodificado.
+  @visibleForTesting
+  static DioException decodeBytesError(DioException e) {
+    final res = e.response;
+    final data = res?.data;
+    if (res == null || data is! List) return e;
+    Object? decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(data.cast<int>()));
+    } catch (_) {
+      decoded = null;
+    }
+    res.data = decoded;
+    return e;
   }
 }

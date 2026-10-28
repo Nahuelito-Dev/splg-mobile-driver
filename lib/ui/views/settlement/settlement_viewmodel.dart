@@ -1,4 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/network/action_error_text.dart';
@@ -20,6 +25,26 @@ class ExpenseDraft {
 /// Mi rendición del día (CU-232): lo esperado, el efectivo y los gastos que
 /// declara el chofer y la presentación. Presentada, queda de sólo lectura.
 class SettlementViewModel extends LoadViewModel {
+  SettlementViewModel(
+      {Future<bool> Function(Uint8List bytes, String filename)? sharePdf})
+      : _sharePdf = sharePdf ?? _nativeShare;
+
+  /// Hoja nativa para ver, guardar o compartir el PDF (iOS y Android).
+  static Future<bool> _nativeShare(Uint8List bytes, String filename) async {
+    // Se escribe a un archivo con su nombre: con datos en memoria iOS muestra
+    // la hoja sin nombre ni vista previa.
+    final dir = await getTemporaryDirectory();
+    final archivo = File('${dir.path}/$filename');
+    await archivo.writeAsBytes(bytes, flush: true);
+    final resultado = await SharePlus.instance.share(ShareParams(
+      files: [XFile(archivo.path, mimeType: 'application/pdf')],
+      // En iOS el encabezado de la hoja muestra el título, no el nombre del archivo.
+      title: filename,
+    ));
+    return resultado.status != ShareResultStatus.unavailable;
+  }
+
+  final Future<bool> Function(Uint8List bytes, String filename) _sharePdf;
   final _ops = locator<DriverOpsRepository>();
 
   Settlement? settlement;
@@ -78,6 +103,28 @@ class SettlementViewModel extends LoadViewModel {
     if (description != null) e.description = description;
     _intent.reset();
     submitError = null;
+    notifyListeners();
+  }
+
+  bool downloadingPdf = false;
+  String? pdfError;
+
+  /// Se puede bajar el PDF de la rendición en cualquier estado.
+  bool get canDownloadPdf => settlement != null && !downloadingPdf;
+
+  Future<void> downloadPdf() async {
+    final s = settlement;
+    if (s == null || downloadingPdf) return;
+    pdfError = null;
+    downloadingPdf = true;
+    notifyListeners();
+    try {
+      final bytes = await _ops.settlementPdf(s.id);
+      await _sharePdf(bytes, 'rendicion-${s.number}.pdf');
+    } catch (e) {
+      pdfError = actionErrorText(e);
+    }
+    downloadingPdf = false;
     notifyListeners();
   }
 

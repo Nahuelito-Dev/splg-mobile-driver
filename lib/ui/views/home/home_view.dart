@@ -78,6 +78,7 @@ class HomeView extends StackedView<HomeViewModel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Builder(
                           builder: (ctx) => SplgFloatingButton(

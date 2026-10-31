@@ -23,7 +23,6 @@ import 'package:splg_driver/ui/views/change_password/change_password_view.dart';
 import 'package:splg_driver/ui/views/deliveries/deliveries_view.dart';
 import 'package:splg_driver/ui/views/delivery_detail/delivery_detail_view.dart';
 import 'package:splg_driver/ui/views/vehicle/vehicle_view.dart';
-import 'package:splg_driver/ui/views/earnings/earnings_view.dart';
 import 'package:splg_driver/ui/views/rating/rating_view.dart';
 import 'package:splg_driver/ui/views/notifications/notifications_view.dart';
 import 'package:splg_driver/ui/views/help/help_view.dart';
@@ -38,7 +37,6 @@ import 'package:splg_driver/ui/views/my_load/my_load_view.dart';
 import 'package:splg_driver/ui/views/pending_collections/pending_collections_view.dart';
 import 'package:splg_driver/ui/views/workday/workday_view.dart';
 import 'package:splg_driver/ui/views/settlement/settlement_view.dart';
-import 'package:splg_driver/ui/views/commissions/commissions_view.dart';
 import 'package:splg_driver/ui/views/fuel_load/fuel_load_view.dart';
 import 'package:splg_driver/ui/views/accident/accident_view.dart';
 import 'package:splg_driver/services/driver_ops_repository.dart';
@@ -64,7 +62,6 @@ import 'package:splg_driver/services/maintenance_board.dart';
     MaterialRoute(page: DeliveriesView),
     MaterialRoute(page: DeliveryDetailView),
     MaterialRoute(page: VehicleView),
-    MaterialRoute(page: EarningsView),
     MaterialRoute(page: RatingView),
     MaterialRoute(page: NotificationsView),
     MaterialRoute(page: HelpView),
@@ -76,7 +73,6 @@ import 'package:splg_driver/services/maintenance_board.dart';
     MaterialRoute(page: PendingCollectionsView),
     MaterialRoute(page: WorkdayView),
     MaterialRoute(page: SettlementView),
-    MaterialRoute(page: CommissionsView),
     MaterialRoute(page: FuelLoadView),
     MaterialRoute(page: AccidentView),
     MaterialRoute(page: TallerView),

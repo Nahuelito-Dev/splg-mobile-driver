@@ -1,5 +1,5 @@
 // Lo que el chofer hace en el día además de entregar: jornada, rendición,
-// comisiones, combustible y siniestros. Lecturas tolerantes: lo que falte
+// combustible y siniestros. Lecturas tolerantes: lo que falte
 // queda en cero o null, nunca rompe.
 
 String? _str(Object? v) {
@@ -228,63 +228,6 @@ class ExpenseInput {
         if (description != null && description!.trim().isNotEmpty)
           'description': description!.trim(),
       };
-}
-
-class CommissionEntry {
-  const CommissionEntry({
-    required this.id,
-    required this.type,
-    required this.amount,
-    required this.description,
-    required this.occurredAt,
-    required this.liquidated,
-  });
-
-  final String id;
-  final String type;
-  final num amount;
-  final String description;
-  final DateTime? occurredAt;
-
-  /// Ya entró en una liquidación.
-  final bool liquidated;
-
-  factory CommissionEntry.fromJson(Map<String, dynamic> json) =>
-      CommissionEntry(
-        id: _str(json['entryId']) ?? '',
-        type: _str(json['type']) ?? '',
-        amount: _num(json['amount']),
-        description: _str(json['description']) ?? '',
-        occurredAt: _date(json['occurredAt']),
-        liquidated: _str(json['liquidationId']) != null,
-      );
-}
-
-/// `GET /commissions/mine?from&to`.
-class MyCommissions {
-  const MyCommissions({
-    this.entries = const [],
-    this.total = 0,
-    this.totalAmount = 0,
-    this.pendingAmount = 0,
-    this.liquidatedAmount = 0,
-  });
-
-  final List<CommissionEntry> entries;
-  final int total;
-  final num totalAmount;
-  final num pendingAmount;
-  final num liquidatedAmount;
-
-  factory MyCommissions.fromJson(Map<String, dynamic> json) => MyCommissions(
-        entries: [
-          for (final e in _maps(json['data'])) CommissionEntry.fromJson(e)
-        ],
-        total: _num(json['total']).toInt(),
-        totalAmount: _num(json['totalAmount']),
-        pendingAmount: _num(json['pendingAmount']),
-        liquidatedAmount: _num(json['liquidatedAmount']),
-      );
 }
 
 /// Cómo se pagó la carga de combustible (`FuelPaymentMethod` del back).

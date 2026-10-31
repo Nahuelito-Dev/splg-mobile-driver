@@ -49,7 +49,6 @@ void main() {
     when(auth.userId).thenReturn('u1');
     when(socket.isConnected).thenReturn(true);
     when(socket.hasSocket).thenReturn(true);
-    when(trips.takeEarned()).thenReturn(null);
     when(trips.activeOrderId).thenReturn(null);
   });
   tearDown(() {
@@ -162,13 +161,9 @@ void main() {
       await home().rejectOrder('o2');
     });
 
-    test('al volver del pedido toma lo ganado para el cartel', () async {
-      when(trips.takeEarned()).thenReturn(28310);
+    test('al volver del pedido retoma la búsqueda y avisa en línea', () async {
       final m = home();
       await m.acceptOrder('o1');
-      expect(m.earned, 28310);
-      m.dismissEarned();
-      expect(m.earned, isNull);
       verify(foreground.update(title: 'Estás en línea', text: anyNamed('text')))
           .called(1);
     });

@@ -31,8 +31,6 @@ class TripService {
   final Uuid _uuid;
   final Map<String, String> _keys = {};
 
-  num? _earned;
-
   /// Pedido que el chofer tiene en curso en esta sesión (null = ninguno). Lo
   /// observa el Inicio: mientras haya uno no se abren ni se buscan ofertas.
   String? activeOrderId;
@@ -48,9 +46,8 @@ class TripService {
   /// liberado), no cuando una pantalla del flujo reemplaza a otra.
   Future<void> waitFlow() => _flow?.future ?? Future<void>.value();
 
-  /// Fin del flujo: anota lo ganado (si hubo) y libera al Inicio.
-  void endFlow({num? earned}) {
-    if (earned != null) noteEarned(earned);
+  /// Fin del flujo: libera al Inicio.
+  void endFlow() {
     activeOrderId = null;
     final f = _flow;
     _flow = null;
@@ -60,18 +57,7 @@ class TripService {
   /// Cierre de sesión: descarta claves de idempotencia y cualquier flujo.
   void reset() {
     _keys.clear();
-    _earned = null;
     endFlow();
-  }
-
-  /// Deja anotado lo que ganó el chofer con el pedido que terminó.
-  void noteEarned(num amount) => _earned = amount;
-
-  /// Lo anotado por [noteEarned], una sola vez.
-  num? takeEarned() {
-    final e = _earned;
-    _earned = null;
-    return e;
   }
 
   DriverAuthService get _auth => _authOverride ?? locator<DriverAuthService>();

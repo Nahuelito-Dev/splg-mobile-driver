@@ -8,7 +8,6 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/photo_picker.dart';
-import 'package:splg_driver/ui/views/completed/completed_viewmodel.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/views/payment/payment_view.dart';
 import 'package:splg_driver/ui/views/payment/payment_viewmodel.dart';
@@ -239,38 +238,6 @@ void main() {
               contentType: 'image/jpeg',
               token: 'tok'))
           .called(1);
-    });
-  });
-
-  group('Completado: "¡Ganaste!" sólo con lo cobrado', () {
-    CompletedViewModel done({bool paid = false}) => CompletedViewModel(
-        orderId: 'o1', trips: trips, goHome: () {}, paid: paid);
-
-    test('cobro confirmado por el back: cuenta el total', () async {
-      when(trips.order('o1'))
-          .thenAnswer((_) async => trip(status: 'delivered'));
-      final m = done(paid: true);
-      await m.load();
-      m.finish();
-      verify(trips.endFlow(earned: 28310)).called(1);
-    });
-
-    test('Mercado Pago ya pagado: cuenta el total', () async {
-      when(trips.order('o1')).thenAnswer((_) async =>
-          trip(status: 'delivered', method: 'online', paymentStatus: 'paid'));
-      final m = done();
-      await m.load();
-      m.finish();
-      verify(trips.endFlow(earned: 28310)).called(1);
-    });
-
-    test('impago o pendiente: no suma nada', () async {
-      when(trips.order('o1'))
-          .thenAnswer((_) async => trip(status: 'delivered'));
-      final m = done();
-      await m.load();
-      m.finish();
-      verify(trips.endFlow(earned: null)).called(1);
     });
   });
 

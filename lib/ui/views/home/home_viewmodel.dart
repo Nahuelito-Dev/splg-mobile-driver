@@ -112,11 +112,6 @@ class HomeViewModel extends StreamViewModel<Position>
   /// Reloj inyectable para los tests.
   DateTime Function() now = DateTime.now;
 
-  /// Total entregado hoy y cantidad de entregas; el chip del Inicio sólo se
-  /// muestra si hay alguna.
-  num todayTotal = 0;
-  int todayCount = 0;
-
   StreamSubscription<Map<String, dynamic>>? _incomingOrdersSubscription;
 
   /// Por qué el back no le va a dar pedidos por su carga del camión (la
@@ -180,7 +175,6 @@ class HomeViewModel extends StreamViewModel<Position>
     WidgetsBinding.instance.addObserver(this);
     _startLoadPolling();
     await _resolveLocation(interactive: true);
-    await loadToday();
     await refreshNoOrdersReason();
     unawaited(resumeActiveOrder());
     _listenMaintenanceTaps();
@@ -203,24 +197,6 @@ class HomeViewModel extends StreamViewModel<Position>
     if (_fcm.takePendingMaintenance()) {
       unawaited(_notifier.openTaller());
     }
-  }
-
-  /// Total de hoy para el chip del Inicio, con las entregas más recientes del
-  /// chofer (`GET /orders/delivery/:id`, de la más nueva a la más vieja). Si
-  /// falla no se muestra nada.
-  Future<void> loadToday() async {
-    try {
-      final page =
-          await _driverApi.ordersPage(limit: DriverApiService.maxPageSize);
-      final summary = EarningsSummary.from(page.orders, now());
-      todayTotal = summary.today;
-      todayCount = summary.todayCount;
-    } catch (e) {
-      debugPrint('No se pudo leer el total de hoy: $e');
-      todayTotal = 0;
-      todayCount = 0;
-    }
-    notifyListeners();
   }
 
   /// Pregunta al back por qué el chofer no recibe pedidos (`GET
@@ -894,10 +870,8 @@ class HomeViewModel extends StreamViewModel<Position>
       title: 'Estás en línea',
       text: 'Recibiendo pedidos cercanos',
     );
-    earned = _trips.takeEarned();
     if (isOnline) _startSearching();
     notifyListeners();
-    await loadToday();
     // Si el admin le asignó otro pedido mientras tanto, la oferta se rechazó
     // por estar ocupado: ahora que quedó libre, el pedido asignado aparece.
     // (Dentro de una oferta lo hace el cierre de `_showOrderOfferDialog`.)
@@ -983,15 +957,6 @@ class HomeViewModel extends StreamViewModel<Position>
         d.year == today.year &&
         d.month == today.month &&
         d.day == today.day;
-  }
-
-  /// Monto del último pedido terminado, para el cartel "¡Ganaste!" del mapa.
-  num? earned;
-
-  /// Cierra el cartel "¡Ganaste!".
-  void dismissEarned() {
-    earned = null;
-    notifyListeners();
   }
 
   @override

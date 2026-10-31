@@ -20,7 +20,6 @@ import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/photo_picker.dart';
 import 'package:splg_driver/services/trip_service.dart';
-import 'package:splg_driver/ui/views/completed/completed_viewmodel.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
 import 'package:splg_driver/ui/views/home/home_viewmodel.dart';
 import 'package:splg_driver/ui/views/payment/payment_view.dart';
@@ -124,14 +123,6 @@ void main() {
       expect(find.byKey(const Key('payment-deposit')), findsNothing);
     });
 
-    test('"¡Ganaste!" suma lo cobrado (el saldo), no el total', () async {
-      when(trips.order('o1')).thenAnswer((_) async => conSena());
-      final m = CompletedViewModel(
-          orderId: 'o1', trips: trips, goHome: () {}, paid: true);
-      await m.load();
-      m.finish();
-      verify(trips.endFlow(earned: 22330)).called(1);
-    });
   });
 
   group('2 y 6. Retomar pedidos al abrir y al terminar un flujo', () {

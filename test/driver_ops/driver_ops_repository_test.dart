@@ -243,43 +243,6 @@ void main() {
     });
   });
 
-  test('myCommissions pide el período y lee los totales', () async {
-    when(api.get(
-            'commissions/mine?from=2026-10-01&to=2026-10-18&limit=100', 'tok'))
-        .thenAnswer((_) async => _res({
-              'data': [
-                {
-                  'entryId': 'e1',
-                  'type': 'delivery_commission',
-                  'amount': 1500,
-                  'description': 'Pedido 12',
-                  'occurredAt': '2026-10-10T12:00:00Z',
-                  'liquidationId': null,
-                },
-                {
-                  'entryId': 'e2',
-                  'type': 'settlement_shortage',
-                  'amount': -500,
-                  'description': 'Faltante',
-                  'occurredAt': '2026-10-11T12:00:00Z',
-                  'liquidationId': 'l1',
-                },
-              ],
-              'total': 2,
-              'totalAmount': 1000,
-              'pendingAmount': 1500,
-              'liquidatedAmount': -500,
-            }));
-    final c =
-        await repo.myCommissions(DateTime(2026, 10, 1), DateTime(2026, 10, 18));
-    expect(c.entries, hasLength(2));
-    expect(c.entries[0].liquidated, isFalse);
-    expect(c.entries[1].liquidated, isTrue);
-    expect(c.totalAmount, 1000);
-    expect(c.pendingAmount, 1500);
-    expect(c.liquidatedAmount, -500);
-  });
-
   test('registerFuelLoad arma el cuerpo del contrato y omite lo vacío',
       () async {
     when(api.post(HttpDriverOpsRepository.fuelPath, any, 'tok', any))

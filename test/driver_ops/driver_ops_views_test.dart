@@ -5,7 +5,6 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/models/driver_ops.dart';
 import 'package:splg_driver/services/driver_ops_repository.dart';
 import 'package:splg_driver/ui/views/accident/accident_view.dart';
-import 'package:splg_driver/ui/views/commissions/commissions_view.dart';
 import 'package:splg_driver/ui/views/settlement/settlement_view.dart';
 import 'package:splg_driver/ui/views/workday/workday_view.dart';
 import 'package:splg_lib/splg_lib.dart';
@@ -143,17 +142,6 @@ void main() {
     expect(find.byKey(const Key('settlement-state')), findsOneWidget);
     expect(find.text('Faltante'), findsOneWidget);
     expect(find.byKey(const Key('settlement-submit')), findsNothing);
-  });
-
-  testWidgets('Mis comisiones: totales y vacío', (t) async {
-    when(ops.myCommissions(any, any)).thenAnswer((_) async =>
-        const MyCommissions(
-            totalAmount: 3000, pendingAmount: 2000, liquidatedAmount: 1000));
-    await t.pumpWidget(app(const CommissionsView()));
-    await settle(t);
-    expect(find.text('\$3.000'), findsOneWidget);
-    expect(find.text('\$2.000'), findsOneWidget);
-    expect(find.byKey(const Key('commissions-empty')), findsOneWidget);
   });
 
   testWidgets('Siniestro: si se mantiene la asignación se muestra el motivo',

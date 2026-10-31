@@ -47,9 +47,6 @@ abstract class DriverOpsRepository {
   /// `GET /api/v2/driver-settlements/:id/pdf`: el PDF de la rendición.
   Future<Uint8List> settlementPdf(String settlementId);
 
-  /// `GET /commissions/mine?from&to`.
-  Future<MyCommissions> myCommissions(DateTime from, DateTime to);
-
   /// `POST /fleet/fuel-loads/mine`.
   Future<FuelLoadRecord> registerFuelLoad(FuelLoadInput input,
       {String? idempotencyKey});
@@ -81,8 +78,6 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
   static String submitPath(String id) => 'driver-settlements/$id/submit';
   static String settlementPdfPath(String id) =>
       '${AppConfig.apiV2Url}driver-settlements/$id/pdf';
-  static String commissionsPath(DateTime from, DateTime to) =>
-      'commissions/mine?from=${apiDay(from)}&to=${apiDay(to)}&limit=100';
 
   final ApiClient _api;
   final DriverAuthService? _authOverride;
@@ -199,11 +194,6 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
         idempotencyKey: idempotencyKey);
     return Settlement.fromJson(_map(r));
   }
-
-  @override
-  Future<MyCommissions> myCommissions(DateTime from, DateTime to) async =>
-      MyCommissions.fromJson(
-          _map(await _api.get(commissionsPath(from, to), await _token())));
 
   @override
   Future<FuelLoadRecord> registerFuelLoad(FuelLoadInput input,

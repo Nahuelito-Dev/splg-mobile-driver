@@ -173,19 +173,9 @@ class _FakeSettlement_11 extends _i1.SmartFake implements _i8.Settlement {
         );
 }
 
-class _FakeMyCommissions_12 extends _i1.SmartFake implements _i8.MyCommissions {
-  _FakeMyCommissions_12(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
-}
-
-class _FakeFuelLoadRecord_13 extends _i1.SmartFake
+class _FakeFuelLoadRecord_12 extends _i1.SmartFake
     implements _i8.FuelLoadRecord {
-  _FakeFuelLoadRecord_13(
+  _FakeFuelLoadRecord_12(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -194,9 +184,9 @@ class _FakeFuelLoadRecord_13 extends _i1.SmartFake
         );
 }
 
-class _FakeAccidentRecord_14 extends _i1.SmartFake
+class _FakeAccidentRecord_13 extends _i1.SmartFake
     implements _i8.AccidentRecord {
-  _FakeAccidentRecord_14(
+  _FakeAccidentRecord_13(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -205,9 +195,9 @@ class _FakeAccidentRecord_14 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenancePage_15 extends _i1.SmartFake
+class _FakeMaintenancePage_14 extends _i1.SmartFake
     implements _i9.MaintenancePage {
-  _FakeMaintenancePage_15(
+  _FakeMaintenancePage_14(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -216,9 +206,9 @@ class _FakeMaintenancePage_15 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceSettings_16 extends _i1.SmartFake
+class _FakeMaintenanceSettings_15 extends _i1.SmartFake
     implements _i9.MaintenanceSettings {
-  _FakeMaintenanceSettings_16(
+  _FakeMaintenanceSettings_15(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -227,9 +217,9 @@ class _FakeMaintenanceSettings_16 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceProposal_17 extends _i1.SmartFake
+class _FakeMaintenanceProposal_16 extends _i1.SmartFake
     implements _i9.MaintenanceProposal {
-  _FakeMaintenanceProposal_17(
+  _FakeMaintenanceProposal_16(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -2084,11 +2074,10 @@ class MockTripService extends _i1.Mock implements _i27.TripService {
       ) as _i13.Future<void>);
 
   @override
-  void endFlow({num? earned}) => super.noSuchMethod(
+  void endFlow() => super.noSuchMethod(
         Invocation.method(
           #endFlow,
           [],
-          {#earned: earned},
         ),
         returnValueForMissingStub: null,
       );
@@ -2098,15 +2087,6 @@ class MockTripService extends _i1.Mock implements _i27.TripService {
         Invocation.method(
           #reset,
           [],
-        ),
-        returnValueForMissingStub: null,
-      );
-
-  @override
-  void noteEarned(num? amount) => super.noSuchMethod(
-        Invocation.method(
-          #noteEarned,
-          [amount],
         ),
         returnValueForMissingStub: null,
       );
@@ -2512,42 +2492,6 @@ class MockDriverOpsRepository extends _i1.Mock
       ) as _i13.Future<_i25.Uint8List>);
 
   @override
-  _i13.Future<_i8.MyCommissions> myCommissions(
-    DateTime? from,
-    DateTime? to,
-  ) =>
-      (super.noSuchMethod(
-        Invocation.method(
-          #myCommissions,
-          [
-            from,
-            to,
-          ],
-        ),
-        returnValue: _i13.Future<_i8.MyCommissions>.value(_FakeMyCommissions_12(
-          this,
-          Invocation.method(
-            #myCommissions,
-            [
-              from,
-              to,
-            ],
-          ),
-        )),
-        returnValueForMissingStub:
-            _i13.Future<_i8.MyCommissions>.value(_FakeMyCommissions_12(
-          this,
-          Invocation.method(
-            #myCommissions,
-            [
-              from,
-              to,
-            ],
-          ),
-        )),
-      ) as _i13.Future<_i8.MyCommissions>);
-
-  @override
   _i13.Future<_i8.FuelLoadRecord> registerFuelLoad(
     _i8.FuelLoadInput? input, {
     String? idempotencyKey,
@@ -2559,7 +2503,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i13.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_13(
+            _i13.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_12(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2568,7 +2512,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i13.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_13(
+            _i13.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_12(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2590,7 +2534,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i13.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_14(
+            _i13.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_13(
           this,
           Invocation.method(
             #reportAccident,
@@ -2599,7 +2543,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i13.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_14(
+            _i13.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_13(
           this,
           Invocation.method(
             #reportAccident,
@@ -2630,7 +2574,7 @@ class MockMaintenanceRepository extends _i1.Mock
           },
         ),
         returnValue:
-            _i13.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_15(
+            _i13.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_14(
           this,
           Invocation.method(
             #proposals,
@@ -2642,7 +2586,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i13.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_15(
+            _i13.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_14(
           this,
           Invocation.method(
             #proposals,
@@ -2662,7 +2606,7 @@ class MockMaintenanceRepository extends _i1.Mock
           [],
         ),
         returnValue: _i13.Future<_i9.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_16(
+            _FakeMaintenanceSettings_15(
           this,
           Invocation.method(
             #settings,
@@ -2670,7 +2614,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i13.Future<_i9.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_16(
+            _FakeMaintenanceSettings_15(
           this,
           Invocation.method(
             #settings,
@@ -2696,7 +2640,7 @@ class MockMaintenanceRepository extends _i1.Mock
           [proposalId],
         ),
         returnValue: _i13.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+            _FakeMaintenanceProposal_16(
           this,
           Invocation.method(
             #accept,
@@ -2704,7 +2648,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i13.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+            _FakeMaintenanceProposal_16(
           this,
           Invocation.method(
             #accept,
@@ -2731,7 +2675,7 @@ class MockMaintenanceRepository extends _i1.Mock
           },
         ),
         returnValue: _i13.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+            _FakeMaintenanceProposal_16(
           this,
           Invocation.method(
             #reject,
@@ -2744,7 +2688,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i13.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+            _FakeMaintenanceProposal_16(
           this,
           Invocation.method(
             #reject,

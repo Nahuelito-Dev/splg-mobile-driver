@@ -7,7 +7,6 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/ui/views/deliveries/deliveries_viewmodel.dart';
-import 'package:splg_driver/ui/views/earnings/earnings_viewmodel.dart';
 import 'package:splg_driver/ui/views/profile/profile_viewmodel.dart';
 import 'package:splg_driver/ui/views/rating/rating_viewmodel.dart';
 import 'package:splg_driver/ui/views/vehicle/vehicle_viewmodel.dart';
@@ -214,17 +213,6 @@ void main() {
     final m = RatingViewModel();
     await m.load();
     expect(m.summary!.count, 2);
-  });
-
-  test('EarningsViewModel calcula con el reloj inyectado', () async {
-    when(api.orders()).thenAnswer((_) async => [
-          order('a', DateTime(2026, 10, 10, 9), total: 700),
-          order('b', DateTime(2026, 10, 9, 9), total: 300),
-        ]);
-    final m = EarningsViewModel()..now = () => DateTime(2026, 10, 10, 20);
-    await m.load();
-    expect(m.summary!.today, 700);
-    expect(m.summary!.week, 1000);
   });
 
   group('ProfileViewModel', () {

@@ -8,7 +8,6 @@ import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/ui/views/about/about_view.dart';
 import 'package:splg_driver/ui/views/deliveries/deliveries_view.dart';
 import 'package:splg_driver/ui/views/delivery_detail/delivery_detail_view.dart';
-import 'package:splg_driver/ui/views/earnings/earnings_view.dart';
 import 'package:splg_driver/ui/views/help/help_view.dart';
 import 'package:splg_driver/ui/views/legal/legal_view.dart';
 import 'package:splg_driver/ui/views/notifications/notifications_view.dart';
@@ -195,47 +194,6 @@ void main() {
       expect(find.text('Chofer Prueba'), findsOneWidget);
     });
 
-    testWidgets('estadísticas: los chips cambian el período', (t) async {
-      final now = DateTime.now();
-      when(api.orders()).thenAnswer((_) async => [
-            DriverOrder(
-                id: 'hoy',
-                status: DriverOrderStatus.delivered,
-                total: 1000,
-                createdAt: now),
-            DriverOrder(
-                id: 'ayer',
-                status: DriverOrderStatus.delivered,
-                total: 400,
-                createdAt: DateTime(now.year, now.month, now.day)
-                    .subtract(const Duration(days: 1, hours: -10))),
-          ]);
-      await t.pumpWidget(app(const EarningsView()));
-      await settle(t);
-      for (final chip in ['Mes', 'Semana', 'Ayer', 'Hoy']) {
-        expect(find.text(chip), findsOneWidget);
-      }
-      // Arranca en "Hoy".
-      expect(find.text('\$1.000'), findsWidgets);
-      await t.tap(find.text('Ayer'));
-      await t.pump();
-      expect(find.text('\$400'), findsWidgets);
-    });
-
-    testWidgets('estadísticas: total del día', (t) async {
-      final now = DateTime.now();
-      when(api.orders()).thenAnswer((_) async => [
-            DriverOrder(
-                id: 'a',
-                status: DriverOrderStatus.delivered,
-                total: 2500,
-                createdAt: now),
-          ]);
-      await t.pumpWidget(app(const EarningsView()));
-      await settle(t);
-      expect(find.text('\$2.500'), findsWidgets);
-      expect(find.text('1 entrega hoy'), findsOneWidget);
-    });
   });
 
   testWidgets('Notificaciones con lista: agrupa en Hoy / Ayer / Anteriores',
@@ -337,10 +295,8 @@ void main() {
         'Mis entregas',
         'Mi jornada',
         'Mi rendición',
-        'Mis comisiones',
         'Cargar combustible',
         'Reportar siniestro',
-        'Estadísticas',
         'Tu calificación',
         'Ayuda',
         'Términos y condiciones',
@@ -357,10 +313,6 @@ void main() {
       ('Mi jornada', (n) => verify(n.navigateToWorkdayView()).called(1)),
       ('Mi rendición', (n) => verify(n.navigateToSettlementView()).called(1)),
       (
-        'Mis comisiones',
-        (n) => verify(n.navigateToCommissionsView()).called(1)
-      ),
-      (
         'Cargar combustible',
         (n) => verify(n.navigateToFuelLoadView()).called(1)
       ),
@@ -368,7 +320,6 @@ void main() {
         'Reportar siniestro',
         (n) => verify(n.navigateToAccidentView()).called(1)
       ),
-      ('Estadísticas', (n) => verify(n.navigateToEarningsView()).called(1)),
       ('Tu calificación', (n) => verify(n.navigateToRatingView()).called(1)),
       ('Ayuda', (n) => verify(n.navigateToHelpView()).called(1)),
       ('Acerca de SPLG', (n) => verify(n.navigateToAboutView()).called(1)),

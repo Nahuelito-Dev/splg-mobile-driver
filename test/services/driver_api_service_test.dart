@@ -56,9 +56,6 @@ void main() {
           .called(1);
       verify(api.get('orders/delivery/d1?limit=100&offset=200', 'tok'))
           .called(1);
-      // Las estadísticas "totales" cuentan los 250, no sólo los últimos 100.
-      expect(EarningsSummary.from(all, DateTime(2026, 10, 10, 20)).totalCount,
-          250);
     });
 
     test('ordersPage lee total y offset del back', () async {

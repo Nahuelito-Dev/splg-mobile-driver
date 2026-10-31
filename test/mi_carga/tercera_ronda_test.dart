@@ -332,29 +332,6 @@ void main() {
     }
   });
 
-  group('H7. Ganancias', () {
-    DriverOrder o(String id, String payment, num total) => DriverOrder(
-        id: id,
-        status: DriverOrderStatus.delivered,
-        total: total,
-        createdAt: _hoy,
-        deliveredAt: _hoy,
-        paymentMethod: 'cash',
-        paymentStatus: payment);
-
-    test('lo impago o dado de baja no suma', () {
-      final s = EarningsSummary.from([
-        o('1', 'paid', 1000),
-        o('2', 'unpaid', 500),
-        o('3', 'written_off', 300),
-        o('4', 'pending', 200),
-      ], _hoy);
-      expect(s.today, 1200);
-      expect(s.todayCount, 2);
-      expect(s.total, 1200);
-    });
-  });
-
   group('S2. Cobros pendientes', () {
     test('si se descartó mientras estaba el Cobro, no relee la lista',
         () async {

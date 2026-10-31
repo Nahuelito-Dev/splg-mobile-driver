@@ -120,10 +120,4 @@ void main() {
     await expectLater(svc.order('o1'), throwsA(isA<StateError>()));
     verifyNever(api.get(any, any));
   });
-
-  test('noteEarned se toma una sola vez', () {
-    svc.noteEarned(100);
-    expect(svc.takeEarned(), 100);
-    expect(svc.takeEarned(), isNull);
-  });
 }

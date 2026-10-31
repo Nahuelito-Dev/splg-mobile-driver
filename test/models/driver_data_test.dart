@@ -66,54 +66,6 @@ void main() {
         ['Fiat', 'Fiorino', 'AF123SP', 'camioneta']);
   });
 
-  group('EarningsSummary.from', () {
-    final now = DateTime(2026, 10, 10, 15);
-    DriverOrder at(DateTime d, num total, {String status = 'delivered'}) =>
-        DriverOrder.fromJson(orderJson(
-          status: status,
-          total: total,
-          created: d.toUtc().toIso8601String(),
-          delivered: d.toUtc().toIso8601String(),
-        ));
-
-    test('suma sólo entregados: hoy, últimos 7 días y total', () {
-      final s = EarningsSummary.from([
-        at(DateTime(2026, 10, 10, 9), 1000),
-        at(DateTime(2026, 10, 10, 11), 500),
-        at(DateTime(2026, 10, 5, 11), 2000),
-        at(DateTime(2026, 9, 1, 11), 4000),
-        at(DateTime(2026, 10, 10, 12), 9999, status: 'cancelled'),
-      ], now);
-      expect(s.today, 1500);
-      expect(s.todayCount, 2);
-      expect(s.week, 3500);
-      expect(s.weekCount, 3);
-      expect(s.total, 7500);
-      expect(s.totalCount, 4);
-      expect(s.lastSevenDays.last, 1500);
-      expect(s.lastSevenDays[1], 2000);
-    });
-
-    test('ayer y lo que va del mes calendario', () {
-      final s = EarningsSummary.from([
-        at(DateTime(2026, 10, 10, 9), 1000),
-        at(DateTime(2026, 10, 9, 20), 300),
-        at(DateTime(2026, 10, 2, 10), 700),
-        at(DateTime(2026, 9, 30, 10), 5000),
-      ], now);
-      expect(s.yesterday, 300);
-      expect(s.yesterdayCount, 1);
-      expect(s.month, 2000);
-      expect(s.monthCount, 3);
-      expect(s.total, 7000);
-    });
-
-    test('sin entregas todo da cero', () {
-      final s = EarningsSummary.from(const [], now);
-      expect([s.today, s.week, s.total], [0, 0, 0]);
-    });
-  });
-
   test('formatMoney usa punto de miles', () {
     expect(formatMoney(14900), '\$14.900');
     expect(formatMoney(0), '\$0');

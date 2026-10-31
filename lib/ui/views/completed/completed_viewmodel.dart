@@ -9,8 +9,8 @@ import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
 
 /// Cierre del pedido: "¡Pedido completado!" y la calificación del cliente
-/// (`POST /ratings`, una por pedido y por lado). Al terminar deja anotado lo
-/// ganado para el cartel "¡Ganaste!" del Inicio y vuelve a él.
+/// (`POST /ratings`, una por pedido y por lado). Al terminar libera el flujo
+/// y vuelve al Inicio.
 class CompletedViewModel extends BaseViewModel {
   CompletedViewModel(
       {required this.orderId,
@@ -86,11 +86,9 @@ class CompletedViewModel extends BaseViewModel {
     return rated;
   }
 
-  /// Cierra el pedido y vuelve al Inicio con el cartel "¡Ganaste!".
+  /// Cierra el pedido y vuelve al Inicio.
   void finish() {
-    // "¡Ganaste!" cuenta sólo lo efectivamente cobrado.
-    final collected = paid || (order?.isPaid ?? false);
-    _trips.endFlow(earned: collected ? order?.amountToCollect : null);
+    _trips.endFlow();
     _goHome();
   }
 }

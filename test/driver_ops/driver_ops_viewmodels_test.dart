@@ -9,7 +9,6 @@ import 'package:splg_driver/models/driver_ops.dart';
 import 'package:splg_driver/services/driver_ops_repository.dart';
 import 'package:splg_driver/ui/common/amount_input.dart';
 import 'package:splg_driver/ui/views/accident/accident_viewmodel.dart';
-import 'package:splg_driver/ui/views/commissions/commissions_viewmodel.dart';
 import 'package:splg_driver/ui/views/fuel_load/fuel_load_viewmodel.dart';
 import 'package:splg_driver/ui/views/settlement/settlement_viewmodel.dart';
 import 'package:splg_driver/ui/views/workday/workday_viewmodel.dart';
@@ -298,29 +297,6 @@ void main() {
       await m.load();
       m.setDeclaredCash('-5');
       expect(m.canSubmit, isFalse);
-    });
-  });
-
-  group('CommissionsViewModel', () {
-    test('pide el mes en curso y el anterior', () async {
-      when(ops.myCommissions(any, any)).thenAnswer((_) async =>
-          const MyCommissions(totalAmount: 100, pendingAmount: 100));
-      final m = CommissionsViewModel()..now = () => DateTime(2026, 10, 18);
-      await m.load();
-      verify(ops.myCommissions(DateTime(2026, 10, 1), DateTime(2026, 10, 18)));
-      expect(m.data.totalAmount, 100);
-      await m.selectPeriod(1);
-      verify(ops.myCommissions(DateTime(2026, 9, 1), DateTime(2026, 9, 30)));
-      await m.selectPeriod(2);
-      verify(ops.myCommissions(DateTime(2026, 10, 12), DateTime(2026, 10, 18)));
-    });
-
-    test('un 404 (sin legajo) queda como error de carga', () async {
-      when(ops.myCommissions(any, any))
-          .thenAnswer((_) async => throw _fail(404, 'x'));
-      final m = CommissionsViewModel();
-      await m.load();
-      expect(m.loadError, isNotNull);
     });
   });
 

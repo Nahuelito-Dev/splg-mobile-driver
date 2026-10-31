@@ -510,18 +510,6 @@ void main() {
   });
 
   group('4. Una sola cifra para lo cobrado', () {
-    test('las estadísticas suman el saldo cuando hubo seña paga', () {
-      final orders = [
-        pedido('a', total: 31900, remaining: 22330, depositPaid: true),
-        pedido('b', total: 1000),
-      ];
-      final s = EarningsSummary.from(orders, _hoy);
-      expect(s.today, 23330);
-      expect(s.total, 23330);
-      expect(s.month, 23330);
-      expect(s.lastSevenDays.last, 23330);
-    });
-
     test('el pedido del historial lee seña y saldo del back', () {
       final o = DriverOrder.fromJson({
         'order_id': 'o1',

@@ -51,7 +51,6 @@ void main() {
     when(auth.userId).thenReturn('u1');
     when(socket.isConnected).thenReturn(true);
     when(socket.hasSocket).thenReturn(true);
-    when(trips.takeEarned()).thenReturn(null);
     when(trips.activeOrderId).thenReturn(null);
     when(driverApi.profile(refresh: anyNamed('refresh'))).thenAnswer(
         (_) async => const DriverProfile(
@@ -274,15 +273,13 @@ void main() {
       expect(real.activeOrderId, 'o1');
       expect(done, false,
           reason: 'DeliveryView ya se reemplazó, el flujo no terminó');
-      expect(m.earned, isNull);
       expect(m.search, HomeSearch.idle,
           reason: 'no busca con el chofer en el cobro');
       expect(m.busyWithOrder, true);
 
-      real.endFlow(earned: 28310);
+      real.endFlow();
       await f;
       expect(done, true);
-      expect(m.earned, 28310);
       expect(real.activeOrderId, isNull);
     });
 
@@ -296,7 +293,6 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 20));
       real.endFlow();
       await f;
-      expect(m.earned, isNull);
       expect(m.busyWithOrder, false);
     });
   });

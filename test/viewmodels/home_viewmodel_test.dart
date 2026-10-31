@@ -6,8 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
-import 'package:splg_driver/models/driver_data.dart';
-import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/foreground_service.dart';
@@ -269,41 +267,6 @@ void main() {
         final m = build();
         expect(m.statusLabel, 'En línea');
         expect(m.showsDisconnect, isTrue);
-      });
-    });
-
-    group('total de hoy -', () {
-      test('suma las entregas de hoy con la página más reciente', () async {
-        final driverApi = locator<DriverApiService>() as MockDriverApiService;
-        final today = DateTime(2026, 10, 10, 9);
-        when(driverApi.ordersPage(limit: anyNamed('limit')))
-            .thenAnswer((_) async => OrdersPage(total: 2, offset: 0, orders: [
-                  DriverOrder(
-                      id: 'a',
-                      status: DriverOrderStatus.delivered,
-                      total: 1500,
-                      createdAt: today),
-                  DriverOrder(
-                      id: 'b',
-                      status: DriverOrderStatus.cancelled,
-                      total: 900,
-                      createdAt: today),
-                ]));
-        final model = build()..now = () => DateTime(2026, 10, 10, 18);
-
-        await model.loadToday();
-
-        expect(model.todayTotal, 1500);
-        expect(model.todayCount, 1);
-      });
-
-      test('si falla no muestra nada', () async {
-        final driverApi = locator<DriverApiService>() as MockDriverApiService;
-        when(driverApi.ordersPage(limit: anyNamed('limit')))
-            .thenThrow(Exception('boom'));
-        final model = build();
-        await model.loadToday();
-        expect(model.todayCount, 0);
       });
     });
 

@@ -228,19 +228,19 @@ void main() {
       expect(m.submitting, false);
     });
 
-    test('finish anota lo ganado (cobrado) y vuelve al Inicio', () async {
+    test('finish libera el flujo y vuelve al Inicio', () async {
       final m = CompletedViewModel(
           orderId: 'o1', trips: trips, goHome: () => homeCalls++, paid: true);
       await m.load();
       m.finish();
-      verify(trips.endFlow(earned: 28310)).called(1);
+      verify(trips.endFlow()).called(1);
       expect(homeCalls, 1);
     });
 
-    test('finish sin haber cargado el pedido libera el flujo sin ganancia', () {
+    test('finish sin haber cargado el pedido libera el flujo', () {
       final m = done();
       m.finish();
-      verify(trips.endFlow(earned: null)).called(1);
+      verify(trips.endFlow()).called(1);
       expect(homeCalls, 1);
     });
   });

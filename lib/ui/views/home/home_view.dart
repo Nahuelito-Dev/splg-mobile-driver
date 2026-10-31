@@ -4,7 +4,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 
-import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
 import 'package:splg_driver/ui/widgets/driver_menu_drawer.dart';
 
@@ -67,8 +66,7 @@ class HomeView extends StackedView<HomeViewModel> {
         ),
         SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-                8, viewModel.earned != null ? 112 : 0, 8, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -104,28 +102,12 @@ class HomeView extends StackedView<HomeViewModel> {
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    if (viewModel.todayCount > 0)
-                      _TodayTotal(
-                        total: viewModel.todayTotal,
-                        count: viewModel.todayCount,
-                      ),
                   ],
                 ),
               ],
             ),
           ),
         ),
-        if (viewModel.earned != null)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: GestureDetector(
-              onTap: viewModel.dismissEarned,
-              child: SplgEarnedBanner(amount: formatMoney(viewModel.earned!)),
-            ),
-          ),
         if (viewModel.search != HomeSearch.idle)
           Center(child: _SearchCard(search: viewModel.search)),
         Align(
@@ -318,83 +300,6 @@ class _NoOrdersNotice extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// "Total de hoy": pestaña que se despliega desde el borde derecho. Sólo se
-/// muestra si ya hubo entregas hoy.
-class _TodayTotal extends StatefulWidget {
-  const _TodayTotal({required this.total, required this.count});
-
-  final num total;
-  final int count;
-
-  @override
-  State<_TodayTotal> createState() => _TodayTotalState();
-}
-
-class _TodayTotalState extends State<_TodayTotal> {
-  bool _open = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final strong = context.brasa.primaryStrong;
-    final type = SplgType.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Material(
-            color: strong,
-            borderRadius:
-                const BorderRadius.horizontal(left: Radius.circular(16)),
-            child: InkWell(
-              key: const Key('home-today'),
-              borderRadius:
-                  const BorderRadius.horizontal(left: Radius.circular(16)),
-              onTap: () => setState(() => _open = !_open),
-              child: SizedBox(
-                width: 55,
-                height: 65,
-                child: Icon(_open ? SplgIcons.next : SplgIcons.back,
-                    color: Colors.white),
-              ),
-            ),
-          ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: _open ? 190 : 0,
-            height: 65,
-            color: strong,
-            padding: _open ? const EdgeInsets.only(right: 12) : EdgeInsets.zero,
-            child: _open
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Total de hoy',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: type.caption.copyWith(color: Colors.white)),
-                      Text(formatMoney(widget.total),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: type.value.copyWith(color: Colors.white)),
-                      Text(
-                          widget.count == 1
-                              ? '1 entrega'
-                              : '${widget.count} entregas',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: type.caption.copyWith(color: Colors.white)),
-                    ],
-                  )
-                : null,
-          ),
-        ],
       ),
     );
   }

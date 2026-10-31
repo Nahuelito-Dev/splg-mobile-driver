@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show BuildContext, Navigator;
 import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/services/trip_service.dart';
+
+/// Resultado de aceptar en el back desde la oferta.
+enum AcceptOutcome { accepted, refused, unknown }
 
 /// Datos de la oferta de pedido (cuenta regresiva y detalle).
 ///
@@ -40,16 +43,42 @@ class OrderOfferDialogModel extends BaseViewModel {
   bool _finished = false;
   bool get isFinished => _finished;
 
-  /// Contexto del pop-up "elegí mapa" mientras está abierto.
-  BuildContext? chooserContext;
+  /// Ya se tocó «Aceptar»: protege contra un segundo toque mientras el back
+  /// responde.
+  bool _accepting = false;
+  bool get isAccepting => _accepting;
 
-  /// Cierra el pop-up de mapas si está abierto (la oferta venció con él arriba:
-  /// el `completer` cierra la ruta de ARRIBA, que sería el pop-up y no la
-  /// oferta).
-  void closeChooser() {
-    final c = chooserContext;
-    chooserContext = null;
-    if (c != null && c.mounted) Navigator.of(c).pop();
+  /// Texto del error de la aceptación (el back la rechazó o falta el pedido).
+  String? acceptError;
+
+  /// Acepta el pedido en el back ANTES de que el chofer elija mapa: la oferta
+  /// vence en el servidor y la cuenta sólo se frena acá. Detiene la cuenta al
+  /// instante. [AcceptOutcome.refused]: el back respondió que no (409, 403…),
+  /// no se insiste. [AcceptOutcome.unknown]: sin respuesta; el Inicio verifica
+  /// y reintenta con la misma clave de idempotencia.
+  Future<AcceptOutcome> acceptInBackend(String orderId) async {
+    if (_accepting) return AcceptOutcome.unknown;
+    _accepting = true;
+    stop();
+    notifyListeners();
+    try {
+      await _trips.setStatus(orderId, 'accepted');
+      return AcceptOutcome.accepted;
+    } catch (e) {
+      debugPrint('No se pudo aceptar $orderId desde la oferta: $e');
+      if (e is DioException && e.response != null) {
+        acceptError = DriverApiService.errorMessage(e);
+        return AcceptOutcome.refused;
+      }
+      return AcceptOutcome.unknown;
+    }
+  }
+
+  /// Falta el pedido en el aviso: no hay nada que aceptar. Se avisa en pantalla
+  /// y el chofer puede volver.
+  void missingOrder() {
+    acceptError = 'No pudimos identificar el pedido. Tocá Volver.';
+    notifyListeners();
   }
 
   TripOrder? order;

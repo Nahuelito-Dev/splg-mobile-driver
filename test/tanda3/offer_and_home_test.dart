@@ -7,6 +7,7 @@ import 'package:splg_driver/app/app.dialogs.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/foreground_service.dart';
@@ -169,6 +170,57 @@ void main() {
     });
   });
 
+  group('Inicio: sincroniza la disponibilidad al abrir', () {
+    late MockApiClient api;
+    late MockDriverApiService driverApi;
+    setUp(() {
+      api = MockApiClient();
+      driverApi = locator<DriverApiService>() as MockDriverApiService;
+      when(api.patch(any, any, any)).thenAnswer(
+          (_) async => Response(requestOptions: RequestOptions(path: '')));
+      when(socket.isConnected).thenReturn(false);
+      when(socket.hasSocket).thenReturn(false);
+    });
+
+    Future<void> abrir() async {
+      HomeViewModel(trips: trips, apiClient: api)
+          .syncAvailabilityOnOpenForTest();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    }
+
+    test('sin pedido en curso, le dice al back que está desconectado',
+        () async {
+      when(driverApi.activeOrder()).thenAnswer((_) async => null);
+      await abrir();
+      verify(api.patch(
+              'delivery/user/u1/availability', {'available': false}, 'tok'))
+          .called(1);
+    });
+
+    test('con un pedido en camino no lo baja', () async {
+      when(driverApi.activeOrder()).thenAnswer((_) async => DriverOrder(
+          id: 'o9',
+          status: DriverOrderStatus.onTheWay,
+          total: 1,
+          createdAt: DateTime(2026)));
+      await abrir();
+      verifyNever(api.patch(any, any, any));
+    });
+
+    test('si no se puede averiguar el pedido en curso, no lo baja', () async {
+      when(driverApi.activeOrder()).thenThrow(http(500));
+      await abrir();
+      verifyNever(api.patch(any, any, any));
+    });
+
+    test('con el socket ya conectado no lo baja', () async {
+      when(socket.hasSocket).thenReturn(true);
+      when(driverApi.activeOrder()).thenAnswer((_) async => null);
+      await abrir();
+      verifyNever(api.patch(any, any, any));
+    });
+  });
+
   group('Inicio: oferta por socket', () {
     HomeViewModel connected() {
       final api = MockApiClient();
@@ -201,6 +253,54 @@ void main() {
               barrierDismissible: false))
           .called(1);
       verify(trips.setStatus('o1', 'accepted')).called(1);
+      await c.close();
+    });
+
+    test('si el diálogo ya aceptó en el back, el Inicio no repite el PATCH',
+        () async {
+      final c = StreamController<Map<String, dynamic>>.broadcast();
+      when(socket.incomingOrders).thenAnswer((_) => c.stream);
+      when(dialogs.showCustomDialog(
+              variant: anyNamed('variant'),
+              data: anyNamed('data'),
+              barrierDismissible: anyNamed('barrierDismissible')))
+          .thenAnswer((_) async => DialogResponse(confirmed: true, data: {
+                'map': 'stay',
+                'lat': -27.3,
+                'lng': -55.9,
+                'accepted': true
+              }));
+      final m = connected();
+      await m.connect();
+      c.add({'orderId': 'o1', 'event': 'NEW_ORDER'});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verifyNever(trips.setStatus('o1', 'accepted'));
+      await c.close();
+    });
+
+    test('si el back ya rechazó desde el diálogo (409), no se repite el PATCH',
+        () async {
+      final c = StreamController<Map<String, dynamic>>.broadcast();
+      when(socket.incomingOrders).thenAnswer((_) => c.stream);
+      when(dialogs.showCustomDialog(
+              variant: anyNamed('variant'),
+              data: anyNamed('data'),
+              barrierDismissible: anyNamed('barrierDismissible')))
+          .thenAnswer((_) async => DialogResponse(confirmed: true, data: {
+                'map': 'stay',
+                'accepted': false,
+                'refused': true,
+                'error': 'El pedido ya no está disponible'
+              }));
+      final m = connected();
+      await m.connect();
+      c.add({'orderId': 'o1', 'event': 'NEW_ORDER'});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      verifyNever(trips.setStatus('o1', 'accepted'));
+      verify(dialogs.showDialog(
+              title: 'No pudimos aceptar el pedido',
+              description: 'El pedido ya no está disponible'))
+          .called(1);
       await c.close();
     });
 

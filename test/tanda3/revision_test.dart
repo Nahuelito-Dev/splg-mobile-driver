@@ -58,12 +58,11 @@ void main() {
   });
   tearDown(() => locator.reset());
 
-  group('H1: la oferta vence con el pop-up de mapas abierto', () {
-    testWidgets('se cierran el pop-up y la oferta y se rechaza', (t) async {
-      final navKey = GlobalKey<NavigatorState>();
+  group('Aceptar: se acepta en el back antes de elegir mapa', () {
+    Future<void> abrir(WidgetTester t, GlobalKey<NavigatorState> navKey,
+        void Function(DialogResponse) onDone) async {
       when(trips.order('o1')).thenAnswer((_) async => trip(status: 'pending'));
       when(trips.customerRating(any)).thenAnswer((_) async => null);
-      DialogResponse? response;
       t.view.physicalSize = const Size(393, 852);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.resetPhysicalSize);
@@ -82,10 +81,8 @@ void main() {
                       .add(const Duration(seconds: 3))
                       .toIso8601String(),
                 }),
-                // Igual que el DialogService de stacked: cierra la ruta de
-                // ARRIBA, sea cual sea.
                 completer: (r) {
-                  response = r;
+                  onDone(r);
                   navKey.currentState!.pop();
                 },
               ),
@@ -96,16 +93,68 @@ void main() {
       ));
       await t.tap(find.text('abrir'));
       await t.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets(
+        'el back acepta al tocar Aceptar y la cuenta no vence el pop-up',
+        (t) async {
+      final navKey = GlobalKey<NavigatorState>();
+      DialogResponse? response;
+      await abrir(t, navKey, (r) => response = r);
       await t.tap(find.text('Aceptar pedido'));
       await t.pump(const Duration(milliseconds: 300));
+      verify(trips.setStatus('o1', 'accepted')).called(1);
       expect(find.text('Permanecer en SPLG'), findsOneWidget);
-      // Vence con el pop-up abierto.
-      await t.pump(const Duration(seconds: 4));
+      // Pasa de largo el vencimiento con el pop-up abierto: la oferta ya está
+      // aceptada y la cuenta quedó frenada.
+      await t.pump(const Duration(seconds: 6));
+      expect(response, isNull);
+      expect(find.text('Permanecer en SPLG'), findsOneWidget);
+      await t.tap(find.text('Permanecer en SPLG'));
       await t.pumpAndSettle();
-      expect(response?.confirmed, false);
+      expect(response?.confirmed, true);
+      expect((response?.data as Map)['accepted'], true);
+    });
+
+    testWidgets(
+        'si el back rechaza, no se pregunta el mapa y lo resuelve el Inicio',
+        (t) async {
+      final navKey = GlobalKey<NavigatorState>();
+      DialogResponse? response;
+      when(trips.setStatus('o1', 'accepted')).thenThrow(rejected(409));
+      await abrir(t, navKey, (r) => response = r);
+      await t.tap(find.text('Aceptar pedido'));
+      await t.pumpAndSettle();
       expect(find.text('Permanecer en SPLG'), findsNothing);
-      expect(find.text('Datos del pedido'), findsNothing);
-      expect(find.text('abrir'), findsOneWidget);
+      expect(response?.confirmed, true);
+      expect((response?.data as Map)['accepted'], false);
+      expect((response?.data as Map)['refused'], true);
+    });
+
+    testWidgets('sin orderId muestra el error y no deja el botón muerto',
+        (t) async {
+      t.view.physicalSize = const Size(393, 852);
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.resetPhysicalSize);
+      addTearDown(t.view.resetDevicePixelRatio);
+      DialogResponse? response;
+      await t.pumpWidget(MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: OrderOfferDialog(
+          request: DialogRequest(data: {
+            'expiresAt': DateTime.now()
+                .add(const Duration(seconds: 30))
+                .toIso8601String(),
+          }),
+          completer: (r) => response = r,
+        ),
+      ));
+      await t.pump(const Duration(milliseconds: 300));
+      await t.tap(find.text('Aceptar pedido'));
+      await t.pump();
+      expect(find.byKey(const Key('offer-accept-error')), findsOneWidget);
+      verifyNever(trips.setStatus(any, any));
+      expect(response, isNull);
     });
   });
 

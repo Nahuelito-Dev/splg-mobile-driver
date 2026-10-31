@@ -27,7 +27,8 @@ IconData paymentIcon(String? method) =>
 /// `request.data` trae el payload del socket (`orderId`, `totalAmount`,
 /// `paymentMethod`, `expiresAt`). El completer devuelve
 /// `DialogResponse(confirmed: true, data: {map, lat, lng})` al aceptar y
-/// `confirmed: false` si rechaza o vence.
+/// `confirmed: false` si rechaza o vence. `accepted` dice si el back ya
+/// confirmó la aceptación (se hace antes de elegir mapa).
 class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
   final DialogRequest request;
   final Function(DialogResponse) completer;
@@ -49,37 +50,42 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
 
   Future<void> _accept(
       BuildContext context, OrderOfferDialogModel model) async {
+    final orderId = _data['orderId']?.toString();
+    if (model.isAccepting) return;
+    if (orderId == null) {
+      model.missingOrder();
+      return;
+    }
     final order = model.order;
+    // Primero se acepta en el back y se frena la cuenta: elegir el mapa puede
+    // llevar un rato y no puede hacer vencer la oferta.
+    final outcome = await model.acceptInBackend(orderId);
+    final accepted = outcome == AcceptOutcome.accepted;
     MapApp map = MapApp.stay;
-    if (order != null && order.hasCoordinates) {
-      // La cuenta sigue corriendo mientras elige el mapa: si vence, se cierra
-      // primero el pop-up (`closeChooser`) y después la oferta.
+    if (accepted && order != null && order.hasCoordinates && context.mounted) {
       final picked = await showDialog<MapApp>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) {
-          model.chooserContext = ctx;
-          return const SplgChoiceDialog<MapApp>(
-            message:
-                'Al aceptar el pedido debés elegir un tipo de mapa para continuar:',
-            boldPrefix: 'aceptar',
-            choices: [
-              SplgChoice(MapApp.stay, 'Permanecer en SPLG', bold: true),
-              SplgChoice(MapApp.google, 'Ir a Google Maps'),
-              SplgChoice(MapApp.waze, 'Ir a Waze'),
-            ],
-          );
-        },
+        builder: (ctx) => const SplgChoiceDialog<MapApp>(
+          message:
+              'Al aceptar el pedido debés elegir un tipo de mapa para continuar:',
+          boldPrefix: 'aceptar',
+          choices: [
+            SplgChoice(MapApp.stay, 'Permanecer en SPLG', bold: true),
+            SplgChoice(MapApp.google, 'Ir a Google Maps'),
+            SplgChoice(MapApp.waze, 'Ir a Waze'),
+          ],
+        ),
       );
-      model.chooserContext = null;
-      if (model.isFinished) return;
       map = picked ?? MapApp.stay;
     }
-    model.stop();
     completer(DialogResponse(confirmed: true, data: {
       'map': map.name,
       'lat': order?.lat,
       'lng': order?.lng,
+      'accepted': accepted,
+      'refused': outcome == AcceptOutcome.refused,
+      'error': model.acceptError,
     }));
   }
 
@@ -161,6 +167,14 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
                         ),
                       ),
                     ),
+                    if (model.acceptError != null && _data['orderId'] == null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(model.acceptError!,
+                            key: const Key('offer-accept-error'),
+                            textAlign: TextAlign.center,
+                            style: type.body.copyWith(color: Colors.white)),
+                      ),
                     SplgCountdownBar(
                       remaining: model.remainingSeconds,
                       total: model.totalSeconds,
@@ -169,7 +183,7 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
                     const SizedBox(height: 12),
                     SplgActionButton(
                       title: 'Aceptar pedido',
-                      onPressed: model.isFinished
+                      onPressed: model.isFinished || model.isAccepting
                           ? null
                           : () => _accept(context, model),
                     ),
@@ -281,12 +295,7 @@ class OrderOfferDialog extends StackedView<OrderOfferDialogModel> {
     // re-ofreció a otro chofer). Mismo camino que tocar "Volver".
     viewModel.start(
       data['expiresAt'],
-      () {
-        // Con el pop-up de mapas abierto, el completer cerraría ESE y no la
-        // oferta: primero se cierra el pop-up.
-        viewModel.closeChooser();
-        completer(DialogResponse(confirmed: false));
-      },
+      () => completer(DialogResponse(confirmed: false)),
     );
     final id = data['orderId']?.toString();
     if (id != null) viewModel.load(id);

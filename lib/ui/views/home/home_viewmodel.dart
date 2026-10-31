@@ -174,6 +174,7 @@ class HomeViewModel extends StreamViewModel<Position>
   Future<void> initialize() async {
     WidgetsBinding.instance.addObserver(this);
     _startLoadPolling();
+    _syncAvailabilityOnOpen();
     await _resolveLocation(interactive: true);
     await refreshNoOrdersReason();
     unawaited(resumeActiveOrder());
@@ -181,6 +182,38 @@ class HomeViewModel extends StreamViewModel<Position>
     _maintenanceChanges?.cancel();
     _maintenanceChanges = _notifier.changes.listen((_) => notifyListeners());
     unawaited(_notifier.sync());
+  }
+
+  /// Al abrir la app el estado en memoria se perdió: si el back conserva al
+  /// chofer «en línea» de una sesión anterior (la app se cerró sin
+  /// desconectarse), manda la app, que dice «Desconectado»: se lo baja. Así el
+  /// despacho no le ofrece pedidos que nadie va a ver. Para estar en línea hay
+  /// que tocar «Conectarse».
+  Future<void>? _openSync;
+
+  @visibleForTesting
+  void syncAvailabilityOnOpenForTest() => _syncAvailabilityOnOpen();
+
+  /// No toca a un chofer en entrega: si tiene un pedido aceptado o en camino
+  /// (o no se pudo averiguar), no se lo baja.
+  void _syncAvailabilityOnOpen() {
+    if (isOnline || _connecting || _connectInFlight != null) return;
+    _openSync = () async {
+      try {
+        if (_trips.activeOrderId != null) return;
+        final order = await _driverApi.activeOrder();
+        if (order != null &&
+            (order.status == DriverOrderStatus.accepted ||
+                order.status == DriverOrderStatus.onTheWay)) {
+          return;
+        }
+      } catch (e) {
+        debugPrint('No se pudo revisar el pedido en curso al abrir: $e');
+        return;
+      }
+      if (isOnline || _connecting || _connectInFlight != null) return;
+      await _setAvailability(false);
+    }();
   }
 
   StreamSubscription<void>? _maintenanceOpenedSubscription;
@@ -518,6 +551,9 @@ class HomeViewModel extends StreamViewModel<Position>
 
     _connecting = true;
     try {
+      // Que la baja de la apertura no llegue después del alta.
+      await _openSync;
+      _openSync = null;
       // Marca al chofer DISPONIBLE en el backend (CU-022). Sin esto el backend
       // no sabe formalmente que está en línea, y al desconectar hay que sacarlo
       // del radar (el endpoint hace el ZREM del GEO en el server).
@@ -714,7 +750,22 @@ class HomeViewModel extends StreamViewModel<Position>
             : MapApp.stay;
         final lat = data is Map ? (data['lat'] as num?)?.toDouble() : null;
         final lng = data is Map ? (data['lng'] as num?)?.toDouble() : null;
-        await acceptOrder(orderId, map: map, lat: lat, lng: lng);
+        final alreadyAccepted = data is Map && data['accepted'] == true;
+        if (data is Map && data['refused'] == true) {
+          // El back ya contestó que no: se dice y no se reintenta con otra clave.
+          await _dialogService.showDialog(
+            title: 'No pudimos aceptar el pedido',
+            description:
+                data['error']?.toString() ?? 'El pedido ya no está disponible.',
+          );
+          if (isOnline) {
+            _startSearching();
+            notifyListeners();
+          }
+          return;
+        }
+        await acceptOrder(orderId,
+            map: map, lat: lat, lng: lng, alreadyAccepted: alreadyAccepted);
       } else {
         await rejectOrder(orderId);
         if (isOnline) {
@@ -749,14 +800,16 @@ class HomeViewModel extends StreamViewModel<Position>
   }
 
   /// Acepta un pedido ofertado: `PATCH /orders/:orderId/status {accepted}`
-  /// (idempotente). Si el back lo confirma, arranca el tracking de la entrega,
-  /// abre el mapa elegido y va a la pantalla del pedido; si lo rechaza (la oferta
-  /// venció o la tomó otro chofer) lo dice y vuelve a buscar.
+  /// (idempotente; con [alreadyAccepted] el diálogo de la oferta ya lo hizo).
+  /// Si el back lo confirma, arranca el tracking de la entrega, abre el mapa
+  /// elegido y va a la pantalla del pedido; si lo rechaza (la oferta venció o
+  /// la tomó otro chofer) lo dice y vuelve a buscar.
   Future<void> acceptOrder(
     String orderId, {
     MapApp map = MapApp.stay,
     double? lat,
     double? lng,
+    bool alreadyAccepted = false,
   }) async {
     final token = await _driverAuthService.token;
     final userId = _driverAuthService.userId;
@@ -765,7 +818,8 @@ class HomeViewModel extends StreamViewModel<Position>
       return;
     }
 
-    if (!await _acceptWithConfirmation(orderId)) {
+    // La oferta ya lo aceptó en el back (antes de elegir mapa): no se repite.
+    if (!alreadyAccepted && !await _acceptWithConfirmation(orderId)) {
       if (isOnline) {
         _startSearching();
         notifyListeners();

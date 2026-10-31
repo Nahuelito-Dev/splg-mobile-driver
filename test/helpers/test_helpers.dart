@@ -18,6 +18,10 @@ import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/driver_ops_repository.dart';
 import 'package:splg_driver/models/driver_ops.dart';
+import 'package:splg_driver/services/maintenance_repository.dart';
+import 'package:splg_driver/services/maintenance_board.dart';
+import 'package:splg_driver/services/maintenance_notifier.dart';
+import 'package:splg_driver/models/maintenance.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';
@@ -40,6 +44,9 @@ import 'test_helpers.mocks.dart';
     MockSpec<TripService>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<PaymentRepository>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<DriverOpsRepository>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<MaintenanceRepository>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<MaintenanceBoard>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<MaintenanceNotifier>(onMissingStub: OnMissingStub.returnDefault),
 // @stacked-mock-spec
   ],
 )
@@ -63,6 +70,21 @@ void registerServices() {
       totalAmount: 0,
       odometerKm: 0,
       anomaly: false));
+  provideDummy<MaintenanceProposal>(MaintenanceProposal(
+      proposalId: 'x',
+      taskName: 'x',
+      windowStart: DateTime.utc(2026),
+      windowEnd: DateTime.utc(2026),
+      expiresAt: DateTime.utc(2026)));
+  provideDummy<MaintenancePage>(const MaintenancePage());
+  provideDummy<MaintenanceSettings>(const MaintenanceSettings(
+      workshopStartHour: 8,
+      workshopEndHour: 13,
+      workshopDays: [],
+      holidays: [],
+      minLeadDays: 0,
+      horizonDays: 0,
+      proposalTtlHours: 0));
   provideDummy<AccidentRecord>(const AccidentRecord(vehicleUnusable: false));
   provideDummy<MyTruckLoad>(const MyTruckLoad());
   provideDummy<OrdersPage>(const OrdersPage(orders: [], total: 0, offset: 0));
@@ -79,7 +101,31 @@ void registerServices() {
   getAndRegisterTripService();
   getAndRegisterPaymentRepository();
   getAndRegisterDriverOpsRepository();
+  getAndRegisterMaintenanceRepository();
+  getAndRegisterMaintenanceBoard();
+  getAndRegisterMaintenanceNotifier();
 // @stacked-mock-register
+}
+
+MockMaintenanceRepository getAndRegisterMaintenanceRepository() {
+  _removeRegistrationIfExists<MaintenanceRepository>();
+  final service = MockMaintenanceRepository();
+  locator.registerSingleton<MaintenanceRepository>(service);
+  return service;
+}
+
+MockMaintenanceNotifier getAndRegisterMaintenanceNotifier() {
+  _removeRegistrationIfExists<MaintenanceNotifier>();
+  final service = MockMaintenanceNotifier();
+  locator.registerSingleton<MaintenanceNotifier>(service);
+  return service;
+}
+
+MockMaintenanceBoard getAndRegisterMaintenanceBoard() {
+  _removeRegistrationIfExists<MaintenanceBoard>();
+  final service = MockMaintenanceBoard();
+  locator.registerSingleton<MaintenanceBoard>(service);
+  return service;
 }
 
 MockDriverOpsRepository getAndRegisterDriverOpsRepository() {

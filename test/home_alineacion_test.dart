@@ -11,8 +11,9 @@ void main() {
   setUp(() => registerServices());
   tearDown(() => locator.reset());
 
-  testWidgets('los botones flotantes del inicio arrancan del mismo borde',
-      (tester) async {
+  testWidgets(
+      'el Inicio no tiene Jornada ni Mi ubicación flotando; el estado es un chip '
+      'en la hoja inferior', (tester) async {
     final ubicacion = getAndRegisterLocationService();
     when(ubicacion.checkLocationPermission()).thenAnswer((_) async => true);
     when(ubicacion.requestLocationPermission()).thenAnswer((_) async => true);
@@ -22,11 +23,16 @@ void main() {
     );
     await tester.pump();
 
-    final menu = tester.getTopLeft(find.byKey(const Key('home-menu'))).dx;
-    final estado = tester.getTopLeft(find.byKey(const Key('home-status'))).dx;
-    final jornada = tester.getTopLeft(find.byKey(const Key('home-workday'))).dx;
+    expect(find.byKey(const Key('home-workday')), findsNothing);
+    expect(find.byKey(const Key('home-locate')), findsNothing);
+    expect(find.text('Mi ubicación'), findsNothing);
+    expect(find.text('Jornada'), findsNothing);
 
-    expect(estado, menu);
-    expect(jornada, menu);
+    final chip = tester.getRect(find.byKey(const Key('home-status')));
+    final boton = tester.getRect(find.text('Conectarse'));
+    expect(find.text('Desconectado'), findsOneWidget);
+    expect(chip.bottom, lessThanOrEqualTo(boton.top),
+        reason: 'el chip va sobre el botón Conectarse');
+    expect(chip.height, lessThan(48), reason: 'discreto, no un bloque');
   });
 }

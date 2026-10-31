@@ -42,6 +42,10 @@ import 'package:splg_driver/ui/views/commissions/commissions_view.dart';
 import 'package:splg_driver/ui/views/fuel_load/fuel_load_view.dart';
 import 'package:splg_driver/ui/views/accident/accident_view.dart';
 import 'package:splg_driver/services/driver_ops_repository.dart';
+import 'package:splg_driver/ui/views/taller/taller_view.dart';
+import 'package:splg_driver/services/maintenance_notifier.dart';
+import 'package:splg_driver/services/maintenance_repository.dart';
+import 'package:splg_driver/services/maintenance_board.dart';
 // @stacked-import
 
 @StackedApp(
@@ -75,6 +79,7 @@ import 'package:splg_driver/services/driver_ops_repository.dart';
     MaterialRoute(page: CommissionsView),
     MaterialRoute(page: FuelLoadView),
     MaterialRoute(page: AccidentView),
+    MaterialRoute(page: TallerView),
 // @stacked-route
   ],
   dependencies: [
@@ -92,6 +97,10 @@ import 'package:splg_driver/services/driver_ops_repository.dart';
     LazySingleton(classType: HttpPaymentRepository, asType: PaymentRepository),
     LazySingleton(
         classType: HttpDriverOpsRepository, asType: DriverOpsRepository),
+    LazySingleton(
+        classType: HttpMaintenanceRepository, asType: MaintenanceRepository),
+    LazySingleton(classType: MaintenanceBoard),
+    LazySingleton(classType: MaintenanceNotifier),
 // @stacked-service
   ],
   bottomsheets: [

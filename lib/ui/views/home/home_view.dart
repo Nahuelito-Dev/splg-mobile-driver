@@ -10,9 +10,9 @@ import 'package:splg_driver/ui/widgets/driver_menu_drawer.dart';
 
 import 'home_viewmodel.dart';
 
-/// Inicio del chofer: mapa a pantalla completa, botones flotantes (menú y
-/// estado) arriba a la izquierda, el total de hoy arriba a la derecha y abajo
-/// la hoja con "Conectarse" / "Desconectarse".
+/// Inicio del chofer: mapa a pantalla completa que sigue al chofer, el botón
+/// del menú arriba a la izquierda, el total de hoy arriba a la derecha y abajo
+/// la hoja con el estado (chip) y "Conectarse" / "Desconectarse".
 class HomeView extends StackedView<HomeViewModel> {
   const HomeView({super.key});
 
@@ -46,18 +46,24 @@ class HomeView extends StackedView<HomeViewModel> {
     return Stack(
       children: [
         Positioned.fill(
-          child: HomeView.debugMapBuilder?.call(context, viewModel) ??
-              GoogleMap(
-                mapType: MapType.terrain,
-                initialCameraPosition: HomeViewModel.initialPosition,
-                onMapCreated: viewModel.onMapCreated,
-                markers: viewModel.markers,
-                myLocationEnabled: false, // Usamos nuestro propio marcador
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                compassEnabled: false,
-                mapToolbarEnabled: false,
-              ),
+          child: Listener(
+            // Tocar el mapa frena el seguimiento un rato (no se pelea con el
+            // usuario que lo arrastra).
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => viewModel.onMapTouched(),
+            child: HomeView.debugMapBuilder?.call(context, viewModel) ??
+                GoogleMap(
+                  mapType: MapType.terrain,
+                  initialCameraPosition: HomeViewModel.initialPosition,
+                  onMapCreated: viewModel.onMapCreated,
+                  markers: viewModel.markers,
+                  myLocationEnabled: false, // Usamos nuestro propio marcador
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  compassEnabled: false,
+                  mapToolbarEnabled: false,
+                ),
+          ),
         ),
         SafeArea(
           child: Padding(
@@ -74,6 +80,14 @@ class HomeView extends StackedView<HomeViewModel> {
                       onTap: viewModel.openMyLoad,
                     ),
                   ),
+                if (viewModel.pendingMaintenance > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: _MaintenanceNotice(
+                      count: viewModel.pendingMaintenance,
+                      onTap: viewModel.openTaller,
+                    ),
+                  ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -87,27 +101,6 @@ class HomeView extends StackedView<HomeViewModel> {
                             icon: SplgIcons.menu,
                             onPressed: () => Scaffold.of(ctx).openDrawer(),
                           ),
-                        ),
-                        Builder(
-                          builder: (ctx) => SplgFloatingButton(
-                            key: const Key('home-status'),
-                            tooltip: 'Estado',
-                            label: viewModel.statusLabel,
-                            icon: SplgIcons.online,
-                            color: !viewModel.isOnline
-                                ? Theme.of(context).colorScheme.inverseSurface
-                                : (viewModel.isConnected
-                                    ? context.brasa.success
-                                    : context.brasa.warn),
-                            onPressed: () => _showStatus(ctx, viewModel),
-                          ),
-                        ),
-                        SplgFloatingButton(
-                          key: const Key('home-workday'),
-                          tooltip: 'Mi jornada',
-                          label: viewModel.workdayLabel,
-                          icon: SplgIcons.clock,
-                          onPressed: viewModel.openWorkday,
                         ),
                       ],
                     ),
@@ -133,19 +126,6 @@ class HomeView extends StackedView<HomeViewModel> {
               child: SplgEarnedBanner(amount: formatMoney(viewModel.earned!)),
             ),
           ),
-        if (viewModel.hasLocationPermission &&
-            viewModel.currentLocation != null)
-          Positioned(
-            left: 8,
-            bottom: context.sp(70) + 24,
-            child: SplgFloatingButton(
-              key: const Key('home-locate'),
-              tooltip: 'Centrar en mi ubicación',
-              label: 'Mi ubicación',
-              icon: SplgIcons.locate,
-              onPressed: viewModel.centerOnUserLocation,
-            ),
-          ),
         if (viewModel.search != HomeSearch.idle)
           Center(child: _SearchCard(search: viewModel.search)),
         Align(
@@ -154,20 +134,6 @@ class HomeView extends StackedView<HomeViewModel> {
         ),
       ],
     );
-  }
-
-  void _showStatus(BuildContext context, HomeViewModel viewModel) {
-    final text = !viewModel.isOnline
-        ? 'Estás desconectado: no vas a recibir pedidos.'
-        : (viewModel.isConnected
-            ? 'Estás en línea: podés recibir pedidos.'
-            : 'Reconectando… seguís en línea.');
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text(text),
-        duration: const Duration(seconds: 2),
-      ));
   }
 
   Widget _buildPermissionDeniedView(
@@ -267,6 +233,51 @@ class _RouteVisibilityState extends State<_RouteVisibility> with RouteAware {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// Hay una propuesta de taller esperando respuesta (también fuera de línea).
+/// Al tocarlo abre Taller.
+class _MaintenanceNotice extends StatelessWidget {
+  const _MaintenanceNotice({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brasa = context.brasa;
+    final type = SplgType.of(context);
+    return Material(
+      key: const Key('home-maintenance-notice'),
+      color: brasa.infoSoft,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(SplgIcons.vehicle, color: brasa.info),
+              const SizedBox(width: 12),
+              Expanded(
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.3,
+                  child: Text(
+                      count == 1
+                          ? 'Tenés un turno de taller para responder.'
+                          : 'Tenés $count turnos de taller para responder.',
+                      style: type.bodyStrong.copyWith(color: brasa.ink2)),
+                ),
+              ),
+              Icon(SplgIcons.next, color: brasa.info),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// El back no le da pedidos por su carga del camión (D5 sin carga, carga sin
@@ -481,6 +492,18 @@ class _ConnectSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _StatusChip(
+                  label: viewModel.statusLabel,
+                  state: !viewModel.isOnline
+                      ? _LinkState.off
+                      : (viewModel.isConnected
+                          ? _LinkState.on
+                          : _LinkState.reconnecting),
+                ),
+              ),
+              const SizedBox(height: 10),
               SplgButton(
                 title: online ? 'Desconectarse' : 'Conectarse',
                 style: online ? SplgButtonStyle.danger : SplgButtonStyle.filled,
@@ -489,6 +512,54 @@ class _ConnectSheet extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _LinkState { off, on, reconnecting }
+
+/// Estado de la conexión del chofer: chip chico con un punto de color
+/// (Desconectado / En línea / Reconectando…), en la hoja inferior.
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label, required this.state});
+
+  final String label;
+  final _LinkState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = context.brasa;
+    final (bg, dot) = switch (state) {
+      _LinkState.off => (b.surfaceMuted, b.muted),
+      _LinkState.on => (b.successSoft, b.success),
+      _LinkState.reconnecting => (b.warnSoft, b.warn),
+    };
+    return Semantics(
+      label: 'Estado: $label',
+      child: Container(
+        key: const Key('home-status'),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              child: Text(label,
+                  style: SplgType.of(context)
+                      .caption
+                      .copyWith(color: b.ink2, fontWeight: FontWeight.w700)),
+            ),
+          ],
         ),
       ),
     );

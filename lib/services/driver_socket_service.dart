@@ -9,6 +9,7 @@ import 'package:stacked/stacked.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/config/app_config.dart';
+import 'package:splg_driver/models/maintenance.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 
@@ -144,6 +145,12 @@ class DriverSocketService with ListenableServiceMixin {
   Stream<Map<String, dynamic>> get orderAddressChanged =>
       _addressChangedController.stream;
 
+  /// Avisos del planificador de taller (CU-105): propuesta nueva o cerrada,
+  /// ventana confirmada y caso escalado.
+  final _maintenanceController = StreamController<MaintenanceEvent>.broadcast();
+  Stream<MaintenanceEvent> get maintenanceEvents =>
+      _maintenanceController.stream;
+
   /// orderId de la entrega para la que se está emitiendo posición
   /// actualmente (null si no hay broadcasting activo).
   String? _activeOrderId;
@@ -199,6 +206,35 @@ class DriverSocketService with ListenableServiceMixin {
         _addressChangedController.add(Map<String, dynamic>.from(data));
       }
     });
+
+    void maintenance(
+        String event, MaintenanceEvent? Function(Map<String, dynamic>) parse) {
+      socket.on(event, (data) {
+        if (data is! Map) return;
+        final parsed = parse(Map<String, dynamic>.from(data));
+        if (parsed != null) _maintenanceController.add(parsed);
+      });
+    }
+
+    maintenance('maintenance:proposal', (m) {
+      final p = MaintenanceProposal.fromJson(m);
+      return p.proposalId.isEmpty ? null : ProposalReceived(p);
+    });
+    maintenance('maintenance:proposal-closed', (m) {
+      final id = m['proposalId']?.toString();
+      return id == null ? null : ProposalClosed(id, m['reason']?.toString());
+    });
+    maintenance('maintenance:window-confirmed',
+        (m) => WindowConfirmed(ConfirmedWindow.fromJson(m)));
+    maintenance(
+        'maintenance:case-escalated',
+        (m) => CaseEscalated(
+              caseId: m['caseId']?.toString() ?? '',
+              taskId: m['taskId']?.toString(),
+              taskName: m['taskName']?.toString() ?? 'Mantenimiento',
+              patent: m['patent']?.toString(),
+              reason: m['reason']?.toString(),
+            ));
 
     socket.on('server:access-revoked', (_) => _accessRevoked = true);
 
@@ -392,6 +428,7 @@ class DriverSocketService with ListenableServiceMixin {
     _incomingOrdersController.close();
     _cancelledController.close();
     _addressChangedController.close();
+    _maintenanceController.close();
     _rejectedController.close();
   }
 }

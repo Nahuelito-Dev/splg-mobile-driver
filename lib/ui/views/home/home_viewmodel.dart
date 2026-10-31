@@ -12,9 +12,12 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/services/fcm_service.dart';
+import 'package:splg_driver/services/maintenance_board.dart';
+import 'package:splg_driver/services/maintenance_notifier.dart';
+import 'package:splg_driver/services/maintenance_repository.dart';
 import 'package:splg_driver/services/app_permissions.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
-import 'package:splg_driver/services/driver_ops_repository.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/foreground_service.dart';
@@ -90,6 +93,13 @@ class HomeViewModel extends StreamViewModel<Position>
   DriverAuthService get _driverAuthService => locator<DriverAuthService>();
 
   TripService get _trips => _tripsOverride ?? locator<TripService>();
+
+  // Lazy, por lo mismo que `_driverAuthService`.
+  MaintenanceBoard get _board => locator<MaintenanceBoard>();
+  MaintenanceNotifier get _notifier => locator<MaintenanceNotifier>();
+  MaintenanceRepository get _maintenanceRepo =>
+      locator<MaintenanceRepository>();
+  FcmService get _fcm => locator<FcmService>();
 
   // Lazy, por lo mismo que `_driverAuthService`.
   DriverApiService get _driverApi => locator<DriverApiService>();
@@ -171,9 +181,28 @@ class HomeViewModel extends StreamViewModel<Position>
     _startLoadPolling();
     await _resolveLocation(interactive: true);
     await loadToday();
-    unawaited(loadWorkday());
     await refreshNoOrdersReason();
     unawaited(resumeActiveOrder());
+    _listenMaintenanceTaps();
+    _maintenanceChanges?.cancel();
+    _maintenanceChanges = _notifier.changes.listen((_) => notifyListeners());
+    unawaited(_notifier.sync());
+  }
+
+  StreamSubscription<void>? _maintenanceOpenedSubscription;
+
+  /// Un push de taller tocado con la app cerrada o en segundo plano abre "Taller".
+  void _listenMaintenanceTaps() {
+    _maintenanceOpenedSubscription?.cancel();
+    _maintenanceOpenedSubscription =
+        _fcm.maintenanceOpened.listen((_) => _openTallerIfPending());
+    _openTallerIfPending();
+  }
+
+  void _openTallerIfPending() {
+    if (_fcm.takePendingMaintenance()) {
+      unawaited(_notifier.openTaller());
+    }
   }
 
   /// Total de hoy para el chip del Inicio, con las entregas más recientes del
@@ -233,32 +262,6 @@ class HomeViewModel extends StreamViewModel<Position>
     _loadTimer = null;
   }
 
-  /// Jornada marcada en esta sesión: `Jornada · 08:12` si está abierta; si no,
-  /// sólo `Jornada` (el back no permite leer la jornada, sólo marcarla).
-  String get workdayLabel {
-    final w = locator<DriverOpsRepository>().workday;
-    if (w == null || !w.isOpen) return 'Jornada';
-    return w.isFromPastDay(now())
-        ? 'Jornada sin cerrar'
-        : 'Jornada · ${formatTime(w.checkInAt)}';
-  }
-
-  /// Lee la jornada abierta del back para el botón del Inicio; si falla, el
-  /// botón queda sin hora.
-  Future<void> loadWorkday() async {
-    try {
-      await locator<DriverOpsRepository>().currentWorkday();
-    } catch (e) {
-      debugPrint('No se pudo leer la jornada: $e');
-    }
-    notifyListeners();
-  }
-
-  Future<void> openWorkday() async {
-    await _navigationService.navigateToWorkdayView();
-    notifyListeners();
-  }
-
   /// Toca el aviso: abre Mi carga y al volver relee.
   Future<void> openMyLoad() async {
     await _navigationService.navigateToMyLoadView();
@@ -291,6 +294,7 @@ class HomeViewModel extends StreamViewModel<Position>
       if (!hasLocationPermission) _resolveLocation(interactive: false);
       if (_isHomeVisible()) unawaited(refreshNoOrdersReason());
       unawaited(resumeActiveOrder());
+      unawaited(_notifier.sync());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden ||
@@ -306,6 +310,8 @@ class HomeViewModel extends StreamViewModel<Position>
     WidgetsBinding.instance.removeObserver(this);
     _incomingOrdersSubscription?.cancel();
     _rejectedSubscription?.cancel();
+    _maintenanceChanges?.cancel();
+    _maintenanceOpenedSubscription?.cancel();
     _locationService.stopTracking();
     mapController.future.then((controller) => controller.dispose());
     super.dispose();
@@ -370,16 +376,39 @@ class HomeViewModel extends StreamViewModel<Position>
       ),
     );
 
-    // Animar la cámara hacia la nueva ubicación (solo la primera vez)
-    if (markers.length == 1) {
+    // El mapa acompaña al chofer: se centra al abrir y cuando se mueve, salvo
+    // que lo esté tocando o lo haya arrastrado hace poco.
+    if (_firstFix || !_userIsExploring()) {
+      _firstFix = false;
       _animateCameraToPosition(currentLocation!);
     }
 
     notifyListeners();
   }
 
+  /// Sólo para tests: reemplaza el movimiento real de la cámara.
+  @visibleForTesting
+  Future<void> Function(LatLng)? cameraMover;
+
+  bool _firstFix = true;
+  DateTime? _lastMapTouch;
+
+  /// Cuánto se respeta al usuario después de tocar el mapa antes de volver a
+  /// seguirlo.
+  static const Duration exploreGrace = Duration(seconds: 20);
+
+  /// El chofer tocó o arrastró el mapa: el seguimiento se frena un rato.
+  void onMapTouched() => _lastMapTouch = now();
+
+  bool _userIsExploring() {
+    final t = _lastMapTouch;
+    return t != null && now().difference(t) < exploreGrace;
+  }
+
   /// Anima la cámara hacia una posición específica
   Future<void> _animateCameraToPosition(LatLng position) async {
+    final mover = cameraMover;
+    if (mover != null) return mover(position);
     try {
       final controller = await mapController.future;
       controller.animateCamera(
@@ -403,13 +432,6 @@ class HomeViewModel extends StreamViewModel<Position>
   /// Abre la configuración de la app para habilitar permisos
   Future<void> openSettings() async {
     await _permissions.openSettings();
-  }
-
-  /// Centra el mapa en la ubicación actual del usuario
-  Future<void> centerOnUserLocation() async {
-    if (currentLocation != null) {
-      await _animateCameraToPosition(currentLocation!);
-    }
   }
 
   /// Navega a los Términos y Condiciones de la plataforma (C3).
@@ -471,6 +493,10 @@ class HomeViewModel extends StreamViewModel<Position>
     } finally {
       // Las claves de idempotencia y el flujo en curso son de la sesión.
       _trips.reset();
+      _notifier.reset();
+      _fcm.clearPendingMaintenance();
+      _board.reset();
+      _maintenanceRepo.reset();
       setBusy(false);
     }
 
@@ -591,6 +617,8 @@ class HomeViewModel extends StreamViewModel<Position>
     _incomingOrdersSubscription = null;
     _rejectedSubscription?.cancel();
     _rejectedSubscription = null;
+    _notifier.stop();
+    _board.detach();
     _driverSocketService.disconnect();
   }
 
@@ -650,7 +678,21 @@ class HomeViewModel extends StreamViewModel<Position>
     _incomingOrdersSubscription?.cancel();
     _incomingOrdersSubscription =
         _driverSocketService.incomingOrders.listen(_showOrderOfferDialog);
+    _board.bind(_driverAuthService.userId);
+    _board.attach(_driverSocketService.maintenanceEvents);
+    _notifier.isBusyWithOrder = () => _trips.activeOrderId != null;
+    _notifier.start();
+    unawaited(_notifier.sync());
   }
+
+  StreamSubscription<void>? _maintenanceChanges;
+
+  /// Hay una propuesta de taller esperando la respuesta del chofer: el Inicio
+  /// lo marca aunque esté fuera de línea.
+  int get pendingMaintenance => _notifier.pending.length;
+
+  /// Abre "Taller" (sin apilar otra si ya está abierta).
+  Future<void> openTaller() => _notifier.openTaller();
 
   /// Muestra la oferta de pedido por cada aviso que llega
   /// (`server:new-order-request` / `NEW_ORDER` | `NEW_ORDER_RETRY`). Mientras hay
@@ -679,6 +721,8 @@ class HomeViewModel extends StreamViewModel<Position>
       return;
     }
     _offerOpen = true;
+    // La oferta tiene prioridad: un aviso de taller abierto se cierra y vuelve después.
+    _notifier.offerStarted();
     try {
       final response = await _dialogService.showCustomDialog(
         variant: DialogType.orderOffer,
@@ -711,6 +755,8 @@ class HomeViewModel extends StreamViewModel<Position>
       _offerOpen = false;
       final done = _justFinished;
       _justFinished = null;
+      // Si va a retomarse un pedido asignado, los avisos esperan a que termine.
+      _notifier.offerEnded(pump: done == null);
       if (done != null) _resumeSoon(done);
     }
   }
@@ -864,8 +910,15 @@ class HomeViewModel extends StreamViewModel<Position>
 
   /// Después de que termine la llamada que está retomando (su bandera
   /// `_resuming` sigue arriba hasta entonces).
-  void _resumeSoon(String except) => unawaited(Future<void>.delayed(
-      Duration.zero, () => resumeActiveOrder(except: except, collect: false)));
+  void _resumeSoon(String except) {
+    final notifier = _notifier;
+    unawaited(Future<void>.delayed(
+        Duration.zero,
+        () => resumeActiveOrder(except: except, collect: false)
+            // Terminado el pedido (y el que se haya retomado): los avisos de
+            // taller que esperaban pueden salir.
+            .whenComplete(notifier.recheck)));
+  }
 
   bool _resuming = false;
 

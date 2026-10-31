@@ -20,6 +20,9 @@ import '../services/driver_socket_service.dart';
 import '../services/fcm_service.dart';
 import '../services/foreground_service.dart';
 import '../services/location_service.dart';
+import '../services/maintenance_board.dart';
+import '../services/maintenance_notifier.dart';
+import '../services/maintenance_repository.dart';
 import '../services/payment_repository.dart';
 import '../services/trip_service.dart';
 
@@ -49,4 +52,8 @@ Future<void> setupLocator({
       .registerLazySingleton<PaymentRepository>(() => HttpPaymentRepository());
   locator.registerLazySingleton<DriverOpsRepository>(
       () => HttpDriverOpsRepository());
+  locator.registerLazySingleton<MaintenanceRepository>(
+      () => HttpMaintenanceRepository());
+  locator.registerLazySingleton(() => MaintenanceBoard());
+  locator.registerLazySingleton(() => MaintenanceNotifier());
 }

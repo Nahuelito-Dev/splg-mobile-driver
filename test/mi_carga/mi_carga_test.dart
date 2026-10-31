@@ -257,15 +257,12 @@ void main() {
       verify(api.noOrdersReason()).called(1);
     });
 
-    testWidgets('con letra grande no tapa el menú ni el estado', (t) async {
+    testWidgets('con letra grande no tapa el menú', (t) async {
       await pumpHome(t, kMsgSinSalir, scale: 2.5);
       final notice = t.getRect(find.byKey(const Key('home-no-orders-notice')));
       final menu = t.getRect(find.byKey(const Key('home-menu')));
-      final status = t.getRect(find.byKey(const Key('home-status')));
       expect(notice.bottom, lessThanOrEqualTo(menu.top));
-      expect(notice.bottom, lessThanOrEqualTo(status.top));
-      // El botón de estado de splg-lib desborda por sí solo con letra enorme
-      // (sin aviso también); acá se mide que el aviso no tape nada.
+      // Acá se mide que el aviso no tape nada.
       t.takeException();
     });
   });

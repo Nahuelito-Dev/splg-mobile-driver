@@ -12,6 +12,8 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/firebase_options.dart';
 import 'package:splg_driver/app/app.bottomsheets.dart';
 import 'package:splg_driver/services/fcm_service.dart';
+import 'package:splg_driver/services/maintenance_notifier.dart';
+import 'package:splg_driver/ui/dialogs/maintenance_proposal/route_notice_presenter.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
 
 Future<void> main() async {
@@ -24,6 +26,7 @@ Future<void> main() async {
   // Handler de mensajes FCM con la app en background/terminated. Tiene que
   // registrarse antes de cualquier otra cosa (ver fcm_service.dart).
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  MaintenanceNotifier.presenterFactory = RouteNoticePresenter.new;
   await setupLocator();
   setupDialogUi();
   setupBottomSheetUi();

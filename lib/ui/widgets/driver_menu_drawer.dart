@@ -108,6 +108,7 @@ class DriverMenuDrawer extends StackedView<DriverMenuViewModel> {
                             model.openFuelLoad),
                         item('Reportar siniestro', SplgIcons.error,
                             model.openAccident),
+                        item('Taller', SplgIcons.vehicle, model.openTaller),
                       ],
                     ),
                   ),

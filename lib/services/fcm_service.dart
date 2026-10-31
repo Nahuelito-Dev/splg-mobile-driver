@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/services/app_permissions.dart';
+import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_lib/permissions/app_permission.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -50,10 +51,16 @@ class FcmService {
 
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<RemoteMessage>? _foregroundMessageSubscription;
+  StreamSubscription<RemoteMessage>? _openedSubscription;
+  final _maintenanceOpened = StreamController<void>.broadcast();
+  bool _maintenancePending = false;
   bool _initialized = false;
 
   static const _channelId = 'splg_driver_offers';
   static const _channelName = 'SPLG Chofer — Ofertas de pedido';
+  static const _tallerChannelId = 'splg_driver_taller';
+  static const _tallerChannelName = 'SPLG Chofer — Taller';
+  static const _tallerPayload = 'maintenance';
 
   /// Inicializa `flutter_local_notifications` (canal de Android + config de
   /// iOS) y engancha el listener de mensajes en foreground. Idempotente.
@@ -69,6 +76,9 @@ class FcmService {
         android: androidSettings,
         iOS: iosSettings,
       ),
+      onDidReceiveNotificationResponse: (response) {
+        if (response.payload == _tallerPayload) _onMaintenanceTapped();
+      },
     );
 
     const androidChannel = AndroidNotificationChannel(
@@ -77,36 +87,87 @@ class FcmService {
       description: 'Avisos de nuevos pedidos ofertados al chofer.',
       importance: Importance.high,
     );
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
+    const tallerChannel = AndroidNotificationChannel(
+      _tallerChannelId,
+      _tallerChannelName,
+      description: 'Avisos del taller de tu vehículo.',
+      importance: Importance.high,
+    );
+    final android = _localNotifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(androidChannel);
+    await android?.createNotificationChannel(tallerChannel);
 
     _foregroundMessageSubscription?.cancel();
     _foregroundMessageSubscription =
         FirebaseMessaging.onMessage.listen(_showForegroundNotification);
+    _openedSubscription?.cancel();
+    _openedSubscription =
+        FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpened);
+    final initial = await FirebaseMessaging.instance.getInitialMessage();
+    if (initial != null) _onMessageOpened(initial);
   }
+
+  /// El chofer tocó un push del planificador de taller (`MAINTENANCE_PROPOSAL`
+  /// o `MAINTENANCE_CONFIRMED`) con la app en segundo plano o cerrada: el
+  /// Inicio abre "Taller". Avisa por el stream y deja la marca por si el Inicio
+  /// todavía no está escuchando ([takePendingMaintenance]).
+  Stream<void> get maintenanceOpened => _maintenanceOpened.stream;
+
+  /// Cierre de sesión: un push tocado de otro chofer no se atiende.
+  void clearPendingMaintenance() => _maintenancePending = false;
+
+  /// true una sola vez si hay un push de taller tocado sin atender.
+  bool takePendingMaintenance() {
+    final was = _maintenancePending;
+    _maintenancePending = false;
+    return was;
+  }
+
+  /// `data.type` de los push del planificador de taller.
+  static bool isMaintenanceMessage(RemoteMessage message) {
+    final type = message.data['type'];
+    return type == 'MAINTENANCE_PROPOSAL' || type == 'MAINTENANCE_CONFIRMED';
+  }
+
+  void _onMessageOpened(RemoteMessage message) {
+    if (!isMaintenanceMessage(message)) return;
+    _onMaintenanceTapped();
+  }
+
+  void _onMaintenanceTapped() {
+    _maintenancePending = true;
+    _maintenanceOpened.add(null);
+  }
+
+  /// Con el socket conectado el aviso de taller ya lo mostró la app: el push
+  /// en primer plano sería un duplicado.
+  bool get _socketShowsMaintenance =>
+      locator<DriverSocketService>().isConnected;
 
   /// Muestra un aviso local cuando llega un mensaje FCM con la app abierta
   /// (en foreground el sistema operativo no lo muestra solo).
   Future<void> _showForegroundNotification(RemoteMessage message) async {
     final notification = message.notification;
     if (notification == null) return;
+    final maintenance = isMaintenanceMessage(message);
+    if (maintenance && _socketShowsMaintenance) return;
 
     try {
       await _localNotifications.show(
         message.hashCode,
         notification.title ?? 'SPLG Chofer',
         notification.body ?? 'Tenés un nuevo aviso.',
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
+            maintenance ? _tallerChannelId : _channelId,
+            maintenance ? _tallerChannelName : _channelName,
             importance: Importance.high,
             priority: Priority.high,
           ),
-          iOS: DarwinNotificationDetails(),
+          iOS: const DarwinNotificationDetails(),
         ),
+        payload: maintenance ? _tallerPayload : null,
       );
     } catch (e) {
       log('Error mostrando notificación local: $e', name: 'FcmService');
@@ -191,5 +252,7 @@ class FcmService {
   void dispose() {
     _tokenRefreshSubscription?.cancel();
     _foregroundMessageSubscription?.cancel();
+    _openedSubscription?.cancel();
+    _maintenanceOpened.close();
   }
 }

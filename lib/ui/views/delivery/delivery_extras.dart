@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:splg_lib/splg_lib.dart';
 
+import 'package:splg_driver/models/cylinder_pickup.dart';
+import 'package:splg_driver/models/driver_data.dart' show formatMoney;
+import 'package:splg_driver/ui/common/pickups_model.dart';
 import 'package:splg_driver/ui/common/ui_helpers.dart';
 
 import 'delivery_viewmodel.dart';
@@ -322,6 +325,189 @@ class CylinderAssignCardState extends State<CylinderAssignCard> {
                           : 'Despachar ${_serials.length} envase(s)',
                     ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Los envases que el cliente aceptó devolver en este pedido: «Retirar envase
+/// SPLG-xxxxx» con «Retiré el envase» y «No pude retirarlo» (pide el motivo).
+/// No dibuja nada si el pedido no lleva retiros.
+class PickupCard extends StatelessWidget {
+  const PickupCard({super.key, required this.model});
+
+  final PickupsModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: model,
+      builder: (context, _) {
+        if (model.pickups.isEmpty) return const SizedBox.shrink();
+        return Column(
+          key: const Key('pickup-card'),
+          children: [
+            for (final p in model.pickups) _PickupTile(model: model, pickup: p),
+            if (model.error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(model.error!,
+                    key: const Key('pickup-error'),
+                    style: SplgType.of(context)
+                        .caption
+                        .copyWith(color: context.brasa.danger)),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PickupTile extends StatelessWidget {
+  const _PickupTile({required this.model, required this.pickup});
+
+  final PickupsModel model;
+  final CylinderPickup pickup;
+
+  Future<void> _notCollected(BuildContext context) async {
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const NotCollectedSheet(),
+    );
+    if (reason == null) return;
+    await model.notCollected(pickup, reason);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final type = SplgType.of(context);
+    final brasa = context.brasa;
+    final done = model.isDone(pickup.noticeId);
+    final busy = model.isBusy(pickup.noticeId);
+    final caption = [
+      if (pickup.product != null) pickup.product!,
+      if (pickup.depositAmount != null)
+        'Depósito ${formatMoney(pickup.depositAmount!)}',
+    ].join(' - ');
+    return Container(
+      key: Key('pickup-${pickup.noticeId}'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: brasa.primarySoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SplgRouteRow(
+            icon: SplgIcons.flame,
+            text: done
+                ? 'Envase ${pickup.serial} retirado'
+                : 'Retirar envase ${pickup.serial}',
+            caption: caption.isEmpty ? null : caption,
+            color: brasa.primaryStrong,
+          ),
+          if (!done && pickup.orderDelivered)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                  'Ya entregaste el pedido: podés confirmarlo hasta 24 h '
+                  'después de la entrega.',
+                  key: const Key('pickup-window'),
+                  style: type.caption.copyWith(color: brasa.muted)),
+            ),
+          if (!done) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: SplgButton(
+                    key: const Key('pickup-not-collected'),
+                    title: 'No pude retirarlo',
+                    style: SplgButtonStyle.outlined,
+                    onPressed:
+                        model.hasBusy ? null : () => _notCollected(context),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SplgButton(
+                    key: const Key('pickup-confirm'),
+                    title: 'Retiré el envase',
+                    loading: busy,
+                    onPressed:
+                        model.hasBusy ? null : () => model.confirm(pickup),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Hoja con el motivo de «No pude retirarlo» (obligatorio, hasta 500).
+class NotCollectedSheet extends StatefulWidget {
+  const NotCollectedSheet({super.key});
+
+  @override
+  State<NotCollectedSheet> createState() => NotCollectedSheetState();
+}
+
+class NotCollectedSheetState extends State<NotCollectedSheet> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = _controller.text.trim().isEmpty;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('No pude retirar el envase',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          verticalSpaceSmall,
+          TextField(
+            key: const Key('pickup-reason'),
+            controller: _controller,
+            maxLines: 3,
+            maxLength: 500,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Motivo',
+              hintText: 'Ej: el cliente no lo tenía a mano',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          verticalSpaceSmall,
+          SplgButton(
+            key: const Key('pickup-reason-send'),
+            title: 'Enviar',
+            onPressed: empty
+                ? null
+                : () => Navigator.of(context).pop(_controller.text.trim()),
           ),
         ],
       ),

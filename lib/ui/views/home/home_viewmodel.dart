@@ -12,10 +12,15 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/route_batch.dart';
 import 'package:splg_driver/services/fcm_service.dart';
 import 'package:splg_driver/services/maintenance_board.dart';
 import 'package:splg_driver/services/maintenance_notifier.dart';
 import 'package:splg_driver/services/maintenance_repository.dart';
+import 'package:splg_driver/services/recovery_repository.dart';
+import 'package:splg_driver/services/route_batch_repository.dart';
+import 'package:splg_driver/ui/dialogs/route_batch_offer/route_batch_offer_dialog_model.dart'
+    show BatchOutcome;
 import 'package:splg_driver/services/app_permissions.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
@@ -100,6 +105,8 @@ class HomeViewModel extends StreamViewModel<Position>
   MaintenanceRepository get _maintenanceRepo =>
       locator<MaintenanceRepository>();
   FcmService get _fcm => locator<FcmService>();
+  RouteBatchRepository get _batches => locator<RouteBatchRepository>();
+  RecoveryRepository get _recovery => locator<RecoveryRepository>();
 
   // Lazy, por lo mismo que `_driverAuthService`.
   DriverApiService get _driverApi => locator<DriverApiService>();
@@ -304,6 +311,7 @@ class HomeViewModel extends StreamViewModel<Position>
       if (_isHomeVisible()) unawaited(refreshNoOrdersReason());
       unawaited(resumeActiveOrder());
       unawaited(_notifier.sync());
+      if (isOnline) unawaited(syncRouteBatches());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden ||
@@ -318,6 +326,8 @@ class HomeViewModel extends StreamViewModel<Position>
     _loadTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _incomingOrdersSubscription?.cancel();
+    _batchSubscription?.cancel();
+    _batchClearTimer?.cancel();
     _rejectedSubscription?.cancel();
     _maintenanceChanges?.cancel();
     _maintenanceOpenedSubscription?.cancel();
@@ -506,6 +516,9 @@ class HomeViewModel extends StreamViewModel<Position>
       _fcm.clearPendingMaintenance();
       _board.reset();
       _maintenanceRepo.reset();
+      _batches.reset();
+      _recovery.reset();
+      _clearBatch();
       setBusy(false);
     }
 
@@ -627,6 +640,8 @@ class HomeViewModel extends StreamViewModel<Position>
     await _foregroundService.stop();
     _incomingOrdersSubscription?.cancel();
     _incomingOrdersSubscription = null;
+    _batchSubscription?.cancel();
+    _batchSubscription = null;
     _rejectedSubscription?.cancel();
     _rejectedSubscription = null;
     _notifier.stop();
@@ -690,6 +705,10 @@ class HomeViewModel extends StreamViewModel<Position>
     _incomingOrdersSubscription?.cancel();
     _incomingOrdersSubscription =
         _driverSocketService.incomingOrders.listen(_showOrderOfferDialog);
+    _batchSubscription?.cancel();
+    _batchSubscription =
+        _driverSocketService.routeBatchEvents.listen(_onRouteBatchEvent);
+    unawaited(syncRouteBatches());
     _board.bind(_driverAuthService.userId);
     _board.attach(_driverSocketService.maintenanceEvents);
     _notifier.isBusyWithOrder = () => _trips.activeOrderId != null;
@@ -713,7 +732,8 @@ class HomeViewModel extends StreamViewModel<Position>
 
   /// Hay una oferta abierta o un pedido en curso.
   @visibleForTesting
-  bool get busyWithOrder => _offerOpen || _trips.activeOrderId != null;
+  bool get busyWithOrder =>
+      _offerOpen || _trips.activeOrderId != null || _batchQueue.isNotEmpty;
 
   Future<void> _showOrderOfferDialog(Map<String, dynamic> offer) async {
     final orderId = offer['orderId']?.toString();
@@ -721,11 +741,17 @@ class HomeViewModel extends StreamViewModel<Position>
       debugPrint('Oferta de pedido sin orderId, se ignora: $offer');
       return;
     }
+    // Un pedido de un recorrido que el chofer aceptó llega por el mismo evento
+    // que una oferta, pero ya es suyo: no hay nada que ofrecer.
+    if (_batchOrderIds.remove(orderId)) {
+      debugPrint('Pedido $orderId del recorrido: ya está asignado');
+      return;
+    }
     // Mientras se busca un pedido para retomar, la oferta espera la decisión:
     // si no, el diálogo y la pantalla del pedido retomado se pisarían.
     final deciding = _resumeDecision;
     if (_resuming && deciding != null) await deciding.future;
-    if (_offerOpen || _trips.activeOrderId != null) {
+    if (busyWithOrder) {
       // Ocupado: se rechaza explícitamente para que el back la pase a otro
       // chofer enseguida, en vez de esperar a que venza.
       debugPrint('Oferta $orderId rechazada: ya hay un pedido en pantalla');
@@ -920,6 +946,10 @@ class HomeViewModel extends StreamViewModel<Position>
   final Set<String> _promptedPayments = {};
 
   Future<void> _afterFlow(String orderId) async {
+    // Dentro de un recorrido sigue la próxima parada, en el orden del lote.
+    if (_batchQueue.isNotEmpty && !_offerOpen) {
+      if (await _openNextBatchStop()) return;
+    }
     await _foregroundService.update(
       title: 'Estás en línea',
       text: 'Recibiendo pedidos cercanos',
@@ -946,6 +976,187 @@ class HomeViewModel extends StreamViewModel<Position>
             // Terminado el pedido (y el que se haya retomado): los avisos de
             // taller que esperaban pueden salir.
             .whenComplete(notifier.recheck)));
+  }
+
+  // --- Recorridos (CU-107, M4) ---------------------------------------------
+
+  StreamSubscription<RouteBatchEvent>? _batchSubscription;
+
+  /// Lote cuya oferta está en pantalla.
+  String? _batchOpenId;
+  final Set<String> _batchFetching = {};
+
+  /// Pedidos del recorrido ofrecido o aceptado: el back los manda por
+  /// `server:new-order-request` al asignarlos y no son ofertas.
+  final Set<String> _batchOrderIds = {};
+  Timer? _batchClearTimer;
+
+  /// Pedidos del recorrido aceptado que faltan, en el orden de las paradas.
+  final List<String> _batchQueue = [];
+
+  @visibleForTesting
+  List<String> get batchQueue => List.unmodifiable(_batchQueue);
+
+  void _clearBatch() {
+    _batchClearTimer?.cancel();
+    _batchOrderIds.clear();
+    _batchQueue.clear();
+  }
+
+  void _onRouteBatchEvent(RouteBatchEvent e) {
+    // El cierre lo atiende la propia pantalla de la oferta.
+    if (e is RouteBatchOffered) {
+      unawaited(offerRouteBatch(e.batchId, rejectIfBusy: true));
+    }
+  }
+
+  /// Oferta de recorrido (`route-batch:offer`): se lee el lote y se abre la
+  /// pantalla. Con un pedido en pantalla o en curso se rechaza (con [rejectIfBusy])
+  /// para que el despacho lo pase enseguida a otro chofer.
+  @visibleForTesting
+  Future<void> offerRouteBatch(String batchId,
+      {required bool rejectIfBusy}) async {
+    if (_batchOpenId == batchId || !_batchFetching.add(batchId)) return;
+    try {
+      final deciding = _resumeDecision;
+      if (_resuming && deciding != null) await deciding.future;
+      if (busyWithOrder) {
+        if (rejectIfBusy) {
+          debugPrint(
+              'Recorrido $batchId rechazado: ya hay un pedido en pantalla');
+          await _rejectBatch(batchId);
+        }
+        return;
+      }
+      final RouteBatch batch;
+      try {
+        batch = await _batches.batch(batchId);
+      } catch (e) {
+        debugPrint('No se pudo leer el recorrido $batchId: $e');
+        return;
+      }
+      await _showRouteBatchDialog(batch);
+    } finally {
+      _batchFetching.remove(batchId);
+    }
+  }
+
+  /// Al ponerse en línea y al volver a primer plano: si el despacho dejó un
+  /// recorrido esperando respuesta (push, socket caído), se muestra.
+  @visibleForTesting
+  Future<void> syncRouteBatches() async {
+    try {
+      final list = await _batches.mine();
+      final now = DateTime.now();
+      for (final b in list) {
+        if (b.awaitsAnswer && b.offer!.remaining(now) > Duration.zero) {
+          await offerRouteBatch(b.batchId, rejectIfBusy: false);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('No se pudieron leer los recorridos: $e');
+    }
+  }
+
+  Future<void> _rejectBatch(String batchId) async {
+    try {
+      await _batches.reject(batchId);
+    } catch (e) {
+      debugPrint('Error rechazando el recorrido $batchId: $e');
+    }
+  }
+
+  Future<void> _showRouteBatchDialog(RouteBatch batch) async {
+    if (busyWithOrder || !batch.awaitsAnswer) return;
+    _offerOpen = true;
+    _batchOpenId = batch.batchId;
+    _batchClearTimer?.cancel();
+    _batchOrderIds
+      ..clear()
+      ..addAll(batch.stops.map((s) => s.orderId));
+    // Igual que una oferta suelta: un aviso de taller abierto se cierra.
+    _notifier.offerStarted();
+    var accepted = false;
+    try {
+      final response = await _dialogService.showCustomDialog(
+        variant: DialogType.routeBatchOffer,
+        data: batch,
+        barrierDismissible: false,
+      );
+      final data = response?.data;
+      final outcome = data is Map ? data['outcome'] : null;
+      switch (outcome) {
+        case BatchOutcome.accepted:
+          accepted = true;
+        case BatchOutcome.refused:
+          await _dialogService.showDialog(
+            title: 'No pudimos aceptar el recorrido',
+            description: data is Map && data['error'] != null
+                ? data['error'].toString()
+                : 'El recorrido ya no está disponible.',
+          );
+        case BatchOutcome.expired || BatchOutcome.closed:
+          break; // el back ya cerró la oferta
+        case BatchOutcome.rejected || null:
+          await _rejectBatch(batch.batchId);
+      }
+    } catch (e) {
+      debugPrint('Error con el recorrido ${batch.batchId}: $e');
+      await _rejectBatch(batch.batchId);
+    } finally {
+      _offerOpen = false;
+      _batchOpenId = null;
+      if (accepted) {
+        _batchQueue
+          ..clear()
+          ..addAll(batch.stops.map((s) => s.orderId));
+        // Lo que no llegó por el socket en un rato ya no va a llegar.
+        _batchClearTimer =
+            Timer(const Duration(minutes: 2), _batchOrderIds.clear);
+      } else {
+        _batchOrderIds.clear();
+      }
+      _notifier.offerEnded(pump: !accepted);
+      if (accepted) {
+        unawaited(_startBatch());
+      } else if (isOnline) {
+        _startSearching();
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> _startBatch() async {
+    if (await _openNextBatchStop()) return;
+    _resumeSoon('');
+  }
+
+  /// Abre la próxima parada del recorrido que siga siendo del chofer. `false`
+  /// si no queda ninguna. Las paradas que salieron (cancelada, asignada aparte)
+  /// se saltean.
+  Future<bool> _openNextBatchStop() async {
+    final token = await _driverAuthService.token;
+    final userId = _driverAuthService.userId;
+    while (_batchQueue.isNotEmpty) {
+      if (token == null || userId == null) break;
+      final id = _batchQueue.first;
+      DriverOrderStatus? status;
+      try {
+        status = (await _trips.order(id)).status;
+      } catch (e) {
+        debugPrint('Parada $id del recorrido no disponible: $e');
+      }
+      if (_batchQueue.isEmpty || _batchQueue.first != id) return false;
+      _batchQueue.removeAt(0);
+      if (status == DriverOrderStatus.accepted ||
+          status == DriverOrderStatus.onTheWay) {
+        await _runOrderFlow(id, token: token, userId: userId);
+        return true;
+      }
+    }
+    _batchQueue.clear();
+    return false;
   }
 
   bool _resuming = false;

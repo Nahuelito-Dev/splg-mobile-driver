@@ -130,6 +130,10 @@ class FcmService {
     return type == 'MAINTENANCE_PROPOSAL' || type == 'MAINTENANCE_CONFIRMED';
   }
 
+  /// `data.type` del push de un recorrido ofrecido (CU-107).
+  static bool isRouteBatchMessage(RemoteMessage message) =>
+      message.data['type'] == 'ROUTE_BATCH_OFFER';
+
   void _onMessageOpened(RemoteMessage message) {
     if (!isMaintenanceMessage(message)) return;
     _onMaintenanceTapped();
@@ -140,8 +144,8 @@ class FcmService {
     _maintenanceOpened.add(null);
   }
 
-  /// Con el socket conectado el aviso de taller ya lo mostró la app: el push
-  /// en primer plano sería un duplicado.
+  /// Con el socket conectado el aviso de taller o de recorrido ya lo mostró la
+  /// app: el push en primer plano sería un duplicado.
   bool get _socketShowsMaintenance =>
       locator<DriverSocketService>().isConnected;
 
@@ -151,7 +155,10 @@ class FcmService {
     final notification = message.notification;
     if (notification == null) return;
     final maintenance = isMaintenanceMessage(message);
-    if (maintenance && _socketShowsMaintenance) return;
+    if ((maintenance || isRouteBatchMessage(message)) &&
+        _socketShowsMaintenance) {
+      return;
+    }
 
     try {
       await _localNotifications.show(

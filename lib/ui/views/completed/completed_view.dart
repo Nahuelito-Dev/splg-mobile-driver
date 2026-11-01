@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 
+import 'package:splg_driver/ui/views/delivery/delivery_extras.dart'
+    show PickupCard;
+
 import 'completed_viewmodel.dart';
 
 /// "¡Pedido completado!" con el botón para calificar al cliente.
@@ -71,6 +74,10 @@ class CompletedView extends StackedView<CompletedViewModel> {
                       textAlign: TextAlign.center,
                       style: type.body.copyWith(color: Colors.white)),
                   const Spacer(),
+                  if (model.pickups.pickups.isNotEmpty) ...[
+                    PickupCard(model: model.pickups),
+                    const SizedBox(height: 8),
+                  ],
                   if (!model.rated)
                     SplgButton(
                       key: const Key('completed-rate'),

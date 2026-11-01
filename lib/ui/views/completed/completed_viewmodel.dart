@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
@@ -5,8 +7,10 @@ import 'package:stacked/stacked.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/recovery_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
+import 'package:splg_driver/ui/common/pickups_model.dart';
 
 /// Cierre del pedido: "¡Pedido completado!" y la calificación del cliente
 /// (`POST /ratings`, una por pedido y por lado). Al terminar libera el flujo
@@ -16,14 +20,19 @@ class CompletedViewModel extends BaseViewModel {
       {required this.orderId,
       TripService? trips,
       void Function()? goHome,
-      this.paid = false})
+      this.paid = false,
+      RecoveryRepository? recovery})
       : _tripsOverride = trips,
+        pickups = PickupsModel(orderId: orderId, repo: recovery),
         _goHome = goHome ?? popToHome;
 
   /// El back confirmó el cobro en efectivo en el paso anterior.
   final bool paid;
 
   final String orderId;
+
+  /// Retiros de envases que quedaron por confirmar (hasta 24 h tras la entrega).
+  final PickupsModel pickups;
   final TripService? _tripsOverride;
   final void Function() _goHome;
   TripService get _trips => _tripsOverride ?? locator<TripService>();
@@ -38,6 +47,8 @@ class CompletedViewModel extends BaseViewModel {
   String? ratingError;
 
   Future<void> load() async {
+    pickups.addListener(notifyListeners);
+    unawaited(pickups.load());
     try {
       order = await _trips.order(orderId);
       final cid = order?.customerId;
@@ -84,6 +95,13 @@ class CompletedViewModel extends BaseViewModel {
     submitting = false;
     notifyListeners();
     return rated;
+  }
+
+  @override
+  void dispose() {
+    pickups.removeListener(notifyListeners);
+    pickups.dispose();
+    super.dispose();
   }
 
   /// Cierra el pedido y vuelve al Inicio.

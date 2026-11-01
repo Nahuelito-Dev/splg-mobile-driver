@@ -19,12 +19,17 @@ import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
+import 'package:splg_driver/services/recovery_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
+import 'package:splg_driver/ui/common/pickups_model.dart';
 
 /// Cada cuánto se relee `GET /orders/:id` mientras el pedido está en curso, para
 /// enterarse de que lo cancelaron o lo liberaron desde otro lado.
 const Duration kTripPollInterval = Duration(seconds: 5);
+
+/// Cada cuánto se relee la lista de retiros de envases mientras dura el viaje.
+const Duration kPickupsRefresh = Duration(seconds: 30);
 
 /// Pantalla del pedido en curso: desde que el chofer lo acepta hasta que sale
 /// hacia el cliente y llega ("Pedido aceptado" y "En camino"). La entrega con
@@ -45,7 +50,9 @@ class DeliveryViewModel extends BaseViewModel {
     Future<Response<dynamic>> Function(String path, String token)? routeGet,
     this.noPositionRetry = const Duration(seconds: 3),
     Future<BitmapDescriptor?> Function()? iconLoader,
+    RecoveryRepository? recovery,
   })  : _tripsOverride = trips,
+        pickups = PickupsModel(orderId: orderId, repo: recovery),
         _routeGet = routeGet,
         _goHome = goHome ?? popToHome,
         _routesOverride = routes,
@@ -53,6 +60,9 @@ class DeliveryViewModel extends BaseViewModel {
 
   final String orderId;
   final Duration pollInterval;
+
+  /// Envases que el cliente aceptó devolver en este pedido (CU-108).
+  final PickupsModel pickups;
 
   /// Espera antes de volver a pedir la ruta cuando el back todavía no tiene la
   /// posición del chofer (409).
@@ -410,6 +420,7 @@ class DeliveryViewModel extends BaseViewModel {
         p.latitude, p.longitude,
         heading: p.heading, speed: p.speed));
     _loadVehicleIcon();
+    pickups.addListener(notifyListeners);
     _cancelSub = _driverSocketService.orderCancelled.listen((payload) {
       // Con el QR arriba, ese es el único que maneja la cancelación.
       if (_qrOpen) return;
@@ -451,6 +462,8 @@ class DeliveryViewModel extends BaseViewModel {
   @override
   void dispose() {
     _disposed = true;
+    pickups.removeListener(notifyListeners);
+    pickups.dispose();
     _stopPolling();
     _noPositionTimer?.cancel();
     _positionSub?.cancel();
@@ -504,6 +517,9 @@ class DeliveryViewModel extends BaseViewModel {
         }
         _moveCamera(force: true);
       }
+      // El cliente puede aceptar el retiro con el viaje en curso: se relee cada
+      // tanto, no en cada lectura.
+      unawaited(pickups.load(every: kPickupsRefresh));
     } catch (e) {
       debugPrint('Error leyendo el pedido $orderId: $e');
       if (isOrderGone(e, known: order != null)) {

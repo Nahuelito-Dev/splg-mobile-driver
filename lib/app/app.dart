@@ -44,6 +44,9 @@ import 'package:splg_driver/ui/views/taller/taller_view.dart';
 import 'package:splg_driver/services/maintenance_notifier.dart';
 import 'package:splg_driver/services/maintenance_repository.dart';
 import 'package:splg_driver/services/maintenance_board.dart';
+import 'package:splg_driver/services/route_batch_repository.dart';
+import 'package:splg_driver/services/recovery_repository.dart';
+import 'package:splg_driver/ui/dialogs/route_batch_offer/route_batch_offer_dialog.dart';
 // @stacked-import
 
 @StackedApp(
@@ -97,6 +100,10 @@ import 'package:splg_driver/services/maintenance_board.dart';
         classType: HttpMaintenanceRepository, asType: MaintenanceRepository),
     LazySingleton(classType: MaintenanceBoard),
     LazySingleton(classType: MaintenanceNotifier),
+    LazySingleton(
+        classType: HttpRouteBatchRepository, asType: RouteBatchRepository),
+    LazySingleton(
+        classType: HttpRecoveryRepository, asType: RecoveryRepository),
 // @stacked-service
   ],
   bottomsheets: [
@@ -106,6 +113,7 @@ import 'package:splg_driver/services/maintenance_board.dart';
   dialogs: [
     StackedDialog(classType: InfoAlertDialog),
     StackedDialog(classType: OrderOfferDialog),
+    StackedDialog(classType: RouteBatchOfferDialog),
 // @stacked-dialog
   ],
 )

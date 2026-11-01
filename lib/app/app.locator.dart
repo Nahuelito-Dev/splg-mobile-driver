@@ -24,6 +24,8 @@ import '../services/maintenance_board.dart';
 import '../services/maintenance_notifier.dart';
 import '../services/maintenance_repository.dart';
 import '../services/payment_repository.dart';
+import '../services/recovery_repository.dart';
+import '../services/route_batch_repository.dart';
 import '../services/trip_service.dart';
 
 final locator = StackedLocator.instance;
@@ -56,4 +58,8 @@ Future<void> setupLocator({
       () => HttpMaintenanceRepository());
   locator.registerLazySingleton(() => MaintenanceBoard());
   locator.registerLazySingleton(() => MaintenanceNotifier());
+  locator.registerLazySingleton<RouteBatchRepository>(
+      () => HttpRouteBatchRepository());
+  locator.registerLazySingleton<RecoveryRepository>(
+      () => HttpRecoveryRepository());
 }

@@ -10,6 +10,7 @@ import 'package:stacked/stacked.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/models/maintenance.dart';
+import 'package:splg_driver/models/route_batch.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 
@@ -151,6 +152,11 @@ class DriverSocketService with ListenableServiceMixin {
   Stream<MaintenanceEvent> get maintenanceEvents =>
       _maintenanceController.stream;
 
+  /// Avisos de los recorridos (CU-107): oferta nueva, oferta cerrada y pedidos
+  /// asignados al aceptar.
+  final _routeBatchController = StreamController<RouteBatchEvent>.broadcast();
+  Stream<RouteBatchEvent> get routeBatchEvents => _routeBatchController.stream;
+
   /// orderId de la entrega para la que se está emitiendo posición
   /// actualmente (null si no hay broadcasting activo).
   String? _activeOrderId;
@@ -235,6 +241,19 @@ class DriverSocketService with ListenableServiceMixin {
               patent: m['patent']?.toString(),
               reason: m['reason']?.toString(),
             ));
+
+    for (final event in const [
+      'route-batch:offer',
+      'route-batch:offer-closed',
+      'route-batch:assigned',
+    ]) {
+      socket.on(event, (data) {
+        if (data is! Map) return;
+        final parsed =
+            parseRouteBatchEvent(event, Map<String, dynamic>.from(data));
+        if (parsed != null) _routeBatchController.add(parsed);
+      });
+    }
 
     socket.on('server:access-revoked', (_) => _accessRevoked = true);
 
@@ -429,6 +448,7 @@ class DriverSocketService with ListenableServiceMixin {
     _cancelledController.close();
     _addressChangedController.close();
     _maintenanceController.close();
+    _routeBatchController.close();
     _rejectedController.close();
   }
 }

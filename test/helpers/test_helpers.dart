@@ -22,6 +22,8 @@ import 'package:splg_driver/services/maintenance_repository.dart';
 import 'package:splg_driver/services/maintenance_board.dart';
 import 'package:splg_driver/services/maintenance_notifier.dart';
 import 'package:splg_driver/models/maintenance.dart';
+import 'package:splg_driver/services/route_batch_repository.dart';
+import 'package:splg_driver/services/recovery_repository.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';
@@ -47,6 +49,8 @@ import 'test_helpers.mocks.dart';
     MockSpec<MaintenanceRepository>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<MaintenanceBoard>(onMissingStub: OnMissingStub.returnDefault),
     MockSpec<MaintenanceNotifier>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<RouteBatchRepository>(onMissingStub: OnMissingStub.returnDefault),
+    MockSpec<RecoveryRepository>(onMissingStub: OnMissingStub.returnDefault),
 // @stacked-mock-spec
   ],
 )
@@ -103,7 +107,23 @@ void registerServices() {
   getAndRegisterMaintenanceRepository();
   getAndRegisterMaintenanceBoard();
   getAndRegisterMaintenanceNotifier();
+  getAndRegisterRouteBatchRepository();
+  getAndRegisterRecoveryRepository();
 // @stacked-mock-register
+}
+
+MockRouteBatchRepository getAndRegisterRouteBatchRepository() {
+  _removeRegistrationIfExists<RouteBatchRepository>();
+  final service = MockRouteBatchRepository();
+  locator.registerSingleton<RouteBatchRepository>(service);
+  return service;
+}
+
+MockRecoveryRepository getAndRegisterRecoveryRepository() {
+  _removeRegistrationIfExists<RecoveryRepository>();
+  final service = MockRecoveryRepository();
+  locator.registerSingleton<RecoveryRepository>(service);
+  return service;
 }
 
 MockMaintenanceRepository getAndRegisterMaintenanceRepository() {

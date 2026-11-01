@@ -1,0 +1,42 @@
+# CodeRabbit. Docs: https://docs.coderabbit.ai/reference/configuration
+# Esquema: https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+# yaml-language-server: $schema=https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+language: es-AR
+tone_instructions: 'Directo y concreto, en castellano rioplatense. Marcá BLOQUEANTE lo que impide el merge. Leé AGENTS.md del repo.'
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+    # Sólo PR contra develop y main (el resto de las ramas no se revisa).
+    base_branches:
+      - develop
+      - main
+  path_filters:
+    - '!**/node_modules/**'
+    - '!**/dist/**'
+    - '!**/*.lock'
+    - '!**/package-lock.json'
+    - '!**/*.g.dart'
+    - '!**/*.freezed.dart'
+  path_instructions:
+    - path: '**'
+      instructions: 'Proyecto: App del chofer (Flutter + Stacked): se pone en línea, recibe ofertas de despacho, entrega y cobra. Comparte código con ../splg-lib. Leé AGENTS.md. Reglas clave: Arquitectura Stacked: la vista no tiene lógica; el ViewModel habla con services; los services, con la API. Lo que usan las dos apps va a splg-lib. Cálculos de plata (cobros, totales, comisiones) NO se hacen en la app: se muestra lo que da la API. Es BLOQUEANTE si la app recalcula o decide importes. El contrato lo define el back (/docs-json). Un 4xx del back se muestra; nunca se asume éxito (ej.: ponerse en línea con 403).'
+    - path: 'lib/ui/**'
+      instructions: 'La vista no tiene lógica de negocio; textos en castellano; tema Brasa; estados de carga/vacío/error; accesibilidad.'
+    - path: 'lib/services/**'
+      instructions: 'Errores 4xx visibles, nada de éxito supuesto, sin cálculos de plata, sin secretos.'
+    - path: 'lib/core/config/**'
+      instructions: 'Sólo --dart-define, sin valores hardcodeados.'
+    - path: 'test/**'
+      instructions: 'Cada test nuevo debe fallar sin el cambio; goldens sólo con cambio visual intencional.'
+    - path: '.github/**'
+      instructions: 'Workflows con permisos mínimos, sin secretos en claro.'
+chat:
+  auto_reply: true

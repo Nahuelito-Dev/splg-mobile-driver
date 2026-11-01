@@ -1,0 +1,48 @@
+# Qodo Merge (pr-agent). Config del repo: se lee desde la rama por defecto.
+# Docs: https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/usage-guide/configuration_options.md
+#       https://github.com/qodo-ai/pr-agent/blob/main/docs/docs/usage-guide/automations_and_usage.md
+#       https://github.com/qodo-ai/pr-agent/blob/main/pr_agent/settings/configuration.toml
+
+[config]
+response_language = "es-AR"
+# Lee AGENTS.md (y CLAUDE.md) del repo como contexto de la revisión.
+repo_context_files = ["AGENTS.md", "CLAUDE.md"]
+
+[github_app]
+handle_pr_actions = ["opened", "reopened", "ready_for_review"]
+feedback_on_draft_pr = false
+# Revisa también los commits nuevos de la rama del PR.
+handle_push_trigger = true
+push_commands = ["/review"]
+pr_commands = ["/describe", "/review", "/improve"]
+
+[pr_reviewer]
+require_tests_review = true
+require_security_review = true
+require_estimate_effort_to_review = true
+require_score_review = false
+extra_instructions = """\
+Respondé en castellano rioplatense, directo y concreto. Leé AGENTS.md del repo.
+App del chofer (Flutter + Stacked): se pone en línea, recibe ofertas de despacho, entrega y cobra. Comparte código con ../splg-lib.
+Marcá como BLOQUEANTE lo que impide el merge. Reglas del repo:
+- Arquitectura Stacked: la vista no tiene lógica; el ViewModel habla con services; los services, con la API. Lo que usan las dos apps va a splg-lib.
+- Cálculos de plata (cobros, totales, comisiones) NO se hacen en la app: se muestra lo que da la API. Es BLOQUEANTE si la app recalcula o decide importes.
+- El contrato lo define el back (/docs-json). Un 4xx del back se muestra; nunca se asume éxito (ej.: ponerse en línea con 403).
+- Configuración sólo por --dart-define (lib/core/config/app_config.dart): nada de URLs, claves ni google-services hardcodeados o commiteados.
+- Sistema visual Brasa.
+- Fechas y vencimientos de ofertas en hora argentina / relativos al servidor, sin depender del TZ del dispositivo.
+- Tests: cada test nuevo debe fallar sin el cambio; goldens sólo se actualizan si el cambio visual es intencional.
+Un test nuevo que no fallaría sin el cambio es un hallazgo.
+"""
+
+[pr_code_suggestions]
+num_code_suggestions_per_chunk = 3
+extra_instructions = """\
+Sugerencias en castellano rioplatense. Respetá AGENTS.md y las convenciones del repo; no propongas
+cambios de estilo que el lint ya cubre ni refactors fuera del alcance del PR.
+"""
+
+[pr_description]
+extra_instructions = """\
+Descripción en castellano rioplatense. Commits y títulos en Conventional Commits.
+"""

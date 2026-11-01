@@ -1,0 +1,66 @@
+name: Checks
+
+# Gate de cada PR a develop o main y de cada push a develop: flutter analyze + flutter test.
+# La app depende de ../splg-lib por `path`: se trae el repo de la lib como carpeta hermana
+# (misma rama si existe en la lib, si no develop), así un cambio coordinado se prueba junto.
+on:
+  pull_request:
+    branches: [develop, main]
+    paths-ignore:
+      - '**.md'
+      - 'legal/**'
+      - '.github/workflows/release.yml'
+  push:
+    branches: [develop]
+    paths-ignore:
+      - '**.md'
+      - 'legal/**'
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # UTC a propósito: el código no puede depender de la zona del proceso (la distribuidora
+  # trabaja en hora argentina) y en UTC se destapan esos errores.
+  TZ: UTC
+  LIB_REPO: Nahuelito-Dev/splg-deliver-mobile-lib
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Traer splg-lib como carpeta hermana
+        env:
+          # Fine-grained PAT con lectura de contenidos de los repos de SPLG (ver ENTREGA).
+          GH_TOKEN: ${{ secrets.SPLG_REPOS_TOKEN }}
+          RAMA: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Falta el secreto SPLG_REPOS_TOKEN (lectura de $LIB_REPO)"; exit 1
+          fi
+          if gh api "repos/$LIB_REPO/branches/$RAMA" --silent 2>/dev/null; then REF="$RAMA"; else REF=develop; fi
+          echo "splg-lib @ $REF"
+          gh repo clone "$LIB_REPO" ../splg-lib -- --depth 1 --branch "$REF"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.7
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+
+      # Los goldens comparan píxeles contra PNG generados en macOS (con las fuentes de la app):
+      # en Linux el anti-aliasing cambia y fallarían sin que haya un error real. Por eso acá
+      # corren con --update-goldens (se renderizan y se ejecutan el resto de sus aserciones,
+      # pero no se compara el PNG; el workspace del runner se descarta). La comparación de
+      # píxeles queda en el gate local: `flutter test` en la Mac.
+      - run: flutter test --update-goldens

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -25,9 +26,13 @@ class ExpenseDraft {
 /// Mi rendición del día (CU-232): lo esperado, el efectivo y los gastos que
 /// declara el chofer y la presentación. Presentada, queda de sólo lectura.
 class SettlementViewModel extends LoadViewModel {
-  SettlementViewModel(
-      {Future<bool> Function(Uint8List bytes, String filename)? sharePdf})
-      : _sharePdf = sharePdf ?? _nativeShare;
+  SettlementViewModel({
+    Future<bool> Function(Uint8List bytes, String filename)? sharePdf,
+    this.previewDebounce = const Duration(milliseconds: 400),
+  }) : _sharePdf = sharePdf ?? _nativeShare;
+
+  /// Espera sin teclear antes de pedirle al back la diferencia.
+  final Duration previewDebounce;
 
   /// Hoja nativa para ver, guardar o compartir el PDF (iOS y Android).
   static Future<bool> _nativeShare(Uint8List bytes, String filename) async {
@@ -54,6 +59,30 @@ class SettlementViewModel extends LoadViewModel {
   String notes = '';
   final List<ExpenseDraft> expenses = [];
 
+  /// Lo que calculó el back para lo que hay escrito (esperado en vivo y
+  /// diferencia); null mientras no lo tenga o si la consulta falló: la app no
+  /// lo inventa.
+  SettlementPreview? preview;
+  num? get previewDifference => preview?.difference;
+
+  num? _freshExpected;
+
+  /// El efectivo esperado que se muestra: el de la última vista previa que
+  /// contestó el back (el más fresco), y si todavía no hubo, el de la lectura
+  /// de la rendición.
+  num? get expectedCash => _freshExpected ?? settlement?.expectedCash;
+
+  /// Aviso cuando un gasto tiene un importe que no se puede leer: sin ese
+  /// importe el back no puede calcular la diferencia.
+  String? get previewHint => expenses.any(_expenseUnreadable)
+      ? 'Revisá el importe del gasto: no se puede calcular la diferencia.'
+      : null;
+
+  bool _expenseUnreadable(ExpenseDraft e) =>
+      e.amount.trim().isNotEmpty && _expenseValue(e) == null;
+  Timer? _previewTimer;
+  int _previewRun = 0;
+
   String? submitError;
   bool submitting = false;
   final _intent = SendIntent<void>();
@@ -70,12 +99,16 @@ class SettlementViewModel extends LoadViewModel {
         s.isOpen ? await _ops.expenseCategories() : const <ExpenseCategory>[];
     settlement = s;
     categories = cats;
+    _freshExpected = null;
+    // La lectura trae un esperado nuevo: se vuelve a pedir la diferencia.
+    _schedulePreview();
   }
 
   void setDeclaredCash(String v) {
     declaredCash = v;
     _intent.reset();
     submitError = null;
+    _schedulePreview();
     notifyListeners();
   }
 
@@ -87,12 +120,14 @@ class SettlementViewModel extends LoadViewModel {
   void addExpense() {
     expenses.add(ExpenseDraft());
     _intent.reset();
+    _schedulePreview();
     notifyListeners();
   }
 
   void removeExpense(ExpenseDraft e) {
     expenses.remove(e);
     _intent.reset();
+    _schedulePreview();
     notifyListeners();
   }
 
@@ -103,6 +138,7 @@ class SettlementViewModel extends LoadViewModel {
     if (description != null) e.description = description;
     _intent.reset();
     submitError = null;
+    _schedulePreview();
     notifyListeners();
   }
 
@@ -132,15 +168,44 @@ class SettlementViewModel extends LoadViewModel {
 
   num? _expenseValue(ExpenseDraft e) => parseAmount(e.amount);
 
-  int get _expensesCents =>
-      expenses.fold<int>(0, (a, e) => a + toCents(_expenseValue(e) ?? 0));
+  /// Los importes de los gastos que ya se pueden leer: lo que está a medio
+  /// tipear (vacío, 0) no entra en la consulta.
+  List<num> get _expenseAmounts => [
+        for (final e in expenses)
+          if ((_expenseValue(e) ?? 0) > 0) _expenseValue(e)!,
+      ];
 
-  /// Diferencia que va a ver el administrador: declarado + gastos − esperado.
-  num? get previewDifference {
-    final d = declaredValue;
+  /// Pide la diferencia al back cuando el chofer deja de teclear. Sin efectivo
+  /// legible o sin red no hay diferencia: se oculta, no se calcula acá.
+  void _schedulePreview() {
+    _previewTimer?.cancel();
+    final run = ++_previewRun;
+    preview = null;
     final s = settlement;
-    if (d == null || s == null) return null;
-    return (toCents(d) + _expensesCents - toCents(s.expectedCash)) / 100;
+    final declared = declaredValue;
+    if (s == null || !isEditable || declared == null) return;
+    if (expenses.any(_expenseUnreadable)) return;
+    final amounts = _expenseAmounts;
+    _previewTimer = Timer(previewDebounce, () async {
+      SettlementPreview? result;
+      try {
+        result = await _ops.previewSettlement(s.id,
+            declaredCash: declared, expenseAmounts: amounts);
+      } catch (_) {
+        result = null;
+      }
+      // Una respuesta lenta de un valor viejo no pisa a la del valor actual.
+      if (run != _previewRun) return;
+      preview = result;
+      if (result != null) _freshExpected = result.expectedCash;
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _previewTimer?.cancel();
+    super.dispose();
   }
 
   /// Por qué no se puede presentar todavía, o null si está lista.
@@ -167,6 +232,8 @@ class SettlementViewModel extends LoadViewModel {
     if (s == null || !canSubmit) return;
     submitError = null;
     submitting = true;
+    _previewTimer?.cancel();
+    _previewRun++;
     notifyListeners();
     try {
       settlement = await _ops.submitSettlement(

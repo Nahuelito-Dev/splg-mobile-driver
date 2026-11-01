@@ -61,7 +61,6 @@ void main() {
       expect(parseAmount('12,5', maxDecimals: 0), isNull);
       expect(parseAmount(''), isNull);
       expect(parseAmount('abc'), isNull);
-      expect(toCents(0.1 + 0.2), 30);
     });
   });
 
@@ -245,7 +244,7 @@ void main() {
               notes: anyNamed('notes'),
               idempotencyKey: anyNamed('idempotencyKey')))
           .thenAnswer((_) async => _s(status: SettlementStatus.submitted));
-      final m = SettlementViewModel();
+      final m = SettlementViewModel(previewDebounce: Duration.zero);
       await m.load();
       expect(m.canSubmit, isFalse, reason: 'sin efectivo');
 
@@ -254,7 +253,6 @@ void main() {
       m.addExpense();
       expect(m.canSubmit, isFalse, reason: 'gasto sin categoría ni importe');
       m.updateExpense(m.expenses.single, categoryId: 'c1', amount: '3500');
-      expect(m.previewDifference, -500);
       expect(m.canSubmit, isTrue);
 
       await m.submit();
@@ -509,20 +507,208 @@ void main() {
       expect(m.settlement!.status, SettlementStatus.submitted);
     });
 
-    test('rendición: la diferencia se calcula en centavos', () async {
-      when(ops.mySettlement()).thenAnswer((_) async => const Settlement(
+    group('vista previa de la diferencia', () {
+      Settlement open0() => const Settlement(
           id: 's1',
           number: 1,
           businessDate: 'x',
           status: SettlementStatus.open,
-          expectedCash: 0.3));
-      when(ops.expenseCategories()).thenAnswer((_) async => const []);
-      final m = SettlementViewModel();
-      await m.load();
-      m.setDeclaredCash('0,1');
-      m.addExpense();
-      m.updateExpense(m.expenses.single, categoryId: 'c', amount: '0,2');
-      expect(m.previewDifference, 0);
+          expectedCash: 50000);
+
+      Future<SettlementViewModel> cargada() async {
+        when(ops.mySettlement()).thenAnswer((_) async => open0());
+        when(ops.expenseCategories()).thenAnswer((_) async =>
+            const [ExpenseCategory(id: 'c1', name: 'Combustible')]);
+        final m = SettlementViewModel(previewDebounce: Duration.zero);
+        await m.load();
+        return m;
+      }
+
+      Future<void> esperar() async {
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      test('la diferencia es la que devuelve el back, no una cuenta de la app',
+          () async {
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async => const SettlementPreview(
+                expectedCash: 50000, difference: -123.45));
+        final m = await cargada();
+        m.setDeclaredCash('46.000');
+        m.addExpense();
+        m.updateExpense(m.expenses.single, categoryId: 'c1', amount: '3500');
+        await esperar();
+        expect(m.previewDifference, -123.45);
+        final c = verify(ops.previewSettlement('s1',
+                declaredCash: captureAnyNamed('declaredCash'),
+                expenseAmounts: captureAnyNamed('expenseAmounts')))
+            .captured;
+        expect(c[c.length - 2], 46000);
+        expect(c.last, [3500]);
+      });
+
+      test('si la consulta falla no hay diferencia: no se inventa', () async {
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async => throw _fail(500, 'caído'));
+        final m = await cargada();
+        m.setDeclaredCash('46.000');
+        await esperar();
+        expect(m.previewDifference, isNull);
+      });
+
+      test('sin efectivo legible no consulta y borra la diferencia anterior',
+          () async {
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async =>
+                const SettlementPreview(expectedCash: 50000, difference: 10));
+        final m = await cargada();
+        m.setDeclaredCash('50.010');
+        await esperar();
+        expect(m.previewDifference, 10);
+        m.setDeclaredCash('');
+        await esperar();
+        expect(m.previewDifference, isNull);
+        verify(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .called(1);
+      });
+
+      test('un gasto a medio tipear no viaja en la consulta', () async {
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async =>
+                const SettlementPreview(expectedCash: 50000, difference: 0));
+        final m = await cargada();
+        m.setDeclaredCash('50.000');
+        m.addExpense();
+        await esperar();
+        final c = verify(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: captureAnyNamed('expenseAmounts')))
+            .captured;
+        expect(c.last, isEmpty);
+      });
+
+      test('una respuesta lenta de un valor viejo no pisa a la del actual',
+          () async {
+        final lenta = Completer<SettlementPreview>();
+        when(ops.previewSettlement('s1',
+                declaredCash: 1, expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) => lenta.future);
+        when(ops.previewSettlement('s1',
+                declaredCash: 2, expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async =>
+                const SettlementPreview(expectedCash: 50000, difference: 222));
+        final m = await cargada();
+        m.setDeclaredCash('1');
+        await esperar();
+        m.setDeclaredCash('2');
+        await esperar();
+        expect(m.previewDifference, 222);
+        lenta.complete(
+            const SettlementPreview(expectedCash: 49000, difference: 111));
+        await esperar();
+        expect(m.previewDifference, 222, reason: 'la vieja llegó tarde');
+        expect(m.expectedCash, 50000);
+      });
+
+      test('el esperado que se muestra es el de la vista previa', () async {
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async =>
+                const SettlementPreview(expectedCash: 51234, difference: 5));
+        final m = await cargada();
+        expect(m.expectedCash, 50000, reason: 'sin preview, el de la lectura');
+        m.setDeclaredCash('50.000');
+        await esperar();
+        expect(m.expectedCash, 51234);
+        m.setDeclaredCash('50.001');
+        expect(m.expectedCash, 51234, reason: 'no vuelve al viejo al teclear');
+      });
+
+      test('al releer la rendición se vuelve a pedir la diferencia', () async {
+        var esperado = 50000;
+        when(ops.mySettlement()).thenAnswer((_) async => Settlement(
+            id: 's1',
+            number: 1,
+            businessDate: 'x',
+            status: SettlementStatus.open,
+            expectedCash: esperado));
+        when(ops.expenseCategories()).thenAnswer((_) async => const []);
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async => SettlementPreview(
+                expectedCash: esperado, difference: 50000 - esperado));
+        final m = SettlementViewModel(previewDebounce: Duration.zero);
+        await m.load();
+        m.setDeclaredCash('50.000');
+        await esperar();
+        expect(m.previewDifference, 0);
+        esperado = 52000;
+        await m.load();
+        await esperar();
+        expect(m.expectedCash, 52000);
+        expect(m.previewDifference, -2000);
+      });
+
+      test('un gasto con importe ilegible: sin diferencia y con aviso',
+          () async {
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async =>
+                const SettlementPreview(expectedCash: 50000, difference: 0));
+        final m = await cargada();
+        m.setDeclaredCash('50.000');
+        m.addExpense();
+        m.updateExpense(m.expenses.single, categoryId: 'c1', amount: '12abc');
+        await esperar();
+        expect(m.previewDifference, isNull);
+        expect(m.previewHint, contains('Revisá el importe del gasto'));
+        verifyNever(ops.previewSettlement('s1',
+            declaredCash: anyNamed('declaredCash'),
+            expenseAmounts: anyNamed('expenseAmounts')));
+        m.updateExpense(m.expenses.single, amount: '3500');
+        await esperar();
+        expect(m.previewHint, isNull);
+        expect(m.previewDifference, 0);
+      });
+
+      test('mientras teclea espera: una sola consulta con el último valor',
+          () async {
+        when(ops.previewSettlement('s1',
+                declaredCash: anyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .thenAnswer((_) async =>
+                const SettlementPreview(expectedCash: 50000, difference: 7));
+        when(ops.mySettlement()).thenAnswer((_) async => open0());
+        when(ops.expenseCategories()).thenAnswer((_) async => const []);
+        final m = SettlementViewModel(
+            previewDebounce: const Duration(milliseconds: 30));
+        await m.load();
+        m.setDeclaredCash('5');
+        m.setDeclaredCash('50');
+        m.setDeclaredCash('500');
+        expect(m.previewDifference, isNull);
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        expect(m.previewDifference, 7);
+        final c = verify(ops.previewSettlement('s1',
+                declaredCash: captureAnyNamed('declaredCash'),
+                expenseAmounts: anyNamed('expenseAmounts')))
+            .captured;
+        expect(c, [500]);
+      });
     });
   });
 }

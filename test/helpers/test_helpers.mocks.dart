@@ -177,9 +177,20 @@ class _FakeSettlement_11 extends _i1.SmartFake implements _i8.Settlement {
         );
 }
 
-class _FakeFuelLoadRecord_12 extends _i1.SmartFake
+class _FakeSettlementPreview_12 extends _i1.SmartFake
+    implements _i8.SettlementPreview {
+  _FakeSettlementPreview_12(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeFuelLoadRecord_13 extends _i1.SmartFake
     implements _i8.FuelLoadRecord {
-  _FakeFuelLoadRecord_12(
+  _FakeFuelLoadRecord_13(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -188,9 +199,9 @@ class _FakeFuelLoadRecord_12 extends _i1.SmartFake
         );
 }
 
-class _FakeAccidentRecord_13 extends _i1.SmartFake
+class _FakeAccidentRecord_14 extends _i1.SmartFake
     implements _i8.AccidentRecord {
-  _FakeAccidentRecord_13(
+  _FakeAccidentRecord_14(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -199,9 +210,9 @@ class _FakeAccidentRecord_13 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenancePage_14 extends _i1.SmartFake
+class _FakeMaintenancePage_15 extends _i1.SmartFake
     implements _i9.MaintenancePage {
-  _FakeMaintenancePage_14(
+  _FakeMaintenancePage_15(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -210,9 +221,9 @@ class _FakeMaintenancePage_14 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceSettings_15 extends _i1.SmartFake
+class _FakeMaintenanceSettings_16 extends _i1.SmartFake
     implements _i9.MaintenanceSettings {
-  _FakeMaintenanceSettings_15(
+  _FakeMaintenanceSettings_16(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -221,9 +232,9 @@ class _FakeMaintenanceSettings_15 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceProposal_16 extends _i1.SmartFake
+class _FakeMaintenanceProposal_17 extends _i1.SmartFake
     implements _i9.MaintenanceProposal {
-  _FakeMaintenanceProposal_16(
+  _FakeMaintenanceProposal_17(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -232,8 +243,8 @@ class _FakeMaintenanceProposal_16 extends _i1.SmartFake
         );
 }
 
-class _FakeRouteBatch_17 extends _i1.SmartFake implements _i10.RouteBatch {
-  _FakeRouteBatch_17(
+class _FakeRouteBatch_18 extends _i1.SmartFake implements _i10.RouteBatch {
+  _FakeRouteBatch_18(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -242,9 +253,9 @@ class _FakeRouteBatch_17 extends _i1.SmartFake implements _i10.RouteBatch {
         );
 }
 
-class _FakeRouteBatchDecision_18 extends _i1.SmartFake
+class _FakeRouteBatchDecision_19 extends _i1.SmartFake
     implements _i10.RouteBatchDecision {
-  _FakeRouteBatchDecision_18(
+  _FakeRouteBatchDecision_19(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -2512,6 +2523,47 @@ class MockDriverOpsRepository extends _i1.Mock
       ) as _i14.Future<_i8.Settlement>);
 
   @override
+  _i14.Future<_i8.SettlementPreview> previewSettlement(
+    String? settlementId, {
+    required num? declaredCash,
+    List<num>? expenseAmounts = const [],
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #previewSettlement,
+          [settlementId],
+          {
+            #declaredCash: declaredCash,
+            #expenseAmounts: expenseAmounts,
+          },
+        ),
+        returnValue:
+            _i14.Future<_i8.SettlementPreview>.value(_FakeSettlementPreview_12(
+          this,
+          Invocation.method(
+            #previewSettlement,
+            [settlementId],
+            {
+              #declaredCash: declaredCash,
+              #expenseAmounts: expenseAmounts,
+            },
+          ),
+        )),
+        returnValueForMissingStub:
+            _i14.Future<_i8.SettlementPreview>.value(_FakeSettlementPreview_12(
+          this,
+          Invocation.method(
+            #previewSettlement,
+            [settlementId],
+            {
+              #declaredCash: declaredCash,
+              #expenseAmounts: expenseAmounts,
+            },
+          ),
+        )),
+      ) as _i14.Future<_i8.SettlementPreview>);
+
+  @override
   _i14.Future<_i26.Uint8List> settlementPdf(String? settlementId) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -2535,7 +2587,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i14.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_12(
+            _i14.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_13(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2544,7 +2596,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_12(
+            _i14.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_13(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2566,7 +2618,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i14.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_13(
+            _i14.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_14(
           this,
           Invocation.method(
             #reportAccident,
@@ -2575,7 +2627,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_13(
+            _i14.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_14(
           this,
           Invocation.method(
             #reportAccident,
@@ -2606,7 +2658,7 @@ class MockMaintenanceRepository extends _i1.Mock
           },
         ),
         returnValue:
-            _i14.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_14(
+            _i14.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_15(
           this,
           Invocation.method(
             #proposals,
@@ -2618,7 +2670,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_14(
+            _i14.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_15(
           this,
           Invocation.method(
             #proposals,
@@ -2638,7 +2690,7 @@ class MockMaintenanceRepository extends _i1.Mock
           [],
         ),
         returnValue: _i14.Future<_i9.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_15(
+            _FakeMaintenanceSettings_16(
           this,
           Invocation.method(
             #settings,
@@ -2646,7 +2698,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i14.Future<_i9.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_15(
+            _FakeMaintenanceSettings_16(
           this,
           Invocation.method(
             #settings,
@@ -2672,7 +2724,7 @@ class MockMaintenanceRepository extends _i1.Mock
           [proposalId],
         ),
         returnValue: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_16(
+            _FakeMaintenanceProposal_17(
           this,
           Invocation.method(
             #accept,
@@ -2680,7 +2732,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_16(
+            _FakeMaintenanceProposal_17(
           this,
           Invocation.method(
             #accept,
@@ -2707,7 +2759,7 @@ class MockMaintenanceRepository extends _i1.Mock
           },
         ),
         returnValue: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_16(
+            _FakeMaintenanceProposal_17(
           this,
           Invocation.method(
             #reject,
@@ -2720,7 +2772,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_16(
+            _FakeMaintenanceProposal_17(
           this,
           Invocation.method(
             #reject,
@@ -3002,7 +3054,7 @@ class MockRouteBatchRepository extends _i1.Mock
           #batch,
           [batchId],
         ),
-        returnValue: _i14.Future<_i10.RouteBatch>.value(_FakeRouteBatch_17(
+        returnValue: _i14.Future<_i10.RouteBatch>.value(_FakeRouteBatch_18(
           this,
           Invocation.method(
             #batch,
@@ -3010,7 +3062,7 @@ class MockRouteBatchRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i10.RouteBatch>.value(_FakeRouteBatch_17(
+            _i14.Future<_i10.RouteBatch>.value(_FakeRouteBatch_18(
           this,
           Invocation.method(
             #batch,
@@ -3027,7 +3079,7 @@ class MockRouteBatchRepository extends _i1.Mock
           [batchId],
         ),
         returnValue: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_18(
+            _FakeRouteBatchDecision_19(
           this,
           Invocation.method(
             #accept,
@@ -3035,7 +3087,7 @@ class MockRouteBatchRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_18(
+            _FakeRouteBatchDecision_19(
           this,
           Invocation.method(
             #accept,
@@ -3052,7 +3104,7 @@ class MockRouteBatchRepository extends _i1.Mock
           [batchId],
         ),
         returnValue: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_18(
+            _FakeRouteBatchDecision_19(
           this,
           Invocation.method(
             #reject,
@@ -3060,7 +3112,7 @@ class MockRouteBatchRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_18(
+            _FakeRouteBatchDecision_19(
           this,
           Invocation.method(
             #reject,

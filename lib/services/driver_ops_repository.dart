@@ -44,6 +44,15 @@ abstract class DriverOpsRepository {
     String? idempotencyKey,
   });
 
+  /// `POST /api/v2/driver-settlements/:id/preview`: la diferencia que calcula
+  /// el back con el efectivo y los importes de los gastos que se están
+  /// tipeando. No escribe nada.
+  Future<SettlementPreview> previewSettlement(
+    String settlementId, {
+    required num declaredCash,
+    List<num> expenseAmounts = const [],
+  });
+
   /// `GET /api/v2/driver-settlements/:id/pdf`: el PDF de la rendición.
   Future<Uint8List> settlementPdf(String settlementId);
 
@@ -76,6 +85,8 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
   static const fuelPath = 'fleet/fuel-loads/mine';
   static const accidentPath = 'fleet/accidents/mine';
   static String submitPath(String id) => 'driver-settlements/$id/submit';
+  static String settlementPreviewPath(String id) =>
+      '${AppConfig.apiV2Url}driver-settlements/$id/preview';
   static String settlementPdfPath(String id) =>
       '${AppConfig.apiV2Url}driver-settlements/$id/pdf';
 
@@ -126,6 +137,27 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
 
   static Map<String, dynamic> _map(Response r) =>
       Map<String, dynamic>.from(r.data as Map);
+
+  @override
+  Future<SettlementPreview> previewSettlement(
+    String settlementId, {
+    required num declaredCash,
+    List<num> expenseAmounts = const [],
+  }) async {
+    // Una consulta de lectura: sin Idempotency-Key, y se puede repetir.
+    final r = await _api.post(
+        settlementPreviewPath(settlementId),
+        {
+          'declaredCash': declaredCash,
+          if (expenseAmounts.isNotEmpty)
+            'expenses': [
+              for (final a in expenseAmounts) {'amount': a}
+            ],
+        },
+        await _token(),
+        const {});
+    return SettlementPreview.fromJson(_map(r));
+  }
 
   @override
   Future<Uint8List> settlementPdf(String settlementId) async =>

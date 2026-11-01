@@ -127,6 +127,36 @@ void main() {
       expect(path, HttpDriverOpsRepository.settlementPdfPath('s1'));
     });
 
+    test('previewSettlement consulta la v2 con el efectivo y los importes',
+        () async {
+      when(api.post(any, any, 'tok', any)).thenAnswer((_) async => _res({
+            'expectedCash': 50000,
+            'declaredCash': 46000,
+            'driverExpenses': 3500,
+            'difference': -500,
+          }));
+      final p = await repo
+          .previewSettlement('s1', declaredCash: 46000, expenseAmounts: [3500]);
+      expect(p.difference, -500);
+      expect(p.expectedCash, 50000);
+      final c = verify(api.post(captureAny, captureAny, 'tok', any)).captured;
+      expect(c[0], HttpDriverOpsRepository.settlementPreviewPath('s1'));
+      expect(c[0], endsWith('/api/v2/driver-settlements/s1/preview'));
+      expect(c[1], {
+        'declaredCash': 46000,
+        'expenses': [
+          {'amount': 3500}
+        ],
+      });
+    });
+
+    test('previewSettlement deja pasar el error del back', () async {
+      when(api.post(any, any, 'tok', any))
+          .thenAnswer((_) async => throw _fail(409, {'message': 'x'}));
+      await expectLater(repo.previewSettlement('s1', declaredCash: 1),
+          throwsA(isA<DioException>()));
+    });
+
     test('settlementPdf deja pasar el error del back', () async {
       when(api.getBytes(any, 'tok'))
           .thenAnswer((_) async => throw _fail(403, {'message': 'No'}));

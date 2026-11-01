@@ -12,6 +12,3 @@ num? parseAmount(String raw, {int maxDecimals = 2}) {
   final whole = m.group(1)!.replaceAll('.', '');
   return num.parse(decimals.isEmpty ? whole : '$whole.$decimals');
 }
-
-/// Importe en centavos enteros (evita errores de coma flotante al sumar).
-int toCents(num amount) => (amount * 100).round();

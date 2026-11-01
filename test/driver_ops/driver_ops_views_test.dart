@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -117,6 +118,11 @@ void main() {
             expectedCash: 50000,
             declaredCash: 49000,
             difference: -1000));
+    when(ops.previewSettlement('s1',
+            declaredCash: anyNamed('declaredCash'),
+            expenseAmounts: anyNamed('expenseAmounts')))
+        .thenAnswer((_) async =>
+            const SettlementPreview(expectedCash: 50000, difference: -1000));
     await t.pumpWidget(app(const SettlementView()));
     await settle(t);
     expect(find.byKey(const Key('settlement-expected')), findsOneWidget);
@@ -136,12 +142,48 @@ void main() {
             matching: find.byType(TextField)),
         '49000');
     await t.pump();
+    expect(find.text('Te faltarían'), findsNothing,
+        reason:
+            'la diferencia la manda el back, tras esperar a que deje de teclear');
+    await t.pump(const Duration(milliseconds: 500));
+    await t.pump();
     expect(find.text('Te faltarían'), findsOneWidget);
     await t.tap(find.byKey(const Key('settlement-submit')));
     await settle(t);
     expect(find.byKey(const Key('settlement-state')), findsOneWidget);
     expect(find.text('Faltante'), findsOneWidget);
     expect(find.byKey(const Key('settlement-submit')), findsNothing);
+  });
+
+  testWidgets('Mi rendición: si la vista previa falla no se muestra diferencia',
+      (t) async {
+    await t.binding.setSurfaceSize(const Size(400, 1000));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+    when(ops.mySettlement()).thenAnswer((_) async => const Settlement(
+        id: 's1',
+        number: 4,
+        businessDate: '2026-10-18',
+        status: SettlementStatus.open,
+        expectedCash: 50000));
+    when(ops.expenseCategories()).thenAnswer((_) async => const []);
+    when(ops.previewSettlement('s1',
+            declaredCash: anyNamed('declaredCash'),
+            expenseAmounts: anyNamed('expenseAmounts')))
+        .thenAnswer((_) async => throw DioException(
+            requestOptions: RequestOptions(path: ''),
+            type: DioExceptionType.connectionError));
+    await t.pumpWidget(app(const SettlementView()));
+    await settle(t);
+    await t.enterText(
+        find.descendant(
+            of: find.byKey(const Key('settlement-cash')),
+            matching: find.byType(TextField)),
+        '49000');
+    await t.pump(const Duration(milliseconds: 500));
+    await t.pump();
+    expect(find.text('Te faltarían'), findsNothing);
+    expect(find.text('Te sobrarían'), findsNothing);
+    expect(find.text('Cierra justo'), findsNothing);
   });
 
   testWidgets('Siniestro: si se mantiene la asignación se muestra el motivo',

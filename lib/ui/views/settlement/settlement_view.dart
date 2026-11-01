@@ -38,7 +38,7 @@ class SettlementView extends StackedView<SettlementViewModel> {
             children: [
               SplgSoftCard(
                 label: 'Efectivo esperado',
-                amount: formatMoney(s.expectedCash),
+                amount: formatMoney(model.expectedCash ?? s.expectedCash),
                 amountKey: const Key('settlement-expected'),
                 caption: 'Rendición ${s.number} del ${s.businessDate} · '
                     '${s.status.label}',
@@ -130,6 +130,12 @@ class SettlementView extends StackedView<SettlementViewModel> {
         enabled: !model.submitting,
         onChanged: model.setNotes,
       ),
+      if (model.previewHint != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(model.previewHint!,
+              key: const Key('settlement-preview-hint'), style: type.caption),
+        ),
       if (diff != null)
         InfoRow(
           diff < 0

@@ -125,6 +125,24 @@ class SettlementExpense {
       );
 }
 
+/// Vista previa de la rendición: lo que calcula el back mientras el chofer
+/// escribe (`POST /api/v2/driver-settlements/:id/preview`).
+class SettlementPreview {
+  const SettlementPreview(
+      {required this.expectedCash, required this.difference});
+
+  final num expectedCash;
+
+  /// Declarado + gastos − esperado: negativa es faltante, positiva sobrante.
+  final num difference;
+
+  factory SettlementPreview.fromJson(Map<String, dynamic> json) =>
+      SettlementPreview(
+        expectedCash: _num(json['expectedCash']),
+        difference: _num(json['difference']),
+      );
+}
+
 /// Rendición del día: `GET /driver-settlements/mine` y su `submit`.
 class Settlement {
   const Settlement({

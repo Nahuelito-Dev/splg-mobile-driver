@@ -156,6 +156,7 @@ void main() {
       when(ops.expenseCategories()).thenAnswer(
           (_) async => const [ExpenseCategory(id: 'c1', name: 'Combustible')]);
       final m = SettlementViewModel();
+      addTearDown(m.dispose);
       await m.load();
       expect(m.settlement!.expectedCash, 50000);
       expect(m.canDeclareExpenses, isTrue);
@@ -176,6 +177,7 @@ void main() {
         name = f;
         return true;
       });
+      addTearDown(m.dispose);
       expect(m.canDownloadPdf, isFalse, reason: 'sin rendición cargada');
       await m.load();
       expect(m.canDownloadPdf, isTrue);
@@ -192,6 +194,7 @@ void main() {
       when(ops.expenseCategories()).thenAnswer((_) async => const []);
       when(ops.settlementPdf('s1')).thenAnswer((_) => c.future);
       final m = SettlementViewModel(sharePdf: (b, f) async => true);
+      addTearDown(m.dispose);
       await m.load();
       final f = m.downloadPdf();
       expect(m.downloadingPdf, isTrue);
@@ -209,6 +212,7 @@ void main() {
           .thenAnswer((_) async => throw _fail(409, 'No es tu rendición'));
       var shared = false;
       final m = SettlementViewModel(sharePdf: (b, f) async => shared = true);
+      addTearDown(m.dispose);
       await m.load();
       await m.downloadPdf();
       expect(shared, isFalse);
@@ -220,6 +224,7 @@ void main() {
       when(ops.mySettlement())
           .thenAnswer((_) async => _s(status: SettlementStatus.submitted));
       final m = SettlementViewModel();
+      addTearDown(m.dispose);
       await m.load();
       expect(m.isEditable, isFalse);
       expect(m.canSubmit, isFalse);
@@ -229,6 +234,7 @@ void main() {
     test('un error de lectura queda en loadError', () async {
       when(ops.mySettlement()).thenAnswer((_) async => throw _fail(404, 'x'));
       final m = SettlementViewModel();
+      addTearDown(m.dispose);
       await m.load();
       expect(m.loadError, isNotNull);
     });
@@ -245,6 +251,7 @@ void main() {
               idempotencyKey: anyNamed('idempotencyKey')))
           .thenAnswer((_) async => _s(status: SettlementStatus.submitted));
       final m = SettlementViewModel(previewDebounce: Duration.zero);
+      addTearDown(m.dispose);
       await m.load();
       expect(m.canSubmit, isFalse, reason: 'sin efectivo');
 
@@ -280,6 +287,7 @@ void main() {
           .thenAnswer((_) async =>
               throw _fail(409, 'La rendición no está abierta para presentar'));
       final m = SettlementViewModel();
+      addTearDown(m.dispose);
       await m.load();
       m.setDeclaredCash('0');
       await m.submit();
@@ -292,6 +300,7 @@ void main() {
       when(ops.mySettlement()).thenAnswer((_) async => _s());
       when(ops.expenseCategories()).thenAnswer((_) async => const []);
       final m = SettlementViewModel();
+      addTearDown(m.dispose);
       await m.load();
       m.setDeclaredCash('-5');
       expect(m.canSubmit, isFalse);
@@ -560,6 +569,7 @@ void main() {
         throw offline();
       });
       final m = SettlementViewModel();
+      addTearDown(m.dispose);
       await m.load();
       m.setDeclaredCash('100');
       await m.submit();
@@ -583,6 +593,7 @@ void main() {
           .thenAnswer((_) async =>
               throw _fail(409, 'La rendición no está abierta para presentar'));
       final m = SettlementViewModel();
+      addTearDown(m.dispose);
       await m.load();
       m.setDeclaredCash('0');
       await m.submit();
@@ -603,6 +614,7 @@ void main() {
         when(ops.expenseCategories()).thenAnswer((_) async =>
             const [ExpenseCategory(id: 'c1', name: 'Combustible')]);
         final m = SettlementViewModel(previewDebounce: Duration.zero);
+        addTearDown(m.dispose);
         await m.load();
         return m;
       }
@@ -734,6 +746,7 @@ void main() {
             .thenAnswer((_) async => SettlementPreview(
                 expectedCash: esperado, difference: 50000 - esperado));
         final m = SettlementViewModel(previewDebounce: Duration.zero);
+        addTearDown(m.dispose);
         await m.load();
         m.setDeclaredCash('50.000');
         await esperar();
@@ -779,6 +792,7 @@ void main() {
         when(ops.expenseCategories()).thenAnswer((_) async => const []);
         final m = SettlementViewModel(
             previewDebounce: const Duration(milliseconds: 30));
+        addTearDown(m.dispose);
         await m.load();
         m.setDeclaredCash('5');
         m.setDeclaredCash('50');

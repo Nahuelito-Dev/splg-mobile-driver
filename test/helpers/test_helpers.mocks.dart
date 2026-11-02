@@ -928,6 +928,20 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
 /// See the documentation for Mockito's code generation for more information.
 class MockLocationService extends _i1.Mock implements _i16.LocationService {
   @override
+  bool get trackingFailed => (super.noSuchMethod(
+        Invocation.getter(#trackingFailed),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool);
+
+  @override
+  bool get locationUnavailable => (super.noSuchMethod(
+        Invocation.getter(#locationUnavailable),
+        returnValue: false,
+        returnValueForMissingStub: false,
+      ) as bool);
+
+  @override
   _i14.Stream<_i17.Position> get positionStream => (super.noSuchMethod(
         Invocation.getter(#positionStream),
         returnValue: _i14.Stream<_i17.Position>.empty(),
@@ -996,6 +1010,16 @@ class MockLocationService extends _i1.Mock implements _i16.LocationService {
   _i14.Future<void> startTracking() => (super.noSuchMethod(
         Invocation.method(
           #startTracking,
+          [],
+        ),
+        returnValue: _i14.Future<void>.value(),
+        returnValueForMissingStub: _i14.Future<void>.value(),
+      ) as _i14.Future<void>);
+
+  @override
+  _i14.Future<void> openLocationAlertSettings() => (super.noSuchMethod(
+        Invocation.method(
+          #openLocationAlertSettings,
           [],
         ),
         returnValue: _i14.Future<void>.value(),

@@ -169,12 +169,13 @@ class HomeViewModel extends StreamViewModel<Position>
     }
   }
 
-  // @override
-  // void onError(error) {
-  //   debugPrint('Error en el stream de ubicación: $error');
-  //   permissionMessage = 'Error al obtener la ubicación';
-  //   notifyListeners();
-  // }
+  /// En línea pero sin ubicación llegando al despacho (GPS apagado o permiso
+  /// revocado con la app abierta): se avisa y se ofrece ir a Ajustes.
+  bool get showsLocationAlert =>
+      isOnline && hasLocationPermission && _locationService.locationUnavailable;
+
+  Future<void> openLocationAlertSettings() =>
+      _locationService.openLocationAlertSettings();
 
   /// Inicializa el ViewModel: pide el permiso de ubicación (con explicación) y
   /// empieza el tracking si se concede.
@@ -307,7 +308,9 @@ class HomeViewModel extends StreamViewModel<Position>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startLoadPolling();
-      if (!hasLocationPermission) _resolveLocation(interactive: false);
+      if (!hasLocationPermission || _locationService.locationUnavailable) {
+        _resolveLocation(interactive: false);
+      }
       if (_isHomeVisible()) unawaited(refreshNoOrdersReason());
       unawaited(resumeActiveOrder());
       unawaited(_notifier.sync());
@@ -351,13 +354,20 @@ class HomeViewModel extends StreamViewModel<Position>
     if (_resolvingLocation) return;
     _resolvingLocation = true;
     try {
-      hasLocationPermission = interactive
+      final hadLocation = hasLocationPermission;
+      final granted = interactive
           ? await _locationService.requestLocationPermission()
           : await _locationService.checkLocationPermission();
 
-      if (hasLocationPermission) {
+      // Ya en línea, perder la ubicación no tapa el mapa ni el pedido: queda
+      // el aviso. La pantalla de bloqueo es sólo para el arranque sin permiso.
+      hasLocationPermission = granted || (hadLocation && isOnline);
+
+      if (granted) {
         permissionMessage = null;
         await _locationService.startTracking();
+      } else if (hasLocationPermission) {
+        permissionMessage = null;
       } else if (_locationService.serviceDisabled) {
         permissionMessage =
             'El GPS del teléfono está apagado. Encendelo para ponerte en línea.';

@@ -70,6 +70,13 @@ class HomeView extends StackedView<HomeViewModel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (viewModel.showsLocationAlert)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: _LocationAlert(
+                      onTap: viewModel.openLocationAlertSettings,
+                    ),
+                  ),
                 if (viewModel.noOrdersReason != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 4),
@@ -256,6 +263,47 @@ class _MaintenanceNotice extends StatelessWidget {
               Icon(SplgIcons.next, color: brasa.info),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Aviso persistente: en línea pero sin ubicación, el despacho no ve al chofer.
+class _LocationAlert extends StatelessWidget {
+  const _LocationAlert({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brasa = context.brasa;
+    final type = SplgType.of(context);
+    return Material(
+      key: const Key('home-location-alert'),
+      color: brasa.warnSoft,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(SplgIcons.location, color: brasa.warn),
+            const SizedBox(width: 12),
+            Expanded(
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.3,
+                child: Text('Activá la ubicación para recibir pedidos',
+                    style: type.bodyStrong.copyWith(color: brasa.ink2)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              key: const Key('home-location-alert-action'),
+              onPressed: onTap,
+              child: const Text('Activar'),
+            ),
+          ],
         ),
       ),
     );

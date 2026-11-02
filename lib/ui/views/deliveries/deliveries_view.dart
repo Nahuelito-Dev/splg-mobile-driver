@@ -45,13 +45,6 @@ class _DeliveriesList extends StatefulWidget {
   State<_DeliveriesList> createState() => _DeliveriesListState();
 }
 
-String? _dayTotal(List<DriverOrder> orders) {
-  final delivered =
-      orders.where((o) => o.status == DriverOrderStatus.delivered);
-  if (delivered.isEmpty) return null;
-  return formatMoney(delivered.fold<num>(0, (s, o) => s + o.amountToCollect));
-}
-
 class _DeliveriesListState extends State<_DeliveriesList> {
   final _scroll = ScrollController();
 
@@ -103,7 +96,7 @@ class _DeliveriesListState extends State<_DeliveriesList> {
           for (final day in days) ...[
             SplgSectionBar(
               title: formatLongDate(day),
-              trailing: _dayTotal(groups[day]!),
+              trailing: model.dayTotalLabel(day),
             ),
             for (final o in groups[day]!)
               SplgListRow(

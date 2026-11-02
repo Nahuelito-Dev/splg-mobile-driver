@@ -82,6 +82,32 @@ void main() {
     });
   });
 
+  group('dailyTotals', () {
+    test('lee los totales por día de la v2 que suma el back', () async {
+      when(api.get(
+              argThat(contains(
+                  '/api/v2/reports/delivery/me/daily-totals?from=2026-10-20&to=2026-11-01')),
+              'tok'))
+          .thenAnswer((_) async => _res([
+                {
+                  'day': '2026-11-01',
+                  'deliveredOrders': 6,
+                  'totalAmount': 108210
+                },
+                {
+                  'day': '2026-10-31',
+                  'deliveredOrders': 10,
+                  'totalAmount': 24900.5
+                },
+              ]));
+      final totals = await service.dailyTotals(
+          from: DateTime(2026, 10, 20), to: DateTime(2026, 11, 1));
+      expect(totals.map((t) => t.day), ['2026-11-01', '2026-10-31']);
+      expect(totals.first.deliveredOrders, 6);
+      expect(totals.last.totalAmount, 24900.5);
+    });
+  });
+
   group('activeOrder', () {
     test('lee el pedido en curso de GET orders/delivery/me/active', () async {
       when(api.get('orders/delivery/me/active', 'tok'))

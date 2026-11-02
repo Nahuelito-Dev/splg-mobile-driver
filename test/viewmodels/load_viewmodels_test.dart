@@ -50,6 +50,61 @@ void main() {
       expect(m.loadError, isNull);
     });
 
+    test('el total cobrado de cada día lo informa el back, no se suma acá',
+        () async {
+      when(api.ordersPage(limit: 20)).thenAnswer((_) async => page([
+            order('a', DateTime(2026, 6, 3, 10), total: 100),
+            order('b', DateTime(2026, 6, 3, 15), total: 100),
+            order('c', DateTime(2026, 6, 1), total: 100),
+          ]));
+      when(api.dailyTotals(
+              from: DateTime(2026, 6, 1), to: DateTime(2026, 6, 3, 15)))
+          .thenAnswer((_) async => const [
+                DayTotal(
+                    day: '2026-06-03', deliveredOrders: 2, totalAmount: 777),
+              ]);
+      final m = DeliveriesViewModel();
+      await m.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(m.dayTotalLabel(DateTime(2026, 6, 3)), formatMoney(777));
+      expect(m.dayTotalLabel(DateTime(2026, 6, 1)), isNull,
+          reason: 'el back no informó ese día');
+    });
+
+    test('la lista no espera a los totales por día', () async {
+      when(api.ordersPage(limit: 20))
+          .thenAnswer((_) async => page([order('a', DateTime(2026, 6, 3))]));
+      final lento = Completer<List<DayTotal>>();
+      when(api.dailyTotals(from: anyNamed('from'), to: anyNamed('to')))
+          .thenAnswer((_) => lento.future);
+      final m = DeliveriesViewModel();
+      await m.load();
+      expect(m.orders, hasLength(1), reason: 'la lista ya se ve');
+      expect(m.dayTotalLabel(DateTime(2026, 6, 3)), isNull);
+      lento.complete(const [
+        DayTotal(day: '2026-06-03', deliveredOrders: 1, totalAmount: 100)
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(m.dayTotalLabel(DateTime(2026, 6, 3)), formatMoney(100));
+    });
+
+    test('si no se pueden leer los totales por día la lista se muestra igual',
+        () async {
+      when(api.ordersPage(limit: 20))
+          .thenAnswer((_) async => page([order('a', DateTime(2026, 6, 3))]));
+      when(api.dailyTotals(from: anyNamed('from'), to: anyNamed('to')))
+          .thenThrow(DioException(
+              requestOptions: RequestOptions(path: 'x'),
+              response: Response(
+                  requestOptions: RequestOptions(path: 'x'), statusCode: 500)));
+      final m = DeliveriesViewModel();
+      await m.load();
+      await Future<void>.delayed(Duration.zero);
+      expect(m.loadError, isNull);
+      expect(m.orders, hasLength(1));
+      expect(m.dayTotalLabel(DateTime(2026, 6, 3)), isNull);
+    });
+
     test('loadMore agrega la página siguiente sin repetir pedidos', () async {
       when(api.ordersPage(limit: 20)).thenAnswer((_) async => page([
             order('a', DateTime(2026, 6, 3)),

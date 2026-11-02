@@ -56,6 +56,10 @@ abstract class DriverOpsRepository {
   /// `GET /api/v2/driver-settlements/:id/pdf`: el PDF de la rendición.
   Future<Uint8List> settlementPdf(String settlementId);
 
+  /// `GET /api/v2/fleet/fuel-loads/mine/quote`: el importe de la carga que
+  /// calcula el back (litros × precio por litro). No escribe nada.
+  Future<num> quoteFuelLoad({required num liters, required num unitPrice});
+
   /// `POST /fleet/fuel-loads/mine`.
   Future<FuelLoadRecord> registerFuelLoad(FuelLoadInput input,
       {String? idempotencyKey});
@@ -85,6 +89,9 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
   static const fuelPath = 'fleet/fuel-loads/mine';
   static const accidentPath = 'fleet/accidents/mine';
   static String submitPath(String id) => 'driver-settlements/$id/submit';
+  static String fuelQuotePath(num liters, num unitPrice) =>
+      '${AppConfig.apiV2Url}fleet/fuel-loads/mine/quote'
+      '?liters=$liters&unitPrice=$unitPrice';
   static String settlementPreviewPath(String id) =>
       '${AppConfig.apiV2Url}driver-settlements/$id/preview';
   static String settlementPdfPath(String id) =>
@@ -225,6 +232,15 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
         },
         idempotencyKey: idempotencyKey);
     return Settlement.fromJson(_map(r));
+  }
+
+  @override
+  Future<num> quoteFuelLoad(
+      {required num liters, required num unitPrice}) async {
+    final r = await _api.get(fuelQuotePath(liters, unitPrice), await _token());
+    final total = (r.data as Map)['totalAmount'];
+    if (total is num) return total;
+    throw StateError('El back no devolvió el importe de la carga');
   }
 
   @override

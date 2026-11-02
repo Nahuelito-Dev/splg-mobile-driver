@@ -196,6 +196,27 @@ class OrdersPage {
   bool get hasMore => orders.isNotEmpty && nextOffset < total;
 }
 
+/// Lo entregado en un día y lo que había que cobrar de eso, tal como lo
+/// calcula el back (`GET /api/v2/reports/delivery/me/daily-totals`).
+class DayTotal {
+  const DayTotal({
+    required this.day,
+    required this.deliveredOrders,
+    required this.totalAmount,
+  });
+
+  /// `YYYY-MM-DD`, en hora argentina.
+  final String day;
+  final int deliveredOrders;
+  final num totalAmount;
+
+  factory DayTotal.fromJson(Map<String, dynamic> json) => DayTotal(
+        day: _str(json['day']) ?? '',
+        deliveredOrders: _num(json['deliveredOrders']).toInt(),
+        totalAmount: _num(json['totalAmount']),
+      );
+}
+
 class RatingSummary {
   const RatingSummary({required this.average, required this.count});
   final double average;

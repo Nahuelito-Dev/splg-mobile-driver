@@ -2039,6 +2039,25 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
       ) as _i14.Future<_i5.OrdersPage>);
 
   @override
+  _i14.Future<List<_i5.DayTotal>> dailyTotals({
+    required DateTime? from,
+    required DateTime? to,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #dailyTotals,
+          [],
+          {
+            #from: from,
+            #to: to,
+          },
+        ),
+        returnValue: _i14.Future<List<_i5.DayTotal>>.value(<_i5.DayTotal>[]),
+        returnValueForMissingStub:
+            _i14.Future<List<_i5.DayTotal>>.value(<_i5.DayTotal>[]),
+      ) as _i14.Future<List<_i5.DayTotal>>);
+
+  @override
   _i14.Future<_i5.DriverOrder?> activeOrder() => (super.noSuchMethod(
         Invocation.method(
           #activeOrder,
@@ -2597,6 +2616,24 @@ class MockDriverOpsRepository extends _i1.Mock
         returnValueForMissingStub:
             _i14.Future<_i26.Uint8List>.value(_i26.Uint8List(0)),
       ) as _i14.Future<_i26.Uint8List>);
+
+  @override
+  _i14.Future<num> quoteFuelLoad({
+    required num? liters,
+    required num? unitPrice,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #quoteFuelLoad,
+          [],
+          {
+            #liters: liters,
+            #unitPrice: unitPrice,
+          },
+        ),
+        returnValue: _i14.Future<num>.value(0),
+        returnValueForMissingStub: _i14.Future<num>.value(0),
+      ) as _i14.Future<num>);
 
   @override
   _i14.Future<_i8.FuelLoadRecord> registerFuelLoad(

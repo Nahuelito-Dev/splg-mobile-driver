@@ -299,36 +299,115 @@ void main() {
   });
 
   group('FuelLoadViewModel', () {
-    test('calcula el total y exige litros, precio y kilometraje', () {
-      final m = FuelLoadViewModel();
+    FuelLoadViewModel vm() => FuelLoadViewModel(quoteDebounce: Duration.zero);
+    void quote(num liters, num price, num total) =>
+        when(ops.quoteFuelLoad(liters: liters, unitPrice: price))
+            .thenAnswer((_) async => total);
+
+    test('el total lo calcula el back y exige litros, precio y kilometraje',
+        () async {
+      quote(40.5, 1050, 42525);
+      final m = vm();
       expect(m.canSubmit, isFalse);
       m.change(liters: '40,5', unitPrice: '1050');
+      expect(m.total, isNull, reason: 'todavía no llegó la cotización');
+      await Future<void>.delayed(Duration.zero);
       expect(m.total, 42525);
       expect(m.canSubmit, isFalse, reason: 'falta el kilometraje');
       m.change(odometer: '120350');
       expect(m.canSubmit, isTrue);
       m.change(odometer: '1203,5');
       expect(m.canSubmit, isFalse, reason: 'sin decimales');
+      verify(ops.quoteFuelLoad(liters: 40.5, unitPrice: 1050)).called(1);
     });
 
-    test('registra la carga con el total calculado', () async {
+    test('si no se pudo cotizar no se puede registrar y se explica', () async {
+      when(ops.quoteFuelLoad(
+              liters: anyNamed('liters'), unitPrice: anyNamed('unitPrice')))
+          .thenAnswer((_) async => throw _fail(500, 'boom'));
+      final m = vm()
+        ..change(liters: '40', unitPrice: '1050', odometer: '120350');
+      await Future<void>.delayed(Duration.zero);
+      expect(m.total, isNull);
+      expect(m.canSubmit, isFalse);
+      expect(m.blocker, contains('No pudimos calcular el total'));
+    });
+
+    test('un 400 del back muestra su mensaje y no reintenta por otro campo',
+        () async {
+      when(ops.quoteFuelLoad(liters: 40, unitPrice: 1050)).thenAnswer(
+          (_) async => throw _fail(400, 'El importe supera el máximo'));
+      final m = vm()
+        ..change(liters: '40', unitPrice: '1050', odometer: '120350');
+      await Future<void>.delayed(Duration.zero);
+      expect(m.blocker, contains('El importe supera el máximo'));
+      expect(m.blocker, isNot(contains('conexión')));
+      m.change(notes: 'x');
+      await Future<void>.delayed(Duration.zero);
+      verify(ops.quoteFuelLoad(liters: 40, unitPrice: 1050)).called(1);
+      // al corregir el precio vuelve a cotizar
+      quote(40, 1000, 40000);
+      m.change(unitPrice: '1000');
+      await Future<void>.delayed(Duration.zero);
+      expect(m.total, 40000);
+      expect(m.blocker, isNull);
+    });
+
+    test('sin red reintenta solo al tocar cualquier campo', () async {
+      var n = 0;
+      when(ops.quoteFuelLoad(liters: 40, unitPrice: 1050))
+          .thenAnswer((_) async {
+        n++;
+        if (n == 1) {
+          throw DioException(requestOptions: RequestOptions(path: ''));
+        }
+        return 42000;
+      });
+      final m = vm()..change(liters: '40', unitPrice: '1050');
+      await Future<void>.delayed(Duration.zero);
+      expect(m.quoteFailed, isTrue);
+      m.change(odometer: '10');
+      await Future<void>.delayed(Duration.zero);
+      expect(m.total, 42000);
+    });
+
+    test('una cotización lenta de un valor viejo no pisa a la actual',
+        () async {
+      final slow = Completer<num>();
+      when(ops.quoteFuelLoad(liters: 40, unitPrice: 1000))
+          .thenAnswer((_) => slow.future);
+      quote(50, 1000, 50000);
+      final m = vm()..change(liters: '40', unitPrice: '1000');
+      await Future<void>.delayed(Duration.zero);
+      m.change(liters: '50');
+      await Future<void>.delayed(Duration.zero);
+      expect(m.total, 50000);
+      slow.complete(40000);
+      await Future<void>.delayed(Duration.zero);
+      expect(m.total, 50000, reason: 'la vieja llegó tarde');
+    });
+
+    test('registra la carga con el total que calculó el back', () async {
+      quote(40, 1050, 42001.5);
       when(ops.registerFuelLoad(any,
               idempotencyKey: anyNamed('idempotencyKey')))
           .thenAnswer((_) async => const FuelLoadRecord(
               carPatent: 'AB123CD',
               liters: 40,
-              totalAmount: 42000,
+              totalAmount: 42001.5,
               odometerKm: 120350,
               anomaly: false));
-      final m = FuelLoadViewModel()
+      final m = vm()
         ..change(liters: '40', unitPrice: '1050', odometer: '120350');
+      await Future<void>.delayed(Duration.zero);
       m.setPayment(FuelPayment.card);
       await m.submit();
       final input = verify(ops.registerFuelLoad(captureAny,
               idempotencyKey: anyNamed('idempotencyKey')))
           .captured
           .single as FuelLoadInput;
-      expect(input.totalAmount, 42000);
+      expect(input.totalAmount, 42001.5,
+          reason: 'el importe del back, no litros × precio');
       expect(input.paymentMethod, FuelPayment.card);
       expect(m.result!.carPatent, 'AB123CD');
     });
@@ -338,8 +417,9 @@ void main() {
               idempotencyKey: anyNamed('idempotencyKey')))
           .thenAnswer(
               (_) async => throw _fail(404, 'No tenés un vehículo en uso'));
-      final m = FuelLoadViewModel()
-        ..change(liters: '40', unitPrice: '1050', odometer: '10');
+      quote(40, 1050, 42000);
+      final m = vm()..change(liters: '40', unitPrice: '1050', odometer: '10');
+      await Future<void>.delayed(Duration.zero);
       await m.submit();
       expect(m.result, isNull);
       expect(m.failure, isNotNull);
@@ -454,8 +534,11 @@ void main() {
         if (n == 1) throw offline();
         throw _fail(400, 'El kilometraje es menor que el de la última carga');
       });
-      final m = FuelLoadViewModel()
+      when(ops.quoteFuelLoad(liters: 40, unitPrice: 1050))
+          .thenAnswer((_) async => 42000);
+      final m = FuelLoadViewModel(quoteDebounce: Duration.zero)
         ..change(liters: '40', unitPrice: '1050', odometer: '10');
+      await Future<void>.delayed(Duration.zero);
       await m.submit();
       await m.submit();
       await m.submit();

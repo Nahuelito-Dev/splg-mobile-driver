@@ -273,6 +273,21 @@ void main() {
     });
   });
 
+  test('quoteFuelLoad lee el importe que calcula el back en la v2', () async {
+    final path = HttpDriverOpsRepository.fuelQuotePath(40.5, 1050.555);
+    expect(
+        path,
+        endsWith(
+            '/api/v2/fleet/fuel-loads/mine/quote?liters=40.5&unitPrice=1050.555'));
+    when(api.get(path, 'tok')).thenAnswer((_) async => _res({
+          'liters': 40.5,
+          'unitPrice': 1050.555,
+          'totalAmount': 42547.48,
+        }, 200));
+    expect(
+        await repo.quoteFuelLoad(liters: 40.5, unitPrice: 1050.555), 42547.48);
+  });
+
   test('registerFuelLoad arma el cuerpo del contrato y omite lo vacío',
       () async {
     when(api.post(HttpDriverOpsRepository.fuelPath, any, 'tok', any))

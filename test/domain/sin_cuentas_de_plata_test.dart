@@ -74,14 +74,7 @@ class _Excepcion {
 /// back. Cada una es un fragmento exacto de un archivo: tocar otra parte del
 /// archivo con una cuenta nueva sí se detecta. Sólo se achica: nada se agrega
 /// acá.
-const _pendientesDelBack = <_Excepcion>[
-  _Excepcion('lib/ui/views/deliveries/deliveries_view.dart', '+ o.amount',
-      'total cobrado del día en la lista de entregas'),
-  _Excepcion(
-      'lib/ui/views/deliveries/deliveries_view.dart',
-      '.fold<num>(0, (s, o) => s + o.amount',
-      'total cobrado del día en la lista de entregas'),
-];
+const _pendientesDelBack = <_Excepcion>[];
 
 /// Cuentas que no son de plata.
 const _noSonPlata = <_Excepcion>[

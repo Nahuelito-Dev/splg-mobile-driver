@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:splg_lib/splg_lib.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/core/network/api_client.dart';
+import 'package:splg_driver/models/driver_ops.dart' show apiDay;
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/truck_load.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
@@ -102,6 +104,22 @@ class DriverApiService {
       total: total is num ? total.toInt() : offset + orders.length,
       offset: offset,
     );
+  }
+
+  /// `GET /api/v2/reports/delivery/me/daily-totals`: por día, los pedidos
+  /// entregados y lo que había que cobrar de ellos, sumado por el back.
+  Future<List<DayTotal>> dailyTotals(
+      {required DateTime from, required DateTime to}) async {
+    final res = await _api.get(
+        '${AppConfig.apiV2Url}reports/delivery/me/daily-totals'
+        '?from=${apiDay(from)}&to=${apiDay(to)}',
+        await _token());
+    final data = res.data;
+    return [
+      if (data is List)
+        for (final d in data.whereType<Map>())
+          DayTotal.fromJson(Map<String, dynamic>.from(d)),
+    ];
   }
 
   /// `GET /orders/delivery/me/active`: el pedido en curso del chofer sin

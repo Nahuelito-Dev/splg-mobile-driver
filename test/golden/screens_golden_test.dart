@@ -163,6 +163,11 @@ void main() {
     when(api.ordersPage(offset: anyNamed('offset'), limit: anyNamed('limit')))
         .thenAnswer(
             (_) async => OrdersPage(orders: orders, total: 3, offset: 0));
+    when(api.dailyTotals(from: anyNamed('from'), to: anyNamed('to')))
+        .thenAnswer((_) async => const [
+              DayTotal(
+                  day: '2026-10-03', deliveredOrders: 2, totalAmount: 24700),
+            ]);
     await pumpScreen(t, const DeliveriesView());
     await check(t, 'deliveries_list');
   });

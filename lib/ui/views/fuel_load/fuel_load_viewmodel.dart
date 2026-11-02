@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:stacked/stacked.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
@@ -8,8 +11,12 @@ import 'package:splg_driver/ui/common/amount_input.dart';
 import 'package:splg_driver/ui/common/send_intent.dart';
 
 /// Cargar combustible (CU-195): siempre en el vehículo que el chofer tiene en
-/// uso. El total es litros × precio por litro (el back tolera un 1 %).
+/// uso. El total (litros × precio por litro) lo calcula el back: la pantalla lo
+/// pide cuando el chofer deja de teclear y manda ese mismo importe al registrar.
 class FuelLoadViewModel extends BaseViewModel {
+  FuelLoadViewModel({this.quoteDebounce = const Duration(milliseconds: 400)});
+
+  final Duration quoteDebounce;
   final _ops = locator<DriverOpsRepository>();
 
   String liters = '';
@@ -35,10 +42,52 @@ class FuelLoadViewModel extends BaseViewModel {
     return (v == null || v != v.truncate()) ? null : v.toInt();
   }
 
-  num? get total {
+  /// El importe que calculó el back para los litros y el precio de hoy; null
+  /// mientras no llegó o si no se pudo calcular.
+  num? total;
+
+  /// No se pudo pedir el importe al back (sin red, 5xx): se explica y se
+  /// reintenta al tocar los litros o el precio.
+  bool quoteFailed = false;
+
+  /// El back rechazó la cotización (400): se muestra su mensaje tal cual.
+  String? quoteRejection;
+
+  Timer? _quoteTimer;
+  int _quoteRun = 0;
+
+  /// Pide el importe al back cuando el chofer deja de teclear. Una respuesta
+  /// lenta de un valor viejo no pisa a la del valor actual.
+  void _scheduleQuote() {
+    _quoteTimer?.cancel();
+    final run = ++_quoteRun;
+    total = null;
+    quoteFailed = false;
+    quoteRejection = null;
     final l = litersValue, p = unitPriceValue;
-    if (l == null || p == null) return null;
-    return num.parse((l * p).toStringAsFixed(2));
+    if (l == null || p == null || l <= 0 || p <= 0) return;
+    _quoteTimer = Timer(quoteDebounce, () async {
+      num? result;
+      String? rejection;
+      try {
+        result = await _ops.quoteFuelLoad(liters: l, unitPrice: p);
+      } catch (e) {
+        result = null;
+        final status = e is DioException ? e.response?.statusCode : null;
+        if (status == 400 || status == 422) rejection = actionErrorText(e);
+      }
+      if (run != _quoteRun) return;
+      total = result;
+      quoteRejection = rejection;
+      quoteFailed = result == null && rejection == null;
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _quoteTimer?.cancel();
+    super.dispose();
   }
 
   String? get blocker {
@@ -52,6 +101,11 @@ class FuelLoadViewModel extends BaseViewModel {
     if (odometerValue == null || odometerValue! < 0) {
       return 'Ingresá el kilometraje del tablero (sin decimales).';
     }
+    if (quoteRejection != null) return quoteRejection;
+    if (quoteFailed) {
+      return 'No pudimos calcular el total. Revisá la conexión y volvé a tocar los litros o el precio.';
+    }
+    if (total == null) return 'Calculando el total…';
     return null;
   }
 
@@ -73,6 +127,9 @@ class FuelLoadViewModel extends BaseViewModel {
     this.notes = notes ?? this.notes;
     _intent.reset();
     failure = null;
+    // Sin red se reintenta con cualquier cambio; un rechazo del back, sólo si
+    // cambian los litros o el precio.
+    if (liters != null || unitPrice != null || quoteFailed) _scheduleQuote();
     notifyListeners();
   }
 

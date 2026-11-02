@@ -96,6 +96,26 @@ void main() {
     await expectLater(svc.deliveryCode('o2'), throwsA(isA<StateError>()));
   });
 
+  test('regenerateDeliveryCode postea a la v2 y devuelve el código nuevo',
+      () async {
+    when(api.post(any, any, any, any)).thenAnswer(
+        (_) async => ok({'orderId': 'o1', 'deliveryCode': '482913'}));
+    expect(await svc.regenerateDeliveryCode('o1'), '482913');
+    verify(api.post(
+      argThat(endsWith('/api/v2/orders/o1/delivery-code/regenerate')),
+      any,
+      'tok',
+      argThat(containsPair('Idempotency-Key', isNotEmpty)),
+    )).called(1);
+  });
+
+  test('regenerateDeliveryCode sin código en la respuesta lanza', () async {
+    when(api.post(any, any, any, any))
+        .thenAnswer((_) async => ok({'orderId': 'o1'}));
+    await expectLater(
+        svc.regenerateDeliveryCode('o1'), throwsA(isA<StateError>()));
+  });
+
   test('rateCustomer manda orderId, stars y comentario sin espacios', () async {
     when(api.post(any, any, any, any)).thenAnswer((_) async => ok());
     await svc.rateCustomer('o1', 4, '  Bien  ');

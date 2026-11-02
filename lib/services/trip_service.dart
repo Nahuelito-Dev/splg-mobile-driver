@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_data.dart';
@@ -135,6 +136,27 @@ class TripService {
       throw StateError('El pedido no tiene código de entrega todavía.');
     }
     return code;
+  }
+
+  /// `POST /api/v2/orders/:id/delivery-code/regenerate`: un código nuevo (6
+  /// dígitos) que reemplaza al anterior y vuelve a 0 los intentos del cliente.
+  /// Devuelve el código nuevo.
+  Future<String> regenerateDeliveryCode(String id) {
+    final action = 'regenerate-code:$id';
+    return _once(action, () async {
+      final res = await _api.post(
+        '${AppConfig.apiV2Url}orders/$id/delivery-code/regenerate',
+        const {},
+        await _token(),
+        _idem(action),
+      );
+      final code =
+          res.data is Map ? res.data['deliveryCode']?.toString() : null;
+      if (code == null || code.isEmpty) {
+        throw StateError('No pudimos generar el código nuevo.');
+      }
+      return code;
+    });
   }
 
   /// `POST /incidents`: reporta una incidencia de la entrega. La clave es una

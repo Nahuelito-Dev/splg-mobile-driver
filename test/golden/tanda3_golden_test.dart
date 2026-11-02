@@ -260,6 +260,25 @@ void main() {
       await leave(t);
     });
 
+    testWidgets('«Generar código nuevo» pide confirmación y cambia el código',
+        (t) async {
+      when(trips.regenerateDeliveryCode('o1'))
+          .thenAnswer((_) async => '482913');
+      await pump(t, const DeliveryQrView(orderId: 'o1'));
+      await t.ensureVisible(find.byKey(const Key('qr-regenerate')));
+      await t.tap(find.byKey(const Key('qr-regenerate')));
+      await t.pump();
+      expect(find.byKey(const Key('qr-regenerate-ask')), findsOneWidget);
+      await t.ensureVisible(find.byKey(const Key('qr-regenerate-confirm')));
+      await t.tap(find.byKey(const Key('qr-regenerate-confirm')));
+      await t.pump();
+      await t.pump();
+      expect(find.text('482 913'), findsOneWidget);
+      expect(find.text('A1B2C3D4E5'), findsNothing);
+      verify(trips.regenerateDeliveryCode('o1')).called(1);
+      await leave(t);
+    });
+
     testWidgets('sin código: error y reintento', (t) async {
       when(trips.deliveryCode('o1')).thenThrow(StateError('Sin código'));
       await pump(t, const DeliveryQrView(orderId: 'o1'));

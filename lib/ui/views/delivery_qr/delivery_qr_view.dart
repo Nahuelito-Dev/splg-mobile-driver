@@ -128,16 +128,25 @@ class _Qr extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Text(model.code!,
+          Text('Si no puede escanear, dictale este código:',
+              textAlign: TextAlign.center,
+              style: type.body.copyWith(color: Colors.white70)),
+          const SizedBox(height: 6),
+          Text(model.displayCode!,
               key: const Key('qr-code-text'),
-              style: type.subtitle
-                  .copyWith(color: Colors.white, letterSpacing: 2)),
+              style: type.title.copyWith(
+                  color: Colors.white,
+                  letterSpacing: 6,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900)),
           const SizedBox(height: 18),
           if (order != null)
             Text(
                 '${order.customerName ?? 'Cliente'} - ${formatMoney(order.total)}',
                 style: type.body.copyWith(color: Colors.white70)),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
+          _Regenerate(model: model),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -154,6 +163,58 @@ class _Qr extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// «Generar código nuevo»: cuando el cliente agotó los intentos (o el código se
+/// filtró). Pide confirmación porque el código anterior deja de valer.
+class _Regenerate extends StatelessWidget {
+  const _Regenerate({required this.model});
+  final DeliveryQrViewModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = SplgType.of(context);
+    if (!model.confirmingRegenerate) {
+      return SplgButton(
+        key: const Key('qr-regenerate'),
+        title: 'Generar código nuevo',
+        style: SplgButtonStyle.ghost,
+        onPressed: model.askRegenerate,
+      );
+    }
+    return Column(
+      children: [
+        Text(
+            '¿Generar un código nuevo? El actual deja de valer y el cliente '
+            'tiene que usar el nuevo.',
+            key: const Key('qr-regenerate-ask'),
+            textAlign: TextAlign.center,
+            style: type.body.copyWith(color: Colors.white)),
+        if (model.regenerateError != null) ...[
+          const SizedBox(height: 8),
+          Text(model.regenerateError!,
+              key: const Key('qr-regenerate-error'),
+              textAlign: TextAlign.center,
+              style: type.body.copyWith(color: Colors.white)),
+        ],
+        const SizedBox(height: 10),
+        SplgButton(
+          key: const Key('qr-regenerate-confirm'),
+          title: 'Sí, generar código nuevo',
+          style: SplgButtonStyle.white,
+          loading: model.regenerating,
+          onPressed: model.regenerateCode,
+        ),
+        const SizedBox(height: 8),
+        SplgButton(
+          key: const Key('qr-regenerate-cancel'),
+          title: 'Cancelar',
+          style: SplgButtonStyle.ghost,
+          onPressed: model.regenerating ? null : model.cancelRegenerate,
+        ),
+      ],
     );
   }
 }

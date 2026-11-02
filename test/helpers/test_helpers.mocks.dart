@@ -2229,6 +2229,29 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
       ) as _i14.Future<String>);
 
   @override
+  _i14.Future<String> regenerateDeliveryCode(String? id) => (super.noSuchMethod(
+        Invocation.method(
+          #regenerateDeliveryCode,
+          [id],
+        ),
+        returnValue: _i14.Future<String>.value(_i12.dummyValue<String>(
+          this,
+          Invocation.method(
+            #regenerateDeliveryCode,
+            [id],
+          ),
+        )),
+        returnValueForMissingStub:
+            _i14.Future<String>.value(_i12.dummyValue<String>(
+          this,
+          Invocation.method(
+            #regenerateDeliveryCode,
+            [id],
+          ),
+        )),
+      ) as _i14.Future<String>);
+
+  @override
   _i14.Future<_i4.Response<dynamic>> reportIncident(
     String? orderId,
     String? type,

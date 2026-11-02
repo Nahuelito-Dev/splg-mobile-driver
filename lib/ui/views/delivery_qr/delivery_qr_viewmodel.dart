@@ -51,6 +51,48 @@ class DeliveryQrViewModel extends BaseViewModel {
   TripOrder? order;
   String? loadError;
 
+  /// El código para leer en voz alta: «123 456» si son 6 dígitos; un código
+  /// viejo (10 hexadecimales) se muestra tal cual.
+  static String formatCode(String code) => RegExp(r'^\d{6}$').hasMatch(code)
+      ? '${code.substring(0, 3)} ${code.substring(3)}'
+      : code;
+
+  String? get displayCode => code == null ? null : formatCode(code!);
+
+  /// true mientras se le pide confirmación al chofer para cambiar el código.
+  bool confirmingRegenerate = false;
+  String? regenerateError;
+  bool _regenerating = false;
+  bool get regenerating => _regenerating;
+
+  void askRegenerate() {
+    confirmingRegenerate = true;
+    regenerateError = null;
+    rebuildUi();
+  }
+
+  void cancelRegenerate() {
+    confirmingRegenerate = false;
+    rebuildUi();
+  }
+
+  /// Pide un código nuevo al back y lo muestra al instante (QR incluido). Si
+  /// falla, deja el actual y muestra el motivo.
+  Future<void> regenerateCode() async {
+    if (_regenerating) return;
+    _regenerating = true;
+    regenerateError = null;
+    rebuildUi();
+    try {
+      code = await _trips.regenerateDeliveryCode(orderId);
+      confirmingRegenerate = false;
+    } catch (e) {
+      regenerateError = _text(e);
+    }
+    _regenerating = false;
+    if (!_disposed) rebuildUi();
+  }
+
   Future<void> initialize() async {
     _cancelSub = _socket.orderCancelled.listen((p) {
       if (p['orderId']?.toString() == orderId) _check();

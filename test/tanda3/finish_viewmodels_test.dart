@@ -59,6 +59,49 @@ void main() {
       m.dispose();
     });
 
+    test('el código de 6 dígitos se lee agrupado y uno viejo queda como está',
+        () {
+      expect(DeliveryQrViewModel.formatCode('482913'), '482 913');
+      expect(DeliveryQrViewModel.formatCode('A1B2C3D4E5'), 'A1B2C3D4E5');
+    });
+
+    test(
+        'generar código nuevo pide confirmación y muestra el nuevo al instante',
+        () async {
+      when(trips.regenerateDeliveryCode('o1'))
+          .thenAnswer((_) async => '482913');
+      final m = qr();
+      await m.initialize();
+
+      m.askRegenerate();
+      expect(m.confirmingRegenerate, isTrue);
+      verifyNever(trips.regenerateDeliveryCode(any));
+
+      await m.regenerateCode();
+
+      expect(m.code, '482913');
+      expect(m.displayCode, '482 913');
+      expect(m.confirmingRegenerate, isFalse);
+      expect(m.regenerateError, isNull);
+      m.dispose();
+    });
+
+    test('si el back no lo genera, queda el código actual y el motivo',
+        () async {
+      when(trips.regenerateDeliveryCode('o1'))
+          .thenThrow(StateError('El pedido ya no está en camino'));
+      final m = qr();
+      await m.initialize();
+      m.askRegenerate();
+
+      await m.regenerateCode();
+
+      expect(m.code, 'A1B2C3D4E5');
+      expect(m.regenerateError, 'El pedido ya no está en camino');
+      expect(m.confirmingRegenerate, isTrue);
+      m.dispose();
+    });
+
     test(
         'el cliente escanea (delivered): corta tracking y va al cobro, una vez',
         () async {

@@ -44,6 +44,7 @@ class DeliveryQrViewModel extends BaseViewModel {
 
   Timer? _timer;
   StreamSubscription<Map<String, dynamic>>? _cancelSub;
+  StreamSubscription<Map<String, dynamic>>? _codeSub;
   bool _disposed = false;
   bool _closing = false;
 
@@ -59,6 +60,32 @@ class DeliveryQrViewModel extends BaseViewModel {
 
   String? get displayCode => code == null ? null : formatCode(code!);
 
+  /// Desde cuántos errores del cliente se avisa, antes del bloqueo.
+  static const int kWarnFromAttempts = 3;
+
+  /// Códigos incorrectos del cliente desde el último código nuevo.
+  int attempts = 0;
+
+  /// El cliente agotó los intentos: el QR ya no sirve hasta generar uno nuevo.
+  bool blocked = false;
+
+  /// Aviso suave del 3.er error en adelante, mientras no esté bloqueado.
+  bool get showAttemptsWarning => !blocked && attempts >= kWarnFromAttempts;
+
+  /// Tope de intentos del back; el aviso del socket lo informa.
+  int maxAttempts = 5;
+
+  /// Cambia con cada novedad del código (aviso, regeneración): una lectura del
+  /// sondeo iniciada antes de la última novedad ya es vieja y se descarta.
+  int _codeGeneration = 0;
+
+  void _applyAttempts(int n, bool isBlocked) {
+    _codeGeneration++;
+    attempts = n > maxAttempts ? maxAttempts : n;
+    blocked = isBlocked;
+    if (isBlocked) confirmingRegenerate = false;
+  }
+
   /// true mientras se le pide confirmación al chofer para cambiar el código.
   bool confirmingRegenerate = false;
   String? regenerateError;
@@ -66,6 +93,11 @@ class DeliveryQrViewModel extends BaseViewModel {
   bool get regenerating => _regenerating;
 
   void askRegenerate() {
+    // Bloqueado, el código actual ya no sirve: no hace falta confirmar.
+    if (blocked) {
+      regenerateCode();
+      return;
+    }
     confirmingRegenerate = true;
     regenerateError = null;
     rebuildUi();
@@ -81,14 +113,17 @@ class DeliveryQrViewModel extends BaseViewModel {
   Future<void> regenerateCode() async {
     if (_regenerating) return;
     _regenerating = true;
+    _codeGeneration++;
     regenerateError = null;
     rebuildUi();
     try {
       code = await _trips.regenerateDeliveryCode(orderId);
+      _applyAttempts(0, false);
       confirmingRegenerate = false;
     } catch (e) {
       regenerateError = _text(e);
     }
+    _codeGeneration++;
     _regenerating = false;
     if (!_disposed) rebuildUi();
   }
@@ -96,6 +131,14 @@ class DeliveryQrViewModel extends BaseViewModel {
   Future<void> initialize() async {
     _cancelSub = _socket.orderCancelled.listen((p) {
       if (p['orderId']?.toString() == orderId) _check();
+    });
+    _codeSub = _socket.deliveryCodeFailed.listen((p) {
+      if (p['orderId']?.toString() != orderId || _disposed) return;
+      final n = p['attempts'];
+      final max = p['maxAttempts'];
+      if (max is num && max > 0) maxAttempts = max.toInt();
+      _applyAttempts(n is num ? n.toInt() : attempts + 1, p['blocked'] == true);
+      rebuildUi();
     });
     await load();
   }
@@ -110,7 +153,14 @@ class DeliveryQrViewModel extends BaseViewModel {
         await _delivered();
         return;
       }
-      code = await _trips.deliveryCode(orderId);
+      final generation = _codeGeneration;
+      final info = await _trips.deliveryCode(orderId);
+      // Un aviso o una regeneración que llegó mientras tanto es más nuevo.
+      if (generation == _codeGeneration) {
+        _applyInfo(info);
+      } else {
+        code ??= info.code;
+      }
     } catch (e) {
       if (isOrderGone(e, known: order != null) && !_closing) {
         setBusy(false);
@@ -121,6 +171,11 @@ class DeliveryQrViewModel extends BaseViewModel {
     }
     setBusy(false);
     if (code != null) _startPolling();
+  }
+
+  void _applyInfo(DeliveryCodeInfo info) {
+    code = info.code;
+    _applyAttempts(info.attempts, info.blocked);
   }
 
   String _text(Object e) => e is DioException
@@ -147,6 +202,14 @@ class DeliveryQrViewModel extends BaseViewModel {
           fresh.status == DriverOrderStatus.pending ||
           fresh.status == DriverOrderStatus.reserved) {
         await _lost(fresh.status == DriverOrderStatus.cancelled);
+      } else if (!_regenerating) {
+        // Red de seguridad si el socket perdió un aviso de intentos.
+        final generation = _codeGeneration;
+        final info = await _trips.deliveryCode(orderId);
+        if (_disposed || _closing || _regenerating) return;
+        if (generation != _codeGeneration) return;
+        _applyInfo(info);
+        rebuildUi();
       }
     } catch (e) {
       if (isOrderGone(e, known: order != null) && !_disposed && !_closing) {
@@ -188,6 +251,7 @@ class DeliveryQrViewModel extends BaseViewModel {
     _disposed = true;
     _timer?.cancel();
     _cancelSub?.cancel();
+    _codeSub?.cancel();
     super.dispose();
   }
 }

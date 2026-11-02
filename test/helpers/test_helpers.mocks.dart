@@ -3,43 +3,43 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i14;
-import 'dart:typed_data' as _i26;
-import 'dart:ui' as _i15;
+import 'dart:async' as _i15;
+import 'dart:typed_data' as _i27;
+import 'dart:ui' as _i16;
 
 import 'package:dio/dio.dart' as _i4;
-import 'package:flutter/material.dart' as _i13;
-import 'package:geolocator/geolocator.dart' as _i17;
+import 'package:flutter/material.dart' as _i14;
+import 'package:geolocator/geolocator.dart' as _i18;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i12;
-import 'package:socket_io_client/socket_io_client.dart' as _i20;
-import 'package:splg_driver/core/network/api_client.dart' as _i25;
+import 'package:mockito/src/dummies.dart' as _i13;
+import 'package:socket_io_client/socket_io_client.dart' as _i21;
+import 'package:splg_driver/core/network/api_client.dart' as _i26;
 import 'package:splg_driver/models/cylinder_pickup.dart' as _i36;
 import 'package:splg_driver/models/driver_data.dart' as _i5;
-import 'package:splg_driver/models/driver_ops.dart' as _i8;
-import 'package:splg_driver/models/maintenance.dart' as _i9;
-import 'package:splg_driver/models/route_batch.dart' as _i10;
+import 'package:splg_driver/models/driver_ops.dart' as _i9;
+import 'package:splg_driver/models/maintenance.dart' as _i10;
+import 'package:splg_driver/models/route_batch.dart' as _i11;
 import 'package:splg_driver/models/trip_order.dart' as _i7;
 import 'package:splg_driver/models/truck_load.dart' as _i6;
-import 'package:splg_driver/services/app_permissions.dart' as _i24;
-import 'package:splg_driver/services/driver_api_service.dart' as _i27;
-import 'package:splg_driver/services/driver_auth_service.dart' as _i21;
+import 'package:splg_driver/services/app_permissions.dart' as _i25;
+import 'package:splg_driver/services/driver_api_service.dart' as _i28;
+import 'package:splg_driver/services/driver_auth_service.dart' as _i22;
 import 'package:splg_driver/services/driver_ops_repository.dart' as _i30;
-import 'package:splg_driver/services/driver_socket_service.dart' as _i19;
-import 'package:splg_driver/services/fcm_service.dart' as _i23;
-import 'package:splg_driver/services/foreground_service.dart' as _i22;
-import 'package:splg_driver/services/location_service.dart' as _i16;
+import 'package:splg_driver/services/driver_socket_service.dart' as _i20;
+import 'package:splg_driver/services/fcm_service.dart' as _i24;
+import 'package:splg_driver/services/foreground_service.dart' as _i23;
+import 'package:splg_driver/services/location_service.dart' as _i17;
 import 'package:splg_driver/services/maintenance_board.dart' as _i32;
 import 'package:splg_driver/services/maintenance_notifier.dart' as _i33;
 import 'package:splg_driver/services/maintenance_repository.dart' as _i31;
 import 'package:splg_driver/services/payment_repository.dart' as _i29;
 import 'package:splg_driver/services/recovery_repository.dart' as _i35;
 import 'package:splg_driver/services/route_batch_repository.dart' as _i34;
-import 'package:splg_driver/services/trip_service.dart' as _i28;
-import 'package:splg_lib/permissions/app_permission.dart' as _i18;
+import 'package:splg_driver/services/trip_service.dart' as _i8;
+import 'package:splg_lib/permissions/app_permission.dart' as _i19;
 import 'package:splg_lib/permissions/permission_gateway.dart' as _i2;
 import 'package:splg_lib/permissions/permission_prompter.dart' as _i3;
-import 'package:stacked_services/stacked_services.dart' as _i11;
+import 'package:stacked_services/stacked_services.dart' as _i12;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -157,8 +157,9 @@ class _FakeTripOrder_9 extends _i1.SmartFake implements _i7.TripOrder {
         );
 }
 
-class _FakeWorkday_10 extends _i1.SmartFake implements _i8.Workday {
-  _FakeWorkday_10(
+class _FakeDeliveryCodeInfo_10 extends _i1.SmartFake
+    implements _i8.DeliveryCodeInfo {
+  _FakeDeliveryCodeInfo_10(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -167,8 +168,8 @@ class _FakeWorkday_10 extends _i1.SmartFake implements _i8.Workday {
         );
 }
 
-class _FakeSettlement_11 extends _i1.SmartFake implements _i8.Settlement {
-  _FakeSettlement_11(
+class _FakeWorkday_11 extends _i1.SmartFake implements _i9.Workday {
+  _FakeWorkday_11(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -177,9 +178,8 @@ class _FakeSettlement_11 extends _i1.SmartFake implements _i8.Settlement {
         );
 }
 
-class _FakeSettlementPreview_12 extends _i1.SmartFake
-    implements _i8.SettlementPreview {
-  _FakeSettlementPreview_12(
+class _FakeSettlement_12 extends _i1.SmartFake implements _i9.Settlement {
+  _FakeSettlement_12(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -188,9 +188,9 @@ class _FakeSettlementPreview_12 extends _i1.SmartFake
         );
 }
 
-class _FakeFuelLoadRecord_13 extends _i1.SmartFake
-    implements _i8.FuelLoadRecord {
-  _FakeFuelLoadRecord_13(
+class _FakeSettlementPreview_13 extends _i1.SmartFake
+    implements _i9.SettlementPreview {
+  _FakeSettlementPreview_13(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -199,9 +199,9 @@ class _FakeFuelLoadRecord_13 extends _i1.SmartFake
         );
 }
 
-class _FakeAccidentRecord_14 extends _i1.SmartFake
-    implements _i8.AccidentRecord {
-  _FakeAccidentRecord_14(
+class _FakeFuelLoadRecord_14 extends _i1.SmartFake
+    implements _i9.FuelLoadRecord {
+  _FakeFuelLoadRecord_14(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -210,9 +210,9 @@ class _FakeAccidentRecord_14 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenancePage_15 extends _i1.SmartFake
-    implements _i9.MaintenancePage {
-  _FakeMaintenancePage_15(
+class _FakeAccidentRecord_15 extends _i1.SmartFake
+    implements _i9.AccidentRecord {
+  _FakeAccidentRecord_15(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -221,9 +221,9 @@ class _FakeMaintenancePage_15 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceSettings_16 extends _i1.SmartFake
-    implements _i9.MaintenanceSettings {
-  _FakeMaintenanceSettings_16(
+class _FakeMaintenancePage_16 extends _i1.SmartFake
+    implements _i10.MaintenancePage {
+  _FakeMaintenancePage_16(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -232,9 +232,9 @@ class _FakeMaintenanceSettings_16 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceProposal_17 extends _i1.SmartFake
-    implements _i9.MaintenanceProposal {
-  _FakeMaintenanceProposal_17(
+class _FakeMaintenanceSettings_17 extends _i1.SmartFake
+    implements _i10.MaintenanceSettings {
+  _FakeMaintenanceSettings_17(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -243,8 +243,9 @@ class _FakeMaintenanceProposal_17 extends _i1.SmartFake
         );
 }
 
-class _FakeRouteBatch_18 extends _i1.SmartFake implements _i10.RouteBatch {
-  _FakeRouteBatch_18(
+class _FakeMaintenanceProposal_18 extends _i1.SmartFake
+    implements _i10.MaintenanceProposal {
+  _FakeMaintenanceProposal_18(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -253,9 +254,19 @@ class _FakeRouteBatch_18 extends _i1.SmartFake implements _i10.RouteBatch {
         );
 }
 
-class _FakeRouteBatchDecision_19 extends _i1.SmartFake
-    implements _i10.RouteBatchDecision {
-  _FakeRouteBatchDecision_19(
+class _FakeRouteBatch_19 extends _i1.SmartFake implements _i11.RouteBatch {
+  _FakeRouteBatch_19(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeRouteBatchDecision_20 extends _i1.SmartFake
+    implements _i11.RouteBatchDecision {
+  _FakeRouteBatchDecision_20(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -267,15 +278,15 @@ class _FakeRouteBatchDecision_19 extends _i1.SmartFake
 /// A class which mocks [NavigationService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
+class MockNavigationService extends _i1.Mock implements _i12.NavigationService {
   @override
   String get previousRoute => (super.noSuchMethod(
         Invocation.getter(#previousRoute),
-        returnValue: _i12.dummyValue<String>(
+        returnValue: _i13.dummyValue<String>(
           this,
           Invocation.getter(#previousRoute),
         ),
-        returnValueForMissingStub: _i12.dummyValue<String>(
+        returnValueForMissingStub: _i13.dummyValue<String>(
           this,
           Invocation.getter(#previousRoute),
         ),
@@ -284,25 +295,25 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
   @override
   String get currentRoute => (super.noSuchMethod(
         Invocation.getter(#currentRoute),
-        returnValue: _i12.dummyValue<String>(
+        returnValue: _i13.dummyValue<String>(
           this,
           Invocation.getter(#currentRoute),
         ),
-        returnValueForMissingStub: _i12.dummyValue<String>(
+        returnValueForMissingStub: _i13.dummyValue<String>(
           this,
           Invocation.getter(#currentRoute),
         ),
       ) as String);
 
   @override
-  _i13.GlobalKey<_i13.NavigatorState>? nestedNavigationKey(int? index) =>
+  _i14.GlobalKey<_i14.NavigatorState>? nestedNavigationKey(int? index) =>
       (super.noSuchMethod(
         Invocation.method(
           #nestedNavigationKey,
           [index],
         ),
         returnValueForMissingStub: null,
-      ) as _i13.GlobalKey<_i13.NavigatorState>?);
+      ) as _i14.GlobalKey<_i14.NavigatorState>?);
 
   @override
   void config({
@@ -311,7 +322,7 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
     bool? defaultOpaqueRoute,
     Duration? defaultDurationTransition,
     bool? defaultGlobalState,
-    _i11.Transition? defaultTransitionStyle,
+    _i12.Transition? defaultTransitionStyle,
     String? defaultTransition,
   }) =>
       super.noSuchMethod(
@@ -332,18 +343,18 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
       );
 
   @override
-  _i14.Future<T?>? navigateWithTransition<T>(
-    _i13.Widget? page, {
+  _i15.Future<T?>? navigateWithTransition<T>(
+    _i14.Widget? page, {
     bool? opaque,
     String? transition = '',
     Duration? duration,
     bool? popGesture,
     int? id,
-    _i13.Curve? curve,
+    _i14.Curve? curve,
     bool? fullscreenDialog = false,
     bool? preventDuplicates = true,
-    _i11.Transition? transitionClass,
-    _i11.Transition? transitionStyle,
+    _i12.Transition? transitionClass,
+    _i12.Transition? transitionStyle,
     String? routeName,
   }) =>
       (super.noSuchMethod(
@@ -365,21 +376,21 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? replaceWithTransition<T>(
-    _i13.Widget? page, {
+  _i15.Future<T?>? replaceWithTransition<T>(
+    _i14.Widget? page, {
     bool? opaque,
     String? transition = '',
     Duration? duration,
     bool? popGesture,
     int? id,
-    _i13.Curve? curve,
+    _i14.Curve? curve,
     bool? fullscreenDialog = false,
     bool? preventDuplicates = true,
-    _i11.Transition? transitionClass,
-    _i11.Transition? transitionStyle,
+    _i12.Transition? transitionClass,
+    _i12.Transition? transitionStyle,
     String? routeName,
   }) =>
       (super.noSuchMethod(
@@ -401,7 +412,7 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
   bool back<T>({
@@ -423,7 +434,7 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
 
   @override
   void popUntil(
-    _i13.RoutePredicate? predicate, {
+    _i14.RoutePredicate? predicate, {
     int? id,
   }) =>
       super.noSuchMethod(
@@ -445,13 +456,13 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
       );
 
   @override
-  _i14.Future<T?>? navigateTo<T>(
+  _i15.Future<T?>? navigateTo<T>(
     String? routeName, {
     dynamic arguments,
     int? id,
     bool? preventDuplicates = true,
     Map<String, String>? parameters,
-    _i13.RouteTransitionsBuilder? transition,
+    _i14.RouteTransitionsBuilder? transition,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -466,21 +477,21 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? navigateToView<T>(
-    _i13.Widget? view, {
+  _i15.Future<T?>? navigateToView<T>(
+    _i14.Widget? view, {
     dynamic arguments,
     int? id,
     bool? opaque,
-    _i13.Curve? curve,
+    _i14.Curve? curve,
     Duration? duration,
     bool? fullscreenDialog = false,
     bool? popGesture,
     bool? preventDuplicates = true,
-    _i11.Transition? transition,
-    _i11.Transition? transitionStyle,
+    _i12.Transition? transition,
+    _i12.Transition? transitionStyle,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -500,16 +511,16 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? replaceWith<T>(
+  _i15.Future<T?>? replaceWith<T>(
     String? routeName, {
     dynamic arguments,
     int? id,
     bool? preventDuplicates = true,
     Map<String, String>? parameters,
-    _i13.RouteTransitionsBuilder? transition,
+    _i14.RouteTransitionsBuilder? transition,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -524,10 +535,10 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? clearStackAndShow<T>(
+  _i15.Future<T?>? clearStackAndShow<T>(
     String? routeName, {
     dynamic arguments,
     int? id,
@@ -544,11 +555,11 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? clearStackAndShowView<T>(
-    _i13.Widget? view, {
+  _i15.Future<T?>? clearStackAndShowView<T>(
+    _i14.Widget? view, {
     dynamic arguments,
     int? id,
   }) =>
@@ -562,10 +573,10 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? clearTillFirstAndShow<T>(
+  _i15.Future<T?>? clearTillFirstAndShow<T>(
     String? routeName, {
     dynamic arguments,
     int? id,
@@ -584,11 +595,11 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? clearTillFirstAndShowView<T>(
-    _i13.Widget? view, {
+  _i15.Future<T?>? clearTillFirstAndShowView<T>(
+    _i14.Widget? view, {
     dynamic arguments,
     int? id,
   }) =>
@@ -602,12 +613,12 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 
   @override
-  _i14.Future<T?>? pushNamedAndRemoveUntil<T>(
+  _i15.Future<T?>? pushNamedAndRemoveUntil<T>(
     String? routeName, {
-    _i13.RoutePredicate? predicate,
+    _i14.RoutePredicate? predicate,
     dynamic arguments,
     int? id,
   }) =>
@@ -622,16 +633,16 @@ class MockNavigationService extends _i1.Mock implements _i11.NavigationService {
           },
         ),
         returnValueForMissingStub: null,
-      ) as _i14.Future<T?>?);
+      ) as _i15.Future<T?>?);
 }
 
 /// A class which mocks [BottomSheetService].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockBottomSheetService extends _i1.Mock
-    implements _i11.BottomSheetService {
+    implements _i12.BottomSheetService {
   @override
-  void setCustomSheetBuilders(Map<dynamic, _i11.SheetBuilder>? builders) =>
+  void setCustomSheetBuilders(Map<dynamic, _i12.SheetBuilder>? builders) =>
       super.noSuchMethod(
         Invocation.method(
           #setCustomSheetBuilders,
@@ -641,7 +652,7 @@ class MockBottomSheetService extends _i1.Mock
       );
 
   @override
-  _i14.Future<_i11.SheetResponse<dynamic>?> showBottomSheet({
+  _i15.Future<_i12.SheetResponse<dynamic>?> showBottomSheet({
     required String? title,
     String? description,
     String? confirmButtonTitle = 'Ok',
@@ -674,13 +685,13 @@ class MockBottomSheetService extends _i1.Mock
             #elevation: elevation,
           },
         ),
-        returnValue: _i14.Future<_i11.SheetResponse<dynamic>?>.value(),
+        returnValue: _i15.Future<_i12.SheetResponse<dynamic>?>.value(),
         returnValueForMissingStub:
-            _i14.Future<_i11.SheetResponse<dynamic>?>.value(),
-      ) as _i14.Future<_i11.SheetResponse<dynamic>?>);
+            _i15.Future<_i12.SheetResponse<dynamic>?>.value(),
+      ) as _i15.Future<_i12.SheetResponse<dynamic>?>);
 
   @override
-  _i14.Future<_i11.SheetResponse<T>?> showCustomSheet<T, R>({
+  _i15.Future<_i12.SheetResponse<T>?> showCustomSheet<T, R>({
     dynamic variant,
     String? title,
     String? description,
@@ -693,7 +704,7 @@ class MockBottomSheetService extends _i1.Mock
     bool? showIconInAdditionalButton = false,
     String? additionalButtonTitle,
     bool? takesInput = false,
-    _i15.Color? barrierColor = const _i15.Color(2315255808),
+    _i16.Color? barrierColor = const _i16.Color(2315255808),
     double? elevation = 1.0,
     bool? barrierDismissible = true,
     bool? isScrollControlled = false,
@@ -737,12 +748,12 @@ class MockBottomSheetService extends _i1.Mock
             #useRootNavigator: useRootNavigator,
           },
         ),
-        returnValue: _i14.Future<_i11.SheetResponse<T>?>.value(),
-        returnValueForMissingStub: _i14.Future<_i11.SheetResponse<T>?>.value(),
-      ) as _i14.Future<_i11.SheetResponse<T>?>);
+        returnValue: _i15.Future<_i12.SheetResponse<T>?>.value(),
+        returnValueForMissingStub: _i15.Future<_i12.SheetResponse<T>?>.value(),
+      ) as _i15.Future<_i12.SheetResponse<T>?>);
 
   @override
-  void completeSheet(_i11.SheetResponse<dynamic>? response) =>
+  void completeSheet(_i12.SheetResponse<dynamic>? response) =>
       super.noSuchMethod(
         Invocation.method(
           #completeSheet,
@@ -755,10 +766,10 @@ class MockBottomSheetService extends _i1.Mock
 /// A class which mocks [DialogService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockDialogService extends _i1.Mock implements _i11.DialogService {
+class MockDialogService extends _i1.Mock implements _i12.DialogService {
   @override
   void registerCustomDialogBuilders(
-          Map<dynamic, _i11.DialogBuilder>? builders) =>
+          Map<dynamic, _i12.DialogBuilder>? builders) =>
       super.noSuchMethod(
         Invocation.method(
           #registerCustomDialogBuilders,
@@ -770,10 +781,10 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
   @override
   void registerCustomDialogBuilder({
     required dynamic variant,
-    required _i13.Widget Function(
-      _i13.BuildContext,
-      _i11.DialogRequest<dynamic>,
-      dynamic Function(_i11.DialogResponse<dynamic>),
+    required _i14.Widget Function(
+      _i14.BuildContext,
+      _i12.DialogRequest<dynamic>,
+      dynamic Function(_i12.DialogResponse<dynamic>),
     )? builder,
   }) =>
       super.noSuchMethod(
@@ -789,17 +800,17 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
       );
 
   @override
-  _i14.Future<_i11.DialogResponse<dynamic>?> showDialog({
+  _i15.Future<_i12.DialogResponse<dynamic>?> showDialog({
     String? title,
     String? description,
     String? cancelTitle,
-    _i15.Color? cancelTitleColor,
+    _i16.Color? cancelTitleColor,
     String? buttonTitle = 'Ok',
-    _i15.Color? buttonTitleColor,
+    _i16.Color? buttonTitleColor,
     bool? barrierDismissible = false,
-    _i13.RouteSettings? routeSettings,
-    _i13.GlobalKey<_i13.NavigatorState>? navigatorKey,
-    _i11.DialogPlatform? dialogPlatform,
+    _i14.RouteSettings? routeSettings,
+    _i14.GlobalKey<_i14.NavigatorState>? navigatorKey,
+    _i12.DialogPlatform? dialogPlatform,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -818,13 +829,13 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
             #dialogPlatform: dialogPlatform,
           },
         ),
-        returnValue: _i14.Future<_i11.DialogResponse<dynamic>?>.value(),
+        returnValue: _i15.Future<_i12.DialogResponse<dynamic>?>.value(),
         returnValueForMissingStub:
-            _i14.Future<_i11.DialogResponse<dynamic>?>.value(),
-      ) as _i14.Future<_i11.DialogResponse<dynamic>?>);
+            _i15.Future<_i12.DialogResponse<dynamic>?>.value(),
+      ) as _i15.Future<_i12.DialogResponse<dynamic>?>);
 
   @override
-  _i14.Future<_i11.DialogResponse<T>?> showCustomDialog<T, R>({
+  _i15.Future<_i12.DialogResponse<T>?> showCustomDialog<T, R>({
     dynamic variant,
     String? title,
     String? description,
@@ -837,13 +848,13 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
     bool? showIconInAdditionalButton = false,
     String? additionalButtonTitle,
     bool? takesInput = false,
-    _i15.Color? barrierColor = const _i15.Color(2315255808),
+    _i16.Color? barrierColor = const _i16.Color(2315255808),
     bool? barrierDismissible = false,
     String? barrierLabel = '',
     bool? useSafeArea = true,
-    _i13.RouteSettings? routeSettings,
-    _i13.GlobalKey<_i13.NavigatorState>? navigatorKey,
-    _i13.RouteTransitionsBuilder? transitionBuilder,
+    _i14.RouteSettings? routeSettings,
+    _i14.GlobalKey<_i14.NavigatorState>? navigatorKey,
+    _i14.RouteTransitionsBuilder? transitionBuilder,
     dynamic customData,
     R? data,
   }) =>
@@ -875,21 +886,21 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
             #data: data,
           },
         ),
-        returnValue: _i14.Future<_i11.DialogResponse<T>?>.value(),
-        returnValueForMissingStub: _i14.Future<_i11.DialogResponse<T>?>.value(),
-      ) as _i14.Future<_i11.DialogResponse<T>?>);
+        returnValue: _i15.Future<_i12.DialogResponse<T>?>.value(),
+        returnValueForMissingStub: _i15.Future<_i12.DialogResponse<T>?>.value(),
+      ) as _i15.Future<_i12.DialogResponse<T>?>);
 
   @override
-  _i14.Future<_i11.DialogResponse<dynamic>?> showConfirmationDialog({
+  _i15.Future<_i12.DialogResponse<dynamic>?> showConfirmationDialog({
     String? title,
     String? description,
     String? cancelTitle = 'Cancel',
-    _i15.Color? cancelTitleColor,
+    _i16.Color? cancelTitleColor,
     String? confirmationTitle = 'Ok',
-    _i15.Color? confirmationTitleColor,
+    _i16.Color? confirmationTitleColor,
     bool? barrierDismissible = false,
-    _i13.RouteSettings? routeSettings,
-    _i11.DialogPlatform? dialogPlatform,
+    _i14.RouteSettings? routeSettings,
+    _i12.DialogPlatform? dialogPlatform,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -907,13 +918,13 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
             #dialogPlatform: dialogPlatform,
           },
         ),
-        returnValue: _i14.Future<_i11.DialogResponse<dynamic>?>.value(),
+        returnValue: _i15.Future<_i12.DialogResponse<dynamic>?>.value(),
         returnValueForMissingStub:
-            _i14.Future<_i11.DialogResponse<dynamic>?>.value(),
-      ) as _i14.Future<_i11.DialogResponse<dynamic>?>);
+            _i15.Future<_i12.DialogResponse<dynamic>?>.value(),
+      ) as _i15.Future<_i12.DialogResponse<dynamic>?>);
 
   @override
-  void completeDialog(_i11.DialogResponse<dynamic>? response) =>
+  void completeDialog(_i12.DialogResponse<dynamic>? response) =>
       super.noSuchMethod(
         Invocation.method(
           #completeDialog,
@@ -926,7 +937,7 @@ class MockDialogService extends _i1.Mock implements _i11.DialogService {
 /// A class which mocks [LocationService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockLocationService extends _i1.Mock implements _i16.LocationService {
+class MockLocationService extends _i1.Mock implements _i17.LocationService {
   @override
   bool get trackingFailed => (super.noSuchMethod(
         Invocation.getter(#trackingFailed),
@@ -942,18 +953,18 @@ class MockLocationService extends _i1.Mock implements _i16.LocationService {
       ) as bool);
 
   @override
-  _i14.Stream<_i17.Position> get positionStream => (super.noSuchMethod(
+  _i15.Stream<_i18.Position> get positionStream => (super.noSuchMethod(
         Invocation.getter(#positionStream),
-        returnValue: _i14.Stream<_i17.Position>.empty(),
-        returnValueForMissingStub: _i14.Stream<_i17.Position>.empty(),
-      ) as _i14.Stream<_i17.Position>);
+        returnValue: _i15.Stream<_i18.Position>.empty(),
+        returnValueForMissingStub: _i15.Stream<_i18.Position>.empty(),
+      ) as _i15.Stream<_i18.Position>);
 
   @override
-  _i18.PermissionOutcome get locationPermission => (super.noSuchMethod(
+  _i19.PermissionOutcome get locationPermission => (super.noSuchMethod(
         Invocation.getter(#locationPermission),
-        returnValue: _i18.PermissionOutcome.granted,
-        returnValueForMissingStub: _i18.PermissionOutcome.granted,
-      ) as _i18.PermissionOutcome);
+        returnValue: _i19.PermissionOutcome.granted,
+        returnValueForMissingStub: _i19.PermissionOutcome.granted,
+      ) as _i19.PermissionOutcome);
 
   @override
   bool get serviceDisabled => (super.noSuchMethod(
@@ -977,74 +988,74 @@ class MockLocationService extends _i1.Mock implements _i16.LocationService {
       ) as int);
 
   @override
-  _i14.Future<bool> checkLocationPermission() => (super.noSuchMethod(
+  _i15.Future<bool> checkLocationPermission() => (super.noSuchMethod(
         Invocation.method(
           #checkLocationPermission,
           [],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
-  _i14.Future<bool> requestLocationPermission() => (super.noSuchMethod(
+  _i15.Future<bool> requestLocationPermission() => (super.noSuchMethod(
         Invocation.method(
           #requestLocationPermission,
           [],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
-  _i14.Future<_i17.Position?> getCurrentLocation() => (super.noSuchMethod(
+  _i15.Future<_i18.Position?> getCurrentLocation() => (super.noSuchMethod(
         Invocation.method(
           #getCurrentLocation,
           [],
         ),
-        returnValue: _i14.Future<_i17.Position?>.value(),
-        returnValueForMissingStub: _i14.Future<_i17.Position?>.value(),
-      ) as _i14.Future<_i17.Position?>);
+        returnValue: _i15.Future<_i18.Position?>.value(),
+        returnValueForMissingStub: _i15.Future<_i18.Position?>.value(),
+      ) as _i15.Future<_i18.Position?>);
 
   @override
-  _i14.Future<void> startTracking() => (super.noSuchMethod(
+  _i15.Future<void> startTracking() => (super.noSuchMethod(
         Invocation.method(
           #startTracking,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> openLocationAlertSettings() => (super.noSuchMethod(
+  _i15.Future<void> openLocationAlertSettings() => (super.noSuchMethod(
         Invocation.method(
           #openLocationAlertSettings,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> stopTracking() => (super.noSuchMethod(
+  _i15.Future<void> stopTracking() => (super.noSuchMethod(
         Invocation.method(
           #stopTracking,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> openDeviceSettings() => (super.noSuchMethod(
+  _i15.Future<void> openDeviceSettings() => (super.noSuchMethod(
         Invocation.method(
           #openDeviceSettings,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   double calculateDistance(
@@ -1118,7 +1129,7 @@ class MockLocationService extends _i1.Mock implements _i16.LocationService {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockDriverSocketService extends _i1.Mock
-    implements _i19.DriverSocketService {
+    implements _i20.DriverSocketService {
   @override
   bool get accessRevoked => (super.noSuchMethod(
         Invocation.getter(#accessRevoked),
@@ -1127,11 +1138,11 @@ class MockDriverSocketService extends _i1.Mock
       ) as bool);
 
   @override
-  _i14.Stream<void> get rejected => (super.noSuchMethod(
+  _i15.Stream<void> get rejected => (super.noSuchMethod(
         Invocation.getter(#rejected),
-        returnValue: _i14.Stream<void>.empty(),
-        returnValueForMissingStub: _i14.Stream<void>.empty(),
-      ) as _i14.Stream<void>);
+        returnValue: _i15.Stream<void>.empty(),
+        returnValueForMissingStub: _i15.Stream<void>.empty(),
+      ) as _i15.Stream<void>);
 
   @override
   bool get isConnected => (super.noSuchMethod(
@@ -1141,41 +1152,49 @@ class MockDriverSocketService extends _i1.Mock
       ) as bool);
 
   @override
-  _i14.Stream<Map<String, dynamic>> get incomingOrders => (super.noSuchMethod(
+  _i15.Stream<Map<String, dynamic>> get incomingOrders => (super.noSuchMethod(
         Invocation.getter(#incomingOrders),
-        returnValue: _i14.Stream<Map<String, dynamic>>.empty(),
-        returnValueForMissingStub: _i14.Stream<Map<String, dynamic>>.empty(),
-      ) as _i14.Stream<Map<String, dynamic>>);
+        returnValue: _i15.Stream<Map<String, dynamic>>.empty(),
+        returnValueForMissingStub: _i15.Stream<Map<String, dynamic>>.empty(),
+      ) as _i15.Stream<Map<String, dynamic>>);
 
   @override
-  _i14.Stream<Map<String, dynamic>> get orderCancelled => (super.noSuchMethod(
+  _i15.Stream<Map<String, dynamic>> get orderCancelled => (super.noSuchMethod(
         Invocation.getter(#orderCancelled),
-        returnValue: _i14.Stream<Map<String, dynamic>>.empty(),
-        returnValueForMissingStub: _i14.Stream<Map<String, dynamic>>.empty(),
-      ) as _i14.Stream<Map<String, dynamic>>);
+        returnValue: _i15.Stream<Map<String, dynamic>>.empty(),
+        returnValueForMissingStub: _i15.Stream<Map<String, dynamic>>.empty(),
+      ) as _i15.Stream<Map<String, dynamic>>);
 
   @override
-  _i14.Stream<Map<String, dynamic>> get orderAddressChanged =>
+  _i15.Stream<Map<String, dynamic>> get orderAddressChanged =>
       (super.noSuchMethod(
         Invocation.getter(#orderAddressChanged),
-        returnValue: _i14.Stream<Map<String, dynamic>>.empty(),
-        returnValueForMissingStub: _i14.Stream<Map<String, dynamic>>.empty(),
-      ) as _i14.Stream<Map<String, dynamic>>);
+        returnValue: _i15.Stream<Map<String, dynamic>>.empty(),
+        returnValueForMissingStub: _i15.Stream<Map<String, dynamic>>.empty(),
+      ) as _i15.Stream<Map<String, dynamic>>);
 
   @override
-  _i14.Stream<_i9.MaintenanceEvent> get maintenanceEvents =>
+  _i15.Stream<Map<String, dynamic>> get deliveryCodeFailed =>
+      (super.noSuchMethod(
+        Invocation.getter(#deliveryCodeFailed),
+        returnValue: _i15.Stream<Map<String, dynamic>>.empty(),
+        returnValueForMissingStub: _i15.Stream<Map<String, dynamic>>.empty(),
+      ) as _i15.Stream<Map<String, dynamic>>);
+
+  @override
+  _i15.Stream<_i10.MaintenanceEvent> get maintenanceEvents =>
       (super.noSuchMethod(
         Invocation.getter(#maintenanceEvents),
-        returnValue: _i14.Stream<_i9.MaintenanceEvent>.empty(),
-        returnValueForMissingStub: _i14.Stream<_i9.MaintenanceEvent>.empty(),
-      ) as _i14.Stream<_i9.MaintenanceEvent>);
+        returnValue: _i15.Stream<_i10.MaintenanceEvent>.empty(),
+        returnValueForMissingStub: _i15.Stream<_i10.MaintenanceEvent>.empty(),
+      ) as _i15.Stream<_i10.MaintenanceEvent>);
 
   @override
-  _i14.Stream<_i10.RouteBatchEvent> get routeBatchEvents => (super.noSuchMethod(
+  _i15.Stream<_i11.RouteBatchEvent> get routeBatchEvents => (super.noSuchMethod(
         Invocation.getter(#routeBatchEvents),
-        returnValue: _i14.Stream<_i10.RouteBatchEvent>.empty(),
-        returnValueForMissingStub: _i14.Stream<_i10.RouteBatchEvent>.empty(),
-      ) as _i14.Stream<_i10.RouteBatchEvent>);
+        returnValue: _i15.Stream<_i11.RouteBatchEvent>.empty(),
+        returnValueForMissingStub: _i15.Stream<_i11.RouteBatchEvent>.empty(),
+      ) as _i15.Stream<_i11.RouteBatchEvent>);
 
   @override
   bool get hasSocket => (super.noSuchMethod(
@@ -1230,24 +1249,24 @@ class MockDriverSocketService extends _i1.Mock
       );
 
   @override
-  _i14.Future<void> applyFreshToken(_i20.Socket? socket) => (super.noSuchMethod(
+  _i15.Future<void> applyFreshToken(_i21.Socket? socket) => (super.noSuchMethod(
         Invocation.method(
           #applyFreshToken,
           [socket],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> ensureConnected() => (super.noSuchMethod(
+  _i15.Future<void> ensureConnected() => (super.noSuchMethod(
         Invocation.method(
           #ensureConnected,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   void sendLocation(
@@ -1304,15 +1323,15 @@ class MockDriverSocketService extends _i1.Mock
       );
 
   @override
-  _i14.Future<bool> waitUntilConnected(Duration? timeout) =>
+  _i15.Future<bool> waitUntilConnected(Duration? timeout) =>
       (super.noSuchMethod(
         Invocation.method(
           #waitUntilConnected,
           [timeout],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
   void disconnect() => super.noSuchMethod(
@@ -1373,7 +1392,7 @@ class MockDriverSocketService extends _i1.Mock
 /// A class which mocks [DriverAuthService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockDriverAuthService extends _i1.Mock implements _i21.DriverAuthService {
+class MockDriverAuthService extends _i1.Mock implements _i22.DriverAuthService {
   @override
   bool get isLoggedIn => (super.noSuchMethod(
         Invocation.getter(#isLoggedIn),
@@ -1382,11 +1401,11 @@ class MockDriverAuthService extends _i1.Mock implements _i21.DriverAuthService {
       ) as bool);
 
   @override
-  _i14.Future<String?> get token => (super.noSuchMethod(
+  _i15.Future<String?> get token => (super.noSuchMethod(
         Invocation.getter(#token),
-        returnValue: _i14.Future<String?>.value(),
-        returnValueForMissingStub: _i14.Future<String?>.value(),
-      ) as _i14.Future<String?>);
+        returnValue: _i15.Future<String?>.value(),
+        returnValueForMissingStub: _i15.Future<String?>.value(),
+      ) as _i15.Future<String?>);
 
   @override
   int get listenersCount => (super.noSuchMethod(
@@ -1396,18 +1415,18 @@ class MockDriverAuthService extends _i1.Mock implements _i21.DriverAuthService {
       ) as int);
 
   @override
-  _i14.Future<bool> sendPasswordResetEmail(String? email) =>
+  _i15.Future<bool> sendPasswordResetEmail(String? email) =>
       (super.noSuchMethod(
         Invocation.method(
           #sendPasswordResetEmail,
           [email],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
-  _i14.Future<_i21.PasswordChangeResult> changePassword(
+  _i15.Future<_i22.PasswordChangeResult> changePassword(
     String? current,
     String? next,
   ) =>
@@ -1419,14 +1438,14 @@ class MockDriverAuthService extends _i1.Mock implements _i21.DriverAuthService {
             next,
           ],
         ),
-        returnValue: _i14.Future<_i21.PasswordChangeResult>.value(
-            _i21.PasswordChangeResult.ok),
-        returnValueForMissingStub: _i14.Future<_i21.PasswordChangeResult>.value(
-            _i21.PasswordChangeResult.ok),
-      ) as _i14.Future<_i21.PasswordChangeResult>);
+        returnValue: _i15.Future<_i22.PasswordChangeResult>.value(
+            _i22.PasswordChangeResult.ok),
+        returnValueForMissingStub: _i15.Future<_i22.PasswordChangeResult>.value(
+            _i22.PasswordChangeResult.ok),
+      ) as _i15.Future<_i22.PasswordChangeResult>);
 
   @override
-  _i14.Future<bool> signIn(
+  _i15.Future<bool> signIn(
     String? email,
     String? password,
   ) =>
@@ -1438,29 +1457,29 @@ class MockDriverAuthService extends _i1.Mock implements _i21.DriverAuthService {
             password,
           ],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
-  _i14.Future<bool> restoreSession() => (super.noSuchMethod(
+  _i15.Future<bool> restoreSession() => (super.noSuchMethod(
         Invocation.method(
           #restoreSession,
           [],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
-  _i14.Future<void> signOut() => (super.noSuchMethod(
+  _i15.Future<void> signOut() => (super.noSuchMethod(
         Invocation.method(
           #signOut,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   void listenToReactiveValues(List<dynamic>? reactiveValues) =>
@@ -1504,9 +1523,9 @@ class MockDriverAuthService extends _i1.Mock implements _i21.DriverAuthService {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockDriverForegroundService extends _i1.Mock
-    implements _i22.DriverForegroundService {
+    implements _i23.DriverForegroundService {
   @override
-  _i14.Future<void> start({
+  _i15.Future<void> start({
     required String? title,
     required String? text,
   }) =>
@@ -1519,12 +1538,12 @@ class MockDriverForegroundService extends _i1.Mock
             #text: text,
           },
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> update({
+  _i15.Future<void> update({
     required String? title,
     required String? text,
   }) =>
@@ -1537,31 +1556,31 @@ class MockDriverForegroundService extends _i1.Mock
             #text: text,
           },
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> stop() => (super.noSuchMethod(
+  _i15.Future<void> stop() => (super.noSuchMethod(
         Invocation.method(
           #stop,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 }
 
 /// A class which mocks [FcmService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockFcmService extends _i1.Mock implements _i23.FcmService {
+class MockFcmService extends _i1.Mock implements _i24.FcmService {
   @override
-  _i14.Stream<void> get maintenanceOpened => (super.noSuchMethod(
+  _i15.Stream<void> get maintenanceOpened => (super.noSuchMethod(
         Invocation.getter(#maintenanceOpened),
-        returnValue: _i14.Stream<void>.empty(),
-        returnValueForMissingStub: _i14.Stream<void>.empty(),
-      ) as _i14.Stream<void>);
+        returnValue: _i15.Stream<void>.empty(),
+        returnValueForMissingStub: _i15.Stream<void>.empty(),
+      ) as _i15.Stream<void>);
 
   @override
   void clearPendingMaintenance() => super.noSuchMethod(
@@ -1583,8 +1602,8 @@ class MockFcmService extends _i1.Mock implements _i23.FcmService {
       ) as bool);
 
   @override
-  _i14.Future<void> registerForCurrentUser(
-    _i21.DriverAuthService? authService, {
+  _i15.Future<void> registerForCurrentUser(
+    _i22.DriverAuthService? authService, {
     bool? interactive = true,
   }) =>
       (super.noSuchMethod(
@@ -1593,9 +1612,9 @@ class MockFcmService extends _i1.Mock implements _i23.FcmService {
           [authService],
           {#interactive: interactive},
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   void dispose() => super.noSuchMethod(
@@ -1610,7 +1629,7 @@ class MockFcmService extends _i1.Mock implements _i23.FcmService {
 /// A class which mocks [AppPermissions].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockAppPermissions extends _i1.Mock implements _i24.AppPermissions {
+class MockAppPermissions extends _i1.Mock implements _i25.AppPermissions {
   @override
   _i2.PermissionGateway get gateway => (super.noSuchMethod(
         Invocation.getter(#gateway),
@@ -1638,31 +1657,31 @@ class MockAppPermissions extends _i1.Mock implements _i24.AppPermissions {
       ) as _i3.PermissionPrompter);
 
   @override
-  _i14.Future<bool> openSettings() => (super.noSuchMethod(
+  _i15.Future<bool> openSettings() => (super.noSuchMethod(
         Invocation.method(
           #openSettings,
           [],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
-  _i14.Future<_i18.PermissionOutcome> status(_i18.AppPermission? permission) =>
+  _i15.Future<_i19.PermissionOutcome> status(_i19.AppPermission? permission) =>
       (super.noSuchMethod(
         Invocation.method(
           #status,
           [permission],
         ),
-        returnValue: _i14.Future<_i18.PermissionOutcome>.value(
-            _i18.PermissionOutcome.granted),
-        returnValueForMissingStub: _i14.Future<_i18.PermissionOutcome>.value(
-            _i18.PermissionOutcome.granted),
-      ) as _i14.Future<_i18.PermissionOutcome>);
+        returnValue: _i15.Future<_i19.PermissionOutcome>.value(
+            _i19.PermissionOutcome.granted),
+        returnValueForMissingStub: _i15.Future<_i19.PermissionOutcome>.value(
+            _i19.PermissionOutcome.granted),
+      ) as _i15.Future<_i19.PermissionOutcome>);
 
   @override
-  _i14.Future<_i18.PermissionOutcome> ensure(
-    _i18.AppPermission? permission, {
+  _i15.Future<_i19.PermissionOutcome> ensure(
+    _i19.AppPermission? permission, {
     bool? explain = true,
     bool? interactive = true,
   }) =>
@@ -1675,17 +1694,17 @@ class MockAppPermissions extends _i1.Mock implements _i24.AppPermissions {
             #interactive: interactive,
           },
         ),
-        returnValue: _i14.Future<_i18.PermissionOutcome>.value(
-            _i18.PermissionOutcome.granted),
-        returnValueForMissingStub: _i14.Future<_i18.PermissionOutcome>.value(
-            _i18.PermissionOutcome.granted),
-      ) as _i14.Future<_i18.PermissionOutcome>);
+        returnValue: _i15.Future<_i19.PermissionOutcome>.value(
+            _i19.PermissionOutcome.granted),
+        returnValueForMissingStub: _i15.Future<_i19.PermissionOutcome>.value(
+            _i19.PermissionOutcome.granted),
+      ) as _i15.Future<_i19.PermissionOutcome>);
 }
 
 /// A class which mocks [ApiClient].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockApiClient extends _i1.Mock implements _i25.ApiClient {
+class MockApiClient extends _i1.Mock implements _i26.ApiClient {
   @override
   _i4.Dio get dio => (super.noSuchMethod(
         Invocation.getter(#dio),
@@ -1700,7 +1719,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
       ) as _i4.Dio);
 
   @override
-  _i14.Future<_i4.Response<dynamic>> get(
+  _i15.Future<_i4.Response<dynamic>> get(
     String? path, [
     String? token,
   ]) =>
@@ -1713,7 +1732,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ],
         ),
         returnValue:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #get,
@@ -1724,7 +1743,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #get,
@@ -1734,10 +1753,10 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
             ],
           ),
         )),
-      ) as _i14.Future<_i4.Response<dynamic>>);
+      ) as _i15.Future<_i4.Response<dynamic>>);
 
   @override
-  _i14.Future<_i4.Response<dynamic>> post(
+  _i15.Future<_i4.Response<dynamic>> post(
     String? path,
     Map<String, dynamic>? body, [
     String? token,
@@ -1754,7 +1773,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ],
         ),
         returnValue:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #post,
@@ -1767,7 +1786,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #post,
@@ -1779,10 +1798,10 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
             ],
           ),
         )),
-      ) as _i14.Future<_i4.Response<dynamic>>);
+      ) as _i15.Future<_i4.Response<dynamic>>);
 
   @override
-  _i14.Future<_i4.Response<dynamic>> patch(
+  _i15.Future<_i4.Response<dynamic>> patch(
     String? path,
     Map<String, dynamic>? body,
     String? token, [
@@ -1799,7 +1818,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ],
         ),
         returnValue:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #patch,
@@ -1812,7 +1831,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #patch,
@@ -1824,10 +1843,10 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
             ],
           ),
         )),
-      ) as _i14.Future<_i4.Response<dynamic>>);
+      ) as _i15.Future<_i4.Response<dynamic>>);
 
   @override
-  _i14.Future<_i4.Response<dynamic>> putFile(
+  _i15.Future<_i4.Response<dynamic>> putFile(
     String? path, {
     required List<int>? bytes,
     required String? filename,
@@ -1848,7 +1867,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           },
         ),
         returnValue:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #putFile,
@@ -1863,7 +1882,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #putFile,
@@ -1877,10 +1896,10 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
             },
           ),
         )),
-      ) as _i14.Future<_i4.Response<dynamic>>);
+      ) as _i15.Future<_i4.Response<dynamic>>);
 
   @override
-  _i14.Future<_i4.Response<dynamic>> put(
+  _i15.Future<_i4.Response<dynamic>> put(
     String? path,
     Map<String, dynamic>? body,
     String? token,
@@ -1895,7 +1914,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ],
         ),
         returnValue:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #put,
@@ -1907,7 +1926,7 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #put,
@@ -1918,10 +1937,10 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
             ],
           ),
         )),
-      ) as _i14.Future<_i4.Response<dynamic>>);
+      ) as _i15.Future<_i4.Response<dynamic>>);
 
   @override
-  _i14.Future<_i26.Uint8List> getBytes(
+  _i15.Future<_i27.Uint8List> getBytes(
     String? path,
     String? token,
   ) =>
@@ -1933,25 +1952,25 @@ class MockApiClient extends _i1.Mock implements _i25.ApiClient {
             token,
           ],
         ),
-        returnValue: _i14.Future<_i26.Uint8List>.value(_i26.Uint8List(0)),
+        returnValue: _i15.Future<_i27.Uint8List>.value(_i27.Uint8List(0)),
         returnValueForMissingStub:
-            _i14.Future<_i26.Uint8List>.value(_i26.Uint8List(0)),
-      ) as _i14.Future<_i26.Uint8List>);
+            _i15.Future<_i27.Uint8List>.value(_i27.Uint8List(0)),
+      ) as _i15.Future<_i27.Uint8List>);
 }
 
 /// A class which mocks [DriverApiService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
+class MockDriverApiService extends _i1.Mock implements _i28.DriverApiService {
   @override
-  _i14.Future<_i5.DriverProfile> profile({bool? refresh = false}) =>
+  _i15.Future<_i5.DriverProfile> profile({bool? refresh = false}) =>
       (super.noSuchMethod(
         Invocation.method(
           #profile,
           [],
           {#refresh: refresh},
         ),
-        returnValue: _i14.Future<_i5.DriverProfile>.value(_FakeDriverProfile_5(
+        returnValue: _i15.Future<_i5.DriverProfile>.value(_FakeDriverProfile_5(
           this,
           Invocation.method(
             #profile,
@@ -1960,7 +1979,7 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i5.DriverProfile>.value(_FakeDriverProfile_5(
+            _i15.Future<_i5.DriverProfile>.value(_FakeDriverProfile_5(
           this,
           Invocation.method(
             #profile,
@@ -1968,35 +1987,35 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
             {#refresh: refresh},
           ),
         )),
-      ) as _i14.Future<_i5.DriverProfile>);
+      ) as _i15.Future<_i5.DriverProfile>);
 
   @override
-  _i14.Future<String?> photoUrl() => (super.noSuchMethod(
+  _i15.Future<String?> photoUrl() => (super.noSuchMethod(
         Invocation.method(
           #photoUrl,
           [],
         ),
-        returnValue: _i14.Future<String?>.value(),
-        returnValueForMissingStub: _i14.Future<String?>.value(),
-      ) as _i14.Future<String?>);
+        returnValue: _i15.Future<String?>.value(),
+        returnValueForMissingStub: _i15.Future<String?>.value(),
+      ) as _i15.Future<String?>);
 
   @override
-  _i14.Future<_i5.DriverVehicle?> vehicle() => (super.noSuchMethod(
+  _i15.Future<_i5.DriverVehicle?> vehicle() => (super.noSuchMethod(
         Invocation.method(
           #vehicle,
           [],
         ),
-        returnValue: _i14.Future<_i5.DriverVehicle?>.value(),
-        returnValueForMissingStub: _i14.Future<_i5.DriverVehicle?>.value(),
-      ) as _i14.Future<_i5.DriverVehicle?>);
+        returnValue: _i15.Future<_i5.DriverVehicle?>.value(),
+        returnValueForMissingStub: _i15.Future<_i5.DriverVehicle?>.value(),
+      ) as _i15.Future<_i5.DriverVehicle?>);
 
   @override
-  _i14.Future<_i6.MyTruckLoad> myTruckLoad() => (super.noSuchMethod(
+  _i15.Future<_i6.MyTruckLoad> myTruckLoad() => (super.noSuchMethod(
         Invocation.method(
           #myTruckLoad,
           [],
         ),
-        returnValue: _i14.Future<_i6.MyTruckLoad>.value(_FakeMyTruckLoad_6(
+        returnValue: _i15.Future<_i6.MyTruckLoad>.value(_FakeMyTruckLoad_6(
           this,
           Invocation.method(
             #myTruckLoad,
@@ -2004,27 +2023,27 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i6.MyTruckLoad>.value(_FakeMyTruckLoad_6(
+            _i15.Future<_i6.MyTruckLoad>.value(_FakeMyTruckLoad_6(
           this,
           Invocation.method(
             #myTruckLoad,
             [],
           ),
         )),
-      ) as _i14.Future<_i6.MyTruckLoad>);
+      ) as _i15.Future<_i6.MyTruckLoad>);
 
   @override
-  _i14.Future<String?> noOrdersReason() => (super.noSuchMethod(
+  _i15.Future<String?> noOrdersReason() => (super.noSuchMethod(
         Invocation.method(
           #noOrdersReason,
           [],
         ),
-        returnValue: _i14.Future<String?>.value(),
-        returnValueForMissingStub: _i14.Future<String?>.value(),
-      ) as _i14.Future<String?>);
+        returnValue: _i15.Future<String?>.value(),
+        returnValueForMissingStub: _i15.Future<String?>.value(),
+      ) as _i15.Future<String?>);
 
   @override
-  _i14.Future<_i5.OrdersPage> ordersPage({
+  _i15.Future<_i5.OrdersPage> ordersPage({
     int? offset = 0,
     int? limit = 20,
   }) =>
@@ -2037,7 +2056,7 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
             #limit: limit,
           },
         ),
-        returnValue: _i14.Future<_i5.OrdersPage>.value(_FakeOrdersPage_7(
+        returnValue: _i15.Future<_i5.OrdersPage>.value(_FakeOrdersPage_7(
           this,
           Invocation.method(
             #ordersPage,
@@ -2049,7 +2068,7 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i5.OrdersPage>.value(_FakeOrdersPage_7(
+            _i15.Future<_i5.OrdersPage>.value(_FakeOrdersPage_7(
           this,
           Invocation.method(
             #ordersPage,
@@ -2060,10 +2079,10 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
             },
           ),
         )),
-      ) as _i14.Future<_i5.OrdersPage>);
+      ) as _i15.Future<_i5.OrdersPage>);
 
   @override
-  _i14.Future<List<_i5.DayTotal>> dailyTotals({
+  _i15.Future<List<_i5.DayTotal>> dailyTotals({
     required DateTime? from,
     required DateTime? to,
   }) =>
@@ -2076,40 +2095,40 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
             #to: to,
           },
         ),
-        returnValue: _i14.Future<List<_i5.DayTotal>>.value(<_i5.DayTotal>[]),
+        returnValue: _i15.Future<List<_i5.DayTotal>>.value(<_i5.DayTotal>[]),
         returnValueForMissingStub:
-            _i14.Future<List<_i5.DayTotal>>.value(<_i5.DayTotal>[]),
-      ) as _i14.Future<List<_i5.DayTotal>>);
+            _i15.Future<List<_i5.DayTotal>>.value(<_i5.DayTotal>[]),
+      ) as _i15.Future<List<_i5.DayTotal>>);
 
   @override
-  _i14.Future<_i5.DriverOrder?> activeOrder() => (super.noSuchMethod(
+  _i15.Future<_i5.DriverOrder?> activeOrder() => (super.noSuchMethod(
         Invocation.method(
           #activeOrder,
           [],
         ),
-        returnValue: _i14.Future<_i5.DriverOrder?>.value(),
-        returnValueForMissingStub: _i14.Future<_i5.DriverOrder?>.value(),
-      ) as _i14.Future<_i5.DriverOrder?>);
+        returnValue: _i15.Future<_i5.DriverOrder?>.value(),
+        returnValueForMissingStub: _i15.Future<_i5.DriverOrder?>.value(),
+      ) as _i15.Future<_i5.DriverOrder?>);
 
   @override
-  _i14.Future<List<_i5.DriverOrder>> orders() => (super.noSuchMethod(
+  _i15.Future<List<_i5.DriverOrder>> orders() => (super.noSuchMethod(
         Invocation.method(
           #orders,
           [],
         ),
         returnValue:
-            _i14.Future<List<_i5.DriverOrder>>.value(<_i5.DriverOrder>[]),
+            _i15.Future<List<_i5.DriverOrder>>.value(<_i5.DriverOrder>[]),
         returnValueForMissingStub:
-            _i14.Future<List<_i5.DriverOrder>>.value(<_i5.DriverOrder>[]),
-      ) as _i14.Future<List<_i5.DriverOrder>>);
+            _i15.Future<List<_i5.DriverOrder>>.value(<_i5.DriverOrder>[]),
+      ) as _i15.Future<List<_i5.DriverOrder>>);
 
   @override
-  _i14.Future<_i5.RatingSummary> rating() => (super.noSuchMethod(
+  _i15.Future<_i5.RatingSummary> rating() => (super.noSuchMethod(
         Invocation.method(
           #rating,
           [],
         ),
-        returnValue: _i14.Future<_i5.RatingSummary>.value(_FakeRatingSummary_8(
+        returnValue: _i15.Future<_i5.RatingSummary>.value(_FakeRatingSummary_8(
           this,
           Invocation.method(
             #rating,
@@ -2117,20 +2136,20 @@ class MockDriverApiService extends _i1.Mock implements _i27.DriverApiService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i5.RatingSummary>.value(_FakeRatingSummary_8(
+            _i15.Future<_i5.RatingSummary>.value(_FakeRatingSummary_8(
           this,
           Invocation.method(
             #rating,
             [],
           ),
         )),
-      ) as _i14.Future<_i5.RatingSummary>);
+      ) as _i15.Future<_i5.RatingSummary>);
 }
 
 /// A class which mocks [TripService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockTripService extends _i1.Mock implements _i28.TripService {
+class MockTripService extends _i1.Mock implements _i8.TripService {
   @override
   set activeOrderId(String? _activeOrderId) => super.noSuchMethod(
         Invocation.setter(
@@ -2150,14 +2169,14 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
       );
 
   @override
-  _i14.Future<void> waitFlow() => (super.noSuchMethod(
+  _i15.Future<void> waitFlow() => (super.noSuchMethod(
         Invocation.method(
           #waitFlow,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   void endFlow() => super.noSuchMethod(
@@ -2178,12 +2197,12 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
       );
 
   @override
-  _i14.Future<_i7.TripOrder> order(String? id) => (super.noSuchMethod(
+  _i15.Future<_i7.TripOrder> order(String? id) => (super.noSuchMethod(
         Invocation.method(
           #order,
           [id],
         ),
-        returnValue: _i14.Future<_i7.TripOrder>.value(_FakeTripOrder_9(
+        returnValue: _i15.Future<_i7.TripOrder>.value(_FakeTripOrder_9(
           this,
           Invocation.method(
             #order,
@@ -2191,28 +2210,28 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i7.TripOrder>.value(_FakeTripOrder_9(
+            _i15.Future<_i7.TripOrder>.value(_FakeTripOrder_9(
           this,
           Invocation.method(
             #order,
             [id],
           ),
         )),
-      ) as _i14.Future<_i7.TripOrder>);
+      ) as _i15.Future<_i7.TripOrder>);
 
   @override
-  _i14.Future<_i5.RatingSummary?> customerRating(String? userId) =>
+  _i15.Future<_i5.RatingSummary?> customerRating(String? userId) =>
       (super.noSuchMethod(
         Invocation.method(
           #customerRating,
           [userId],
         ),
-        returnValue: _i14.Future<_i5.RatingSummary?>.value(),
-        returnValueForMissingStub: _i14.Future<_i5.RatingSummary?>.value(),
-      ) as _i14.Future<_i5.RatingSummary?>);
+        returnValue: _i15.Future<_i5.RatingSummary?>.value(),
+        returnValueForMissingStub: _i15.Future<_i5.RatingSummary?>.value(),
+      ) as _i15.Future<_i5.RatingSummary?>);
 
   @override
-  _i14.Future<void> setStatus(
+  _i15.Future<void> setStatus(
     String? id,
     String? status,
   ) =>
@@ -2224,37 +2243,39 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
             status,
           ],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> reject(String? id) => (super.noSuchMethod(
+  _i15.Future<void> reject(String? id) => (super.noSuchMethod(
         Invocation.method(
           #reject,
           [id],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> arrived(String? id) => (super.noSuchMethod(
+  _i15.Future<void> arrived(String? id) => (super.noSuchMethod(
         Invocation.method(
           #arrived,
           [id],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<String> deliveryCode(String? id) => (super.noSuchMethod(
+  _i15.Future<_i8.DeliveryCodeInfo> deliveryCode(String? id) =>
+      (super.noSuchMethod(
         Invocation.method(
           #deliveryCode,
           [id],
         ),
-        returnValue: _i14.Future<String>.value(_i12.dummyValue<String>(
+        returnValue:
+            _i15.Future<_i8.DeliveryCodeInfo>.value(_FakeDeliveryCodeInfo_10(
           this,
           Invocation.method(
             #deliveryCode,
@@ -2262,22 +2283,22 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<String>.value(_i12.dummyValue<String>(
+            _i15.Future<_i8.DeliveryCodeInfo>.value(_FakeDeliveryCodeInfo_10(
           this,
           Invocation.method(
             #deliveryCode,
             [id],
           ),
         )),
-      ) as _i14.Future<String>);
+      ) as _i15.Future<_i8.DeliveryCodeInfo>);
 
   @override
-  _i14.Future<String> regenerateDeliveryCode(String? id) => (super.noSuchMethod(
+  _i15.Future<String> regenerateDeliveryCode(String? id) => (super.noSuchMethod(
         Invocation.method(
           #regenerateDeliveryCode,
           [id],
         ),
-        returnValue: _i14.Future<String>.value(_i12.dummyValue<String>(
+        returnValue: _i15.Future<String>.value(_i13.dummyValue<String>(
           this,
           Invocation.method(
             #regenerateDeliveryCode,
@@ -2285,17 +2306,17 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<String>.value(_i12.dummyValue<String>(
+            _i15.Future<String>.value(_i13.dummyValue<String>(
           this,
           Invocation.method(
             #regenerateDeliveryCode,
             [id],
           ),
         )),
-      ) as _i14.Future<String>);
+      ) as _i15.Future<String>);
 
   @override
-  _i14.Future<_i4.Response<dynamic>> reportIncident(
+  _i15.Future<_i4.Response<dynamic>> reportIncident(
     String? orderId,
     String? type,
     String? description,
@@ -2310,7 +2331,7 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
           ],
         ),
         returnValue:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #reportIncident,
@@ -2322,7 +2343,7 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #reportIncident,
@@ -2333,10 +2354,10 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
             ],
           ),
         )),
-      ) as _i14.Future<_i4.Response<dynamic>>);
+      ) as _i15.Future<_i4.Response<dynamic>>);
 
   @override
-  _i14.Future<_i4.Response<dynamic>> assignCylinders(
+  _i15.Future<_i4.Response<dynamic>> assignCylinders(
     String? orderId,
     List<String>? serials,
   ) =>
@@ -2349,7 +2370,7 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
           ],
         ),
         returnValue:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #assignCylinders,
@@ -2360,7 +2381,7 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
+            _i15.Future<_i4.Response<dynamic>>.value(_FakeResponse_4<dynamic>(
           this,
           Invocation.method(
             #assignCylinders,
@@ -2370,10 +2391,10 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
             ],
           ),
         )),
-      ) as _i14.Future<_i4.Response<dynamic>>);
+      ) as _i15.Future<_i4.Response<dynamic>>);
 
   @override
-  _i14.Future<void> rateCustomer(
+  _i15.Future<void> rateCustomer(
     String? orderId,
     int? stars,
     String? comment,
@@ -2387,9 +2408,9 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
             comment,
           ],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 }
 
 /// A class which mocks [PaymentRepository].
@@ -2397,17 +2418,17 @@ class MockTripService extends _i1.Mock implements _i28.TripService {
 /// See the documentation for Mockito's code generation for more information.
 class MockPaymentRepository extends _i1.Mock implements _i29.PaymentRepository {
   @override
-  _i14.Future<bool> confirmReceived(String? orderId) => (super.noSuchMethod(
+  _i15.Future<bool> confirmReceived(String? orderId) => (super.noSuchMethod(
         Invocation.method(
           #confirmReceived,
           [orderId],
         ),
-        returnValue: _i14.Future<bool>.value(false),
-        returnValueForMissingStub: _i14.Future<bool>.value(false),
-      ) as _i14.Future<bool>);
+        returnValue: _i15.Future<bool>.value(false),
+        returnValueForMissingStub: _i15.Future<bool>.value(false),
+      ) as _i15.Future<bool>);
 
   @override
-  _i14.Future<String?> reportUnpaid(
+  _i15.Future<String?> reportUnpaid(
     String? orderId, {
     String? note,
   }) =>
@@ -2417,14 +2438,14 @@ class MockPaymentRepository extends _i1.Mock implements _i29.PaymentRepository {
           [orderId],
           {#note: note},
         ),
-        returnValue: _i14.Future<String?>.value(),
-        returnValueForMissingStub: _i14.Future<String?>.value(),
-      ) as _i14.Future<String?>);
+        returnValue: _i15.Future<String?>.value(),
+        returnValueForMissingStub: _i15.Future<String?>.value(),
+      ) as _i15.Future<String?>);
 
   @override
-  _i14.Future<void> uploadIncidentPhoto(
+  _i15.Future<void> uploadIncidentPhoto(
     String? incidentId,
-    _i26.Uint8List? jpeg,
+    _i27.Uint8List? jpeg,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -2434,9 +2455,9 @@ class MockPaymentRepository extends _i1.Mock implements _i29.PaymentRepository {
             jpeg,
           ],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 }
 
 /// A class which mocks [DriverOpsRepository].
@@ -2445,22 +2466,22 @@ class MockPaymentRepository extends _i1.Mock implements _i29.PaymentRepository {
 class MockDriverOpsRepository extends _i1.Mock
     implements _i30.DriverOpsRepository {
   @override
-  _i14.Future<_i8.Workday?> currentWorkday() => (super.noSuchMethod(
+  _i15.Future<_i9.Workday?> currentWorkday() => (super.noSuchMethod(
         Invocation.method(
           #currentWorkday,
           [],
         ),
-        returnValue: _i14.Future<_i8.Workday?>.value(),
-        returnValueForMissingStub: _i14.Future<_i8.Workday?>.value(),
-      ) as _i14.Future<_i8.Workday?>);
+        returnValue: _i15.Future<_i9.Workday?>.value(),
+        returnValueForMissingStub: _i15.Future<_i9.Workday?>.value(),
+      ) as _i15.Future<_i9.Workday?>);
 
   @override
-  _i14.Future<_i8.Workday> checkIn() => (super.noSuchMethod(
+  _i15.Future<_i9.Workday> checkIn() => (super.noSuchMethod(
         Invocation.method(
           #checkIn,
           [],
         ),
-        returnValue: _i14.Future<_i8.Workday>.value(_FakeWorkday_10(
+        returnValue: _i15.Future<_i9.Workday>.value(_FakeWorkday_11(
           this,
           Invocation.method(
             #checkIn,
@@ -2468,22 +2489,22 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.Workday>.value(_FakeWorkday_10(
+            _i15.Future<_i9.Workday>.value(_FakeWorkday_11(
           this,
           Invocation.method(
             #checkIn,
             [],
           ),
         )),
-      ) as _i14.Future<_i8.Workday>);
+      ) as _i15.Future<_i9.Workday>);
 
   @override
-  _i14.Future<_i8.Workday> checkOut() => (super.noSuchMethod(
+  _i15.Future<_i9.Workday> checkOut() => (super.noSuchMethod(
         Invocation.method(
           #checkOut,
           [],
         ),
-        returnValue: _i14.Future<_i8.Workday>.value(_FakeWorkday_10(
+        returnValue: _i15.Future<_i9.Workday>.value(_FakeWorkday_11(
           this,
           Invocation.method(
             #checkOut,
@@ -2491,24 +2512,24 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.Workday>.value(_FakeWorkday_10(
+            _i15.Future<_i9.Workday>.value(_FakeWorkday_11(
           this,
           Invocation.method(
             #checkOut,
             [],
           ),
         )),
-      ) as _i14.Future<_i8.Workday>);
+      ) as _i15.Future<_i9.Workday>);
 
   @override
-  _i14.Future<_i8.Settlement> mySettlement({DateTime? date}) =>
+  _i15.Future<_i9.Settlement> mySettlement({DateTime? date}) =>
       (super.noSuchMethod(
         Invocation.method(
           #mySettlement,
           [],
           {#date: date},
         ),
-        returnValue: _i14.Future<_i8.Settlement>.value(_FakeSettlement_11(
+        returnValue: _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
           this,
           Invocation.method(
             #mySettlement,
@@ -2517,7 +2538,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.Settlement>.value(_FakeSettlement_11(
+            _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
           this,
           Invocation.method(
             #mySettlement,
@@ -2525,26 +2546,26 @@ class MockDriverOpsRepository extends _i1.Mock
             {#date: date},
           ),
         )),
-      ) as _i14.Future<_i8.Settlement>);
+      ) as _i15.Future<_i9.Settlement>);
 
   @override
-  _i14.Future<List<_i8.ExpenseCategory>> expenseCategories() =>
+  _i15.Future<List<_i9.ExpenseCategory>> expenseCategories() =>
       (super.noSuchMethod(
         Invocation.method(
           #expenseCategories,
           [],
         ),
-        returnValue: _i14.Future<List<_i8.ExpenseCategory>>.value(
-            <_i8.ExpenseCategory>[]),
-        returnValueForMissingStub: _i14.Future<List<_i8.ExpenseCategory>>.value(
-            <_i8.ExpenseCategory>[]),
-      ) as _i14.Future<List<_i8.ExpenseCategory>>);
+        returnValue: _i15.Future<List<_i9.ExpenseCategory>>.value(
+            <_i9.ExpenseCategory>[]),
+        returnValueForMissingStub: _i15.Future<List<_i9.ExpenseCategory>>.value(
+            <_i9.ExpenseCategory>[]),
+      ) as _i15.Future<List<_i9.ExpenseCategory>>);
 
   @override
-  _i14.Future<_i8.Settlement> submitSettlement(
+  _i15.Future<_i9.Settlement> submitSettlement(
     String? settlementId, {
     required num? declaredCash,
-    List<_i8.ExpenseInput>? expenses = const [],
+    List<_i9.ExpenseInput>? expenses = const [],
     String? notes,
     String? idempotencyKey,
   }) =>
@@ -2559,7 +2580,7 @@ class MockDriverOpsRepository extends _i1.Mock
             #idempotencyKey: idempotencyKey,
           },
         ),
-        returnValue: _i14.Future<_i8.Settlement>.value(_FakeSettlement_11(
+        returnValue: _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
           this,
           Invocation.method(
             #submitSettlement,
@@ -2573,7 +2594,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.Settlement>.value(_FakeSettlement_11(
+            _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
           this,
           Invocation.method(
             #submitSettlement,
@@ -2586,10 +2607,10 @@ class MockDriverOpsRepository extends _i1.Mock
             },
           ),
         )),
-      ) as _i14.Future<_i8.Settlement>);
+      ) as _i15.Future<_i9.Settlement>);
 
   @override
-  _i14.Future<_i8.SettlementPreview> previewSettlement(
+  _i15.Future<_i9.SettlementPreview> previewSettlement(
     String? settlementId, {
     required num? declaredCash,
     List<num>? expenseAmounts = const [],
@@ -2604,7 +2625,7 @@ class MockDriverOpsRepository extends _i1.Mock
           },
         ),
         returnValue:
-            _i14.Future<_i8.SettlementPreview>.value(_FakeSettlementPreview_12(
+            _i15.Future<_i9.SettlementPreview>.value(_FakeSettlementPreview_13(
           this,
           Invocation.method(
             #previewSettlement,
@@ -2616,7 +2637,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.SettlementPreview>.value(_FakeSettlementPreview_12(
+            _i15.Future<_i9.SettlementPreview>.value(_FakeSettlementPreview_13(
           this,
           Invocation.method(
             #previewSettlement,
@@ -2627,22 +2648,22 @@ class MockDriverOpsRepository extends _i1.Mock
             },
           ),
         )),
-      ) as _i14.Future<_i8.SettlementPreview>);
+      ) as _i15.Future<_i9.SettlementPreview>);
 
   @override
-  _i14.Future<_i26.Uint8List> settlementPdf(String? settlementId) =>
+  _i15.Future<_i27.Uint8List> settlementPdf(String? settlementId) =>
       (super.noSuchMethod(
         Invocation.method(
           #settlementPdf,
           [settlementId],
         ),
-        returnValue: _i14.Future<_i26.Uint8List>.value(_i26.Uint8List(0)),
+        returnValue: _i15.Future<_i27.Uint8List>.value(_i27.Uint8List(0)),
         returnValueForMissingStub:
-            _i14.Future<_i26.Uint8List>.value(_i26.Uint8List(0)),
-      ) as _i14.Future<_i26.Uint8List>);
+            _i15.Future<_i27.Uint8List>.value(_i27.Uint8List(0)),
+      ) as _i15.Future<_i27.Uint8List>);
 
   @override
-  _i14.Future<num> quoteFuelLoad({
+  _i15.Future<num> quoteFuelLoad({
     required num? liters,
     required num? unitPrice,
   }) =>
@@ -2655,13 +2676,13 @@ class MockDriverOpsRepository extends _i1.Mock
             #unitPrice: unitPrice,
           },
         ),
-        returnValue: _i14.Future<num>.value(0),
-        returnValueForMissingStub: _i14.Future<num>.value(0),
-      ) as _i14.Future<num>);
+        returnValue: _i15.Future<num>.value(0),
+        returnValueForMissingStub: _i15.Future<num>.value(0),
+      ) as _i15.Future<num>);
 
   @override
-  _i14.Future<_i8.FuelLoadRecord> registerFuelLoad(
-    _i8.FuelLoadInput? input, {
+  _i15.Future<_i9.FuelLoadRecord> registerFuelLoad(
+    _i9.FuelLoadInput? input, {
     String? idempotencyKey,
   }) =>
       (super.noSuchMethod(
@@ -2671,7 +2692,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i14.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_13(
+            _i15.Future<_i9.FuelLoadRecord>.value(_FakeFuelLoadRecord_14(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2680,7 +2701,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.FuelLoadRecord>.value(_FakeFuelLoadRecord_13(
+            _i15.Future<_i9.FuelLoadRecord>.value(_FakeFuelLoadRecord_14(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2688,11 +2709,11 @@ class MockDriverOpsRepository extends _i1.Mock
             {#idempotencyKey: idempotencyKey},
           ),
         )),
-      ) as _i14.Future<_i8.FuelLoadRecord>);
+      ) as _i15.Future<_i9.FuelLoadRecord>);
 
   @override
-  _i14.Future<_i8.AccidentRecord> reportAccident(
-    _i8.AccidentInput? input, {
+  _i15.Future<_i9.AccidentRecord> reportAccident(
+    _i9.AccidentInput? input, {
     String? idempotencyKey,
   }) =>
       (super.noSuchMethod(
@@ -2702,7 +2723,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i14.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_14(
+            _i15.Future<_i9.AccidentRecord>.value(_FakeAccidentRecord_15(
           this,
           Invocation.method(
             #reportAccident,
@@ -2711,7 +2732,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i8.AccidentRecord>.value(_FakeAccidentRecord_14(
+            _i15.Future<_i9.AccidentRecord>.value(_FakeAccidentRecord_15(
           this,
           Invocation.method(
             #reportAccident,
@@ -2719,7 +2740,7 @@ class MockDriverOpsRepository extends _i1.Mock
             {#idempotencyKey: idempotencyKey},
           ),
         )),
-      ) as _i14.Future<_i8.AccidentRecord>);
+      ) as _i15.Future<_i9.AccidentRecord>);
 }
 
 /// A class which mocks [MaintenanceRepository].
@@ -2728,7 +2749,7 @@ class MockDriverOpsRepository extends _i1.Mock
 class MockMaintenanceRepository extends _i1.Mock
     implements _i31.MaintenanceRepository {
   @override
-  _i14.Future<_i9.MaintenancePage> proposals({
+  _i15.Future<_i10.MaintenancePage> proposals({
     int? limit = 50,
     int? offset = 0,
   }) =>
@@ -2742,7 +2763,7 @@ class MockMaintenanceRepository extends _i1.Mock
           },
         ),
         returnValue:
-            _i14.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_15(
+            _i15.Future<_i10.MaintenancePage>.value(_FakeMaintenancePage_16(
           this,
           Invocation.method(
             #proposals,
@@ -2754,7 +2775,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i9.MaintenancePage>.value(_FakeMaintenancePage_15(
+            _i15.Future<_i10.MaintenancePage>.value(_FakeMaintenancePage_16(
           this,
           Invocation.method(
             #proposals,
@@ -2765,31 +2786,31 @@ class MockMaintenanceRepository extends _i1.Mock
             },
           ),
         )),
-      ) as _i14.Future<_i9.MaintenancePage>);
+      ) as _i15.Future<_i10.MaintenancePage>);
 
   @override
-  _i14.Future<_i9.MaintenanceSettings> settings() => (super.noSuchMethod(
+  _i15.Future<_i10.MaintenanceSettings> settings() => (super.noSuchMethod(
         Invocation.method(
           #settings,
           [],
         ),
-        returnValue: _i14.Future<_i9.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_16(
+        returnValue: _i15.Future<_i10.MaintenanceSettings>.value(
+            _FakeMaintenanceSettings_17(
           this,
           Invocation.method(
             #settings,
             [],
           ),
         )),
-        returnValueForMissingStub: _i14.Future<_i9.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_16(
+        returnValueForMissingStub: _i15.Future<_i10.MaintenanceSettings>.value(
+            _FakeMaintenanceSettings_17(
           this,
           Invocation.method(
             #settings,
             [],
           ),
         )),
-      ) as _i14.Future<_i9.MaintenanceSettings>);
+      ) as _i15.Future<_i10.MaintenanceSettings>);
 
   @override
   void reset() => super.noSuchMethod(
@@ -2801,32 +2822,32 @@ class MockMaintenanceRepository extends _i1.Mock
       );
 
   @override
-  _i14.Future<_i9.MaintenanceProposal> accept(String? proposalId) =>
+  _i15.Future<_i10.MaintenanceProposal> accept(String? proposalId) =>
       (super.noSuchMethod(
         Invocation.method(
           #accept,
           [proposalId],
         ),
-        returnValue: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+        returnValue: _i15.Future<_i10.MaintenanceProposal>.value(
+            _FakeMaintenanceProposal_18(
           this,
           Invocation.method(
             #accept,
             [proposalId],
           ),
         )),
-        returnValueForMissingStub: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+        returnValueForMissingStub: _i15.Future<_i10.MaintenanceProposal>.value(
+            _FakeMaintenanceProposal_18(
           this,
           Invocation.method(
             #accept,
             [proposalId],
           ),
         )),
-      ) as _i14.Future<_i9.MaintenanceProposal>);
+      ) as _i15.Future<_i10.MaintenanceProposal>);
 
   @override
-  _i14.Future<_i9.MaintenanceProposal> reject(
+  _i15.Future<_i10.MaintenanceProposal> reject(
     String? proposalId, {
     required String? reason,
     DateTime? altStart,
@@ -2842,8 +2863,8 @@ class MockMaintenanceRepository extends _i1.Mock
             #altEnd: altEnd,
           },
         ),
-        returnValue: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+        returnValue: _i15.Future<_i10.MaintenanceProposal>.value(
+            _FakeMaintenanceProposal_18(
           this,
           Invocation.method(
             #reject,
@@ -2855,8 +2876,8 @@ class MockMaintenanceRepository extends _i1.Mock
             },
           ),
         )),
-        returnValueForMissingStub: _i14.Future<_i9.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_17(
+        returnValueForMissingStub: _i15.Future<_i10.MaintenanceProposal>.value(
+            _FakeMaintenanceProposal_18(
           this,
           Invocation.method(
             #reject,
@@ -2868,7 +2889,7 @@ class MockMaintenanceRepository extends _i1.Mock
             },
           ),
         )),
-      ) as _i14.Future<_i9.MaintenanceProposal>);
+      ) as _i15.Future<_i10.MaintenanceProposal>);
 }
 
 /// A class which mocks [MaintenanceBoard].
@@ -2883,18 +2904,18 @@ class MockMaintenanceBoard extends _i1.Mock implements _i32.MaintenanceBoard {
       ) as int);
 
   @override
-  _i14.Stream<_i9.MaintenanceEvent> get events => (super.noSuchMethod(
+  _i15.Stream<_i10.MaintenanceEvent> get events => (super.noSuchMethod(
         Invocation.getter(#events),
-        returnValue: _i14.Stream<_i9.MaintenanceEvent>.empty(),
-        returnValueForMissingStub: _i14.Stream<_i9.MaintenanceEvent>.empty(),
-      ) as _i14.Stream<_i9.MaintenanceEvent>);
+        returnValue: _i15.Stream<_i10.MaintenanceEvent>.empty(),
+        returnValueForMissingStub: _i15.Stream<_i10.MaintenanceEvent>.empty(),
+      ) as _i15.Stream<_i10.MaintenanceEvent>);
 
   @override
-  List<_i9.ConfirmedWindow> get confirmed => (super.noSuchMethod(
+  List<_i10.ConfirmedWindow> get confirmed => (super.noSuchMethod(
         Invocation.getter(#confirmed),
-        returnValue: <_i9.ConfirmedWindow>[],
-        returnValueForMissingStub: <_i9.ConfirmedWindow>[],
-      ) as List<_i9.ConfirmedWindow>);
+        returnValue: <_i10.ConfirmedWindow>[],
+        returnValueForMissingStub: <_i10.ConfirmedWindow>[],
+      ) as List<_i10.ConfirmedWindow>);
 
   @override
   set tallerOpen(int? _tallerOpen) => super.noSuchMethod(
@@ -2933,7 +2954,7 @@ class MockMaintenanceBoard extends _i1.Mock implements _i32.MaintenanceBoard {
       );
 
   @override
-  void attach(_i14.Stream<_i9.MaintenanceEvent>? source) => super.noSuchMethod(
+  void attach(_i15.Stream<_i10.MaintenanceEvent>? source) => super.noSuchMethod(
         Invocation.method(
           #attach,
           [source],
@@ -2951,7 +2972,7 @@ class MockMaintenanceBoard extends _i1.Mock implements _i32.MaintenanceBoard {
       );
 
   @override
-  void handle(_i9.MaintenanceEvent? e) => super.noSuchMethod(
+  void handle(_i10.MaintenanceEvent? e) => super.noSuchMethod(
         Invocation.method(
           #handle,
           [e],
@@ -2975,18 +2996,18 @@ class MockMaintenanceBoard extends _i1.Mock implements _i32.MaintenanceBoard {
 class MockMaintenanceNotifier extends _i1.Mock
     implements _i33.MaintenanceNotifier {
   @override
-  List<_i9.MaintenanceProposal> get pending => (super.noSuchMethod(
+  List<_i10.MaintenanceProposal> get pending => (super.noSuchMethod(
         Invocation.getter(#pending),
-        returnValue: <_i9.MaintenanceProposal>[],
-        returnValueForMissingStub: <_i9.MaintenanceProposal>[],
-      ) as List<_i9.MaintenanceProposal>);
+        returnValue: <_i10.MaintenanceProposal>[],
+        returnValueForMissingStub: <_i10.MaintenanceProposal>[],
+      ) as List<_i10.MaintenanceProposal>);
 
   @override
-  _i14.Stream<void> get changes => (super.noSuchMethod(
+  _i15.Stream<void> get changes => (super.noSuchMethod(
         Invocation.getter(#changes),
-        returnValue: _i14.Stream<void>.empty(),
-        returnValueForMissingStub: _i14.Stream<void>.empty(),
-      ) as _i14.Stream<void>);
+        returnValue: _i15.Stream<void>.empty(),
+        returnValueForMissingStub: _i15.Stream<void>.empty(),
+      ) as _i15.Stream<void>);
 
   @override
   List<String> get queuedIds => (super.noSuchMethod(
@@ -3032,14 +3053,14 @@ class MockMaintenanceNotifier extends _i1.Mock
       );
 
   @override
-  _i14.Future<void> sync() => (super.noSuchMethod(
+  _i15.Future<void> sync() => (super.noSuchMethod(
         Invocation.method(
           #sync,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   void recheck() => super.noSuchMethod(
@@ -3088,14 +3109,14 @@ class MockMaintenanceNotifier extends _i1.Mock
       );
 
   @override
-  _i14.Future<void> openTaller() => (super.noSuchMethod(
+  _i15.Future<void> openTaller() => (super.noSuchMethod(
         Invocation.method(
           #openTaller,
           [],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   void dispose() => super.noSuchMethod(
@@ -3113,7 +3134,7 @@ class MockMaintenanceNotifier extends _i1.Mock
 class MockRouteBatchRepository extends _i1.Mock
     implements _i34.RouteBatchRepository {
   @override
-  _i14.Future<List<_i10.RouteBatch>> mine({
+  _i15.Future<List<_i11.RouteBatch>> mine({
     int? limit = 20,
     int? offset = 0,
   }) =>
@@ -3127,18 +3148,18 @@ class MockRouteBatchRepository extends _i1.Mock
           },
         ),
         returnValue:
-            _i14.Future<List<_i10.RouteBatch>>.value(<_i10.RouteBatch>[]),
+            _i15.Future<List<_i11.RouteBatch>>.value(<_i11.RouteBatch>[]),
         returnValueForMissingStub:
-            _i14.Future<List<_i10.RouteBatch>>.value(<_i10.RouteBatch>[]),
-      ) as _i14.Future<List<_i10.RouteBatch>>);
+            _i15.Future<List<_i11.RouteBatch>>.value(<_i11.RouteBatch>[]),
+      ) as _i15.Future<List<_i11.RouteBatch>>);
 
   @override
-  _i14.Future<_i10.RouteBatch> batch(String? batchId) => (super.noSuchMethod(
+  _i15.Future<_i11.RouteBatch> batch(String? batchId) => (super.noSuchMethod(
         Invocation.method(
           #batch,
           [batchId],
         ),
-        returnValue: _i14.Future<_i10.RouteBatch>.value(_FakeRouteBatch_18(
+        returnValue: _i15.Future<_i11.RouteBatch>.value(_FakeRouteBatch_19(
           this,
           Invocation.method(
             #batch,
@@ -3146,64 +3167,64 @@ class MockRouteBatchRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i14.Future<_i10.RouteBatch>.value(_FakeRouteBatch_18(
+            _i15.Future<_i11.RouteBatch>.value(_FakeRouteBatch_19(
           this,
           Invocation.method(
             #batch,
             [batchId],
           ),
         )),
-      ) as _i14.Future<_i10.RouteBatch>);
+      ) as _i15.Future<_i11.RouteBatch>);
 
   @override
-  _i14.Future<_i10.RouteBatchDecision> accept(String? batchId) =>
+  _i15.Future<_i11.RouteBatchDecision> accept(String? batchId) =>
       (super.noSuchMethod(
         Invocation.method(
           #accept,
           [batchId],
         ),
-        returnValue: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_19(
+        returnValue: _i15.Future<_i11.RouteBatchDecision>.value(
+            _FakeRouteBatchDecision_20(
           this,
           Invocation.method(
             #accept,
             [batchId],
           ),
         )),
-        returnValueForMissingStub: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_19(
+        returnValueForMissingStub: _i15.Future<_i11.RouteBatchDecision>.value(
+            _FakeRouteBatchDecision_20(
           this,
           Invocation.method(
             #accept,
             [batchId],
           ),
         )),
-      ) as _i14.Future<_i10.RouteBatchDecision>);
+      ) as _i15.Future<_i11.RouteBatchDecision>);
 
   @override
-  _i14.Future<_i10.RouteBatchDecision> reject(String? batchId) =>
+  _i15.Future<_i11.RouteBatchDecision> reject(String? batchId) =>
       (super.noSuchMethod(
         Invocation.method(
           #reject,
           [batchId],
         ),
-        returnValue: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_19(
+        returnValue: _i15.Future<_i11.RouteBatchDecision>.value(
+            _FakeRouteBatchDecision_20(
           this,
           Invocation.method(
             #reject,
             [batchId],
           ),
         )),
-        returnValueForMissingStub: _i14.Future<_i10.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_19(
+        returnValueForMissingStub: _i15.Future<_i11.RouteBatchDecision>.value(
+            _FakeRouteBatchDecision_20(
           this,
           Invocation.method(
             #reject,
             [batchId],
           ),
         )),
-      ) as _i14.Future<_i10.RouteBatchDecision>);
+      ) as _i15.Future<_i11.RouteBatchDecision>);
 
   @override
   void reset() => super.noSuchMethod(
@@ -3221,29 +3242,29 @@ class MockRouteBatchRepository extends _i1.Mock
 class MockRecoveryRepository extends _i1.Mock
     implements _i35.RecoveryRepository {
   @override
-  _i14.Future<List<_i36.CylinderPickup>> pickups() => (super.noSuchMethod(
+  _i15.Future<List<_i36.CylinderPickup>> pickups() => (super.noSuchMethod(
         Invocation.method(
           #pickups,
           [],
         ),
-        returnValue: _i14.Future<List<_i36.CylinderPickup>>.value(
+        returnValue: _i15.Future<List<_i36.CylinderPickup>>.value(
             <_i36.CylinderPickup>[]),
-        returnValueForMissingStub: _i14.Future<List<_i36.CylinderPickup>>.value(
+        returnValueForMissingStub: _i15.Future<List<_i36.CylinderPickup>>.value(
             <_i36.CylinderPickup>[]),
-      ) as _i14.Future<List<_i36.CylinderPickup>>);
+      ) as _i15.Future<List<_i36.CylinderPickup>>);
 
   @override
-  _i14.Future<void> confirm(String? noticeId) => (super.noSuchMethod(
+  _i15.Future<void> confirm(String? noticeId) => (super.noSuchMethod(
         Invocation.method(
           #confirm,
           [noticeId],
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
-  _i14.Future<void> notCollected(
+  _i15.Future<void> notCollected(
     String? noticeId, {
     required String? reason,
   }) =>
@@ -3253,9 +3274,9 @@ class MockRecoveryRepository extends _i1.Mock
           [noticeId],
           {#reason: reason},
         ),
-        returnValue: _i14.Future<void>.value(),
-        returnValueForMissingStub: _i14.Future<void>.value(),
-      ) as _i14.Future<void>);
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
 
   @override
   void reset() => super.noSuchMethod(

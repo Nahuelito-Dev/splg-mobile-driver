@@ -90,7 +90,19 @@ void main() {
   test('deliveryCode devuelve el texto del QR; sin código lanza', () async {
     when(api.get('orders/o1/delivery-code', 'tok'))
         .thenAnswer((_) async => ok({'orderId': 'o1', 'deliveryCode': 'A1B2'}));
-    expect(await svc.deliveryCode('o1'), 'A1B2');
+    final info = await svc.deliveryCode('o1');
+    expect(info.code, 'A1B2');
+    expect(info.attempts, 0);
+    expect(info.blocked, isFalse);
+    when(api.get('orders/o3/delivery-code', 'tok')).thenAnswer((_) async => ok({
+          'orderId': 'o3',
+          'deliveryCode': '482913',
+          'attempts': 5,
+          'blocked': true
+        }));
+    final bloqueado = await svc.deliveryCode('o3');
+    expect(bloqueado.attempts, 5);
+    expect(bloqueado.blocked, isTrue);
     when(api.get('orders/o2/delivery-code', 'tok'))
         .thenAnswer((_) async => ok({'orderId': 'o2', 'deliveryCode': ''}));
     await expectLater(svc.deliveryCode('o2'), throwsA(isA<StateError>()));

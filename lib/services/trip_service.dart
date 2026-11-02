@@ -11,6 +11,19 @@ import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 
+/// El código de entrega del pedido y el estado de los intentos del cliente.
+class DeliveryCodeInfo {
+  const DeliveryCodeInfo(this.code, {this.attempts = 0, this.blocked = false});
+
+  final String code;
+
+  /// Códigos incorrectos del cliente desde el último código nuevo.
+  final int attempts;
+
+  /// El cliente agotó los intentos: hay que generar un código nuevo.
+  final bool blocked;
+}
+
 /// Llamadas del chofer sobre un pedido en curso: leerlo, aceptarlo, salir,
 /// avisar la llegada, pedir el código del QR y calificar al cliente. Cada
 /// método lanza si el back falla; las pantallas muestran el texto con
@@ -128,14 +141,21 @@ class TripService {
     });
   }
 
-  /// `GET /orders/:id/delivery-code`: el texto que va en el QR.
-  Future<String> deliveryCode(String id) async {
+  /// `GET /orders/:id/delivery-code`: el texto que va en el QR y cuántos
+  /// códigos incorrectos lleva el cliente (`attempts`, `blocked`).
+  Future<DeliveryCodeInfo> deliveryCode(String id) async {
     final res = await _api.get('orders/$id/delivery-code', await _token());
-    final code = res.data is Map ? res.data['deliveryCode']?.toString() : null;
+    final data = res.data is Map ? res.data as Map : const {};
+    final code = data['deliveryCode']?.toString();
     if (code == null || code.isEmpty) {
       throw StateError('El pedido no tiene código de entrega todavía.');
     }
-    return code;
+    final attempts = data['attempts'];
+    return DeliveryCodeInfo(
+      code,
+      attempts: attempts is num ? attempts.toInt() : 0,
+      blocked: data['blocked'] == true,
+    );
   }
 
   /// `POST /api/v2/orders/:id/delivery-code/regenerate`: un código nuevo (6

@@ -67,7 +67,8 @@ void main() {
     when(trips.order('o1')).thenAnswer((_) async => trip());
     when(trips.customerRating('c1'))
         .thenAnswer((_) async => const RatingSummary(average: 4.5, count: 12));
-    when(trips.deliveryCode('o1')).thenAnswer((_) async => 'A1B2C3D4E5');
+    when(trips.deliveryCode('o1'))
+        .thenAnswer((_) async => const DeliveryCodeInfo('A1B2C3D4E5'));
     DeliveryView.debugMapBuilder = (_, __) => Container(
         color: const Color(0xFFE8E6E1),
         child: const Center(child: Text('mapa')));
@@ -276,6 +277,66 @@ void main() {
       expect(find.text('482 913'), findsOneWidget);
       expect(find.text('A1B2C3D4E5'), findsNothing);
       verify(trips.regenerateDeliveryCode('o1')).called(1);
+      await leave(t);
+    });
+
+    testWidgets('bloqueado: aviso claro y botón que genera el código nuevo',
+        (t) async {
+      when(trips.deliveryCode('o1')).thenAnswer((_) async =>
+          const DeliveryCodeInfo('A1B2C3D4E5', attempts: 5, blocked: true));
+      when(trips.regenerateDeliveryCode('o1'))
+          .thenAnswer((_) async => '482913');
+      await pump(t, const DeliveryQrView(orderId: 'o1'));
+      expect(find.byKey(const Key('qr-blocked')), findsOneWidget);
+      expect(
+          find.textContaining('El cliente se equivocó 5 veces: generá un '
+              'código nuevo y dictáselo'),
+          findsOneWidget);
+      expect(find.byKey(const Key('qr-waiting')), findsNothing);
+      expect(find.byKey(const Key('qr-code')), findsNothing);
+      expect(find.byKey(const Key('qr-code-text')), findsNothing);
+      expect(find.text('A1B2C3D4E5'), findsNothing);
+      expect(find.textContaining('dictale este código'), findsNothing);
+      expect(find.byKey(const Key('qr-regenerate')), findsOneWidget);
+
+      await t.ensureVisible(find.byKey(const Key('qr-regenerate')));
+      await t.tap(find.byKey(const Key('qr-regenerate')));
+      await t.pump();
+      await t.pump();
+
+      verify(trips.regenerateDeliveryCode('o1')).called(1);
+      expect(find.byKey(const Key('qr-blocked')), findsNothing);
+      expect(find.text('482 913'), findsOneWidget);
+      expect(find.byKey(const Key('qr-waiting')), findsOneWidget);
+      await leave(t);
+    });
+
+    testWidgets('desde el 3.er error avisa cuántas veces, sin bloquear',
+        (t) async {
+      when(trips.deliveryCode('o1')).thenAnswer(
+          (_) async => const DeliveryCodeInfo('A1B2C3D4E5', attempts: 3));
+      await pump(t, const DeliveryQrView(orderId: 'o1'));
+      expect(find.byKey(const Key('qr-attempts-warning')), findsOneWidget);
+      expect(find.text('El cliente se equivocó 3 veces'), findsOneWidget);
+      expect(find.byKey(const Key('qr-blocked')), findsNothing);
+      expect(find.byKey(const Key('qr-waiting')), findsOneWidget);
+      await leave(t);
+    });
+
+    testWidgets('si generar el código falla (sin bloqueo), se ve el motivo',
+        (t) async {
+      when(trips.regenerateDeliveryCode('o1'))
+          .thenThrow(StateError('El pedido ya no está en camino'));
+      await pump(t, const DeliveryQrView(orderId: 'o1'));
+      await t.ensureVisible(find.byKey(const Key('qr-regenerate')));
+      await t.tap(find.byKey(const Key('qr-regenerate')));
+      await t.pump();
+      await t.ensureVisible(find.byKey(const Key('qr-regenerate-confirm')));
+      await t.tap(find.byKey(const Key('qr-regenerate-confirm')));
+      await t.pump();
+      await t.pump();
+      expect(find.byKey(const Key('qr-regenerate-error')), findsOneWidget);
+      expect(find.text('El pedido ya no está en camino'), findsOneWidget);
       await leave(t);
     });
 

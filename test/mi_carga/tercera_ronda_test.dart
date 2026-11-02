@@ -68,7 +68,8 @@ void main() {
     homeCalls = 0;
     when(trips.order('o1')).thenAnswer((_) async => trip());
     when(trips.customerRating(any)).thenAnswer((_) async => null);
-    when(trips.deliveryCode('o1')).thenAnswer((_) async => 'A1B2C3D4E5');
+    when(trips.deliveryCode('o1'))
+        .thenAnswer((_) async => const DeliveryCodeInfo('A1B2C3D4E5'));
   });
   tearDown(() => locator.reset());
 

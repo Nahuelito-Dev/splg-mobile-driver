@@ -107,60 +107,74 @@ class _Qr extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
       child: Column(
         children: [
-          Text('Mostrale este QR al cliente',
-              textAlign: TextAlign.center,
-              style: type.heading.copyWith(color: Colors.white)),
-          const SizedBox(height: 6),
-          Text(
-              'Que lo escanee con su app para confirmar que recibió las garrafas.',
-              textAlign: TextAlign.center,
-              style: type.body.copyWith(color: Colors.white)),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(20)),
-            child: QrImageView(
-              key: const Key('qr-code'),
-              data: model.code!,
-              size: context.sp(190),
-              backgroundColor: Colors.white,
+          if (model.blocked) ...[
+            _BlockedNotice(model: model),
+            const SizedBox(height: 16),
+          ] else if (model.showAttemptsWarning) ...[
+            Text('El cliente se equivocó ${model.attempts} veces',
+                key: const Key('qr-attempts-warning'),
+                textAlign: TextAlign.center,
+                style: type.body.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+          ],
+          if (!model.blocked) ...[
+            Text('Mostrale este QR al cliente',
+                textAlign: TextAlign.center,
+                style: type.heading.copyWith(color: Colors.white)),
+            const SizedBox(height: 6),
+            Text(
+                'Que lo escanee con su app para confirmar que recibió las garrafas.',
+                textAlign: TextAlign.center,
+                style: type.body.copyWith(color: Colors.white)),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: QrImageView(
+                key: const Key('qr-code'),
+                data: model.code!,
+                size: context.sp(190),
+                backgroundColor: Colors.white,
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Text('Si no puede escanear, dictale este código:',
-              textAlign: TextAlign.center,
-              style: type.body.copyWith(color: Colors.white70)),
-          const SizedBox(height: 6),
-          Text(model.displayCode!,
-              key: const Key('qr-code-text'),
-              style: type.title.copyWith(
-                  color: Colors.white,
-                  letterSpacing: 6,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900)),
+            const SizedBox(height: 14),
+            Text('Si no puede escanear, dictale este código:',
+                textAlign: TextAlign.center,
+                style: type.body.copyWith(color: Colors.white70)),
+            const SizedBox(height: 6),
+            Text(model.displayCode!,
+                key: const Key('qr-code-text'),
+                style: type.title.copyWith(
+                    color: Colors.white,
+                    letterSpacing: 6,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900)),
+          ],
           const SizedBox(height: 18),
           if (order != null)
             Text(
                 '${order.customerName ?? 'Cliente'} - ${formatMoney(order.total)}',
                 style: type.body.copyWith(color: Colors.white70)),
           const SizedBox(height: 16),
-          _Regenerate(model: model),
+          if (!model.blocked) _Regenerate(model: model),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white)),
-              const SizedBox(width: 10),
-              Text('Esperando la confirmación del cliente…',
-                  key: const Key('qr-waiting'),
-                  style: type.body.copyWith(color: Colors.white)),
-            ],
-          ),
+          if (!model.blocked)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white)),
+                const SizedBox(width: 10),
+                Text('Esperando la confirmación del cliente…',
+                    key: const Key('qr-waiting'),
+                    style: type.body.copyWith(color: Colors.white)),
+              ],
+            ),
         ],
       ),
     );
@@ -215,6 +229,53 @@ class _Regenerate extends StatelessWidget {
           onPressed: model.regenerating ? null : model.cancelRegenerate,
         ),
       ],
+    );
+  }
+}
+
+/// Aviso de bloqueo: el cliente agotó los intentos y el chofer tiene que dictarle
+/// un código nuevo. El botón es el protagonista y no pide confirmación.
+class _BlockedNotice extends StatelessWidget {
+  const _BlockedNotice({required this.model});
+  final DeliveryQrViewModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = SplgType.of(context);
+    final brasa = context.brasa;
+    return Container(
+      key: const Key('qr-blocked'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: brasa.danger, width: 2),
+      ),
+      child: Column(
+        children: [
+          Text(
+              'El cliente se equivocó ${model.attempts} veces: generá un código '
+              'nuevo y dictáselo.',
+              key: const Key('qr-blocked-text'),
+              textAlign: TextAlign.center,
+              style: type.body
+                  .copyWith(color: brasa.danger, fontWeight: FontWeight.w700)),
+          if (model.regenerateError != null) ...[
+            const SizedBox(height: 8),
+            Text(model.regenerateError!,
+                key: const Key('qr-regenerate-error'),
+                textAlign: TextAlign.center,
+                style: type.caption.copyWith(color: brasa.danger)),
+          ],
+          const SizedBox(height: 12),
+          SplgButton(
+            key: const Key('qr-regenerate'),
+            title: 'Generar código nuevo',
+            loading: model.regenerating,
+            onPressed: model.askRegenerate,
+          ),
+        ],
+      ),
     );
   }
 }

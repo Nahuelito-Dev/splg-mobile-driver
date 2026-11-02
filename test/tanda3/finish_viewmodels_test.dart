@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -38,7 +40,8 @@ void main() {
     homeCalls = 0;
     when(trips.order('o1'))
         .thenAnswer((_) async => trip(status: 'out_for_delivery'));
-    when(trips.deliveryCode('o1')).thenAnswer((_) async => 'A1B2C3D4E5');
+    when(trips.deliveryCode('o1'))
+        .thenAnswer((_) async => const DeliveryCodeInfo('A1B2C3D4E5'));
     when(trips.customerRating(any)).thenAnswer((_) async => null);
   });
   tearDown(() => locator.reset());
@@ -57,6 +60,193 @@ void main() {
       expect(m.loadError, isNull);
       verifyNever(nav.replaceWithPaymentView(orderId: 'o1'));
       m.dispose();
+    });
+
+    group('aviso de código bloqueado', () {
+      late StreamController<Map<String, dynamic>> codeEvents;
+
+      setUp(() {
+        codeEvents = StreamController<Map<String, dynamic>>.broadcast();
+        when(socket.deliveryCodeFailed).thenAnswer((_) => codeEvents.stream);
+      });
+      tearDown(() => codeEvents.close());
+
+      Map<String, dynamic> ev(int n,
+              {bool blocked = false, String id = 'o1'}) =>
+          {'orderId': id, 'attempts': n, 'maxAttempts': 5, 'blocked': blocked};
+
+      test('al abrir ya bloqueado, lo informa el GET', () async {
+        when(trips.deliveryCode('o1')).thenAnswer((_) async =>
+            const DeliveryCodeInfo('A1B2C3D4E5', attempts: 5, blocked: true));
+        final m = qr();
+        await m.initialize();
+        expect(m.blocked, isTrue);
+        expect(m.attempts, 5);
+        m.dispose();
+      });
+
+      test('el evento del socket bloquea la pantalla al instante', () async {
+        final m = qr();
+        await m.initialize();
+        expect(m.blocked, isFalse);
+        codeEvents.add(ev(5, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+        expect(m.blocked, isTrue);
+        expect(m.attempts, 5);
+        m.dispose();
+      });
+
+      test('del 3.er error avisa; antes no, y de otro pedido no cuenta',
+          () async {
+        final m = qr();
+        await m.initialize();
+        codeEvents.add(ev(2));
+        await Future<void>.delayed(Duration.zero);
+        expect(m.showAttemptsWarning, isFalse);
+        codeEvents.add(ev(3));
+        await Future<void>.delayed(Duration.zero);
+        expect(m.showAttemptsWarning, isTrue);
+        expect(m.blocked, isFalse);
+        codeEvents.add(ev(5, blocked: true, id: 'otro'));
+        await Future<void>.delayed(Duration.zero);
+        expect(m.blocked, isFalse);
+        m.dispose();
+      });
+
+      test('si el socket perdió el aviso, el sondeo lo recupera', () async {
+        final m = qr();
+        await m.initialize();
+        when(trips.deliveryCode('o1')).thenAnswer((_) async =>
+            const DeliveryCodeInfo('A1B2C3D4E5', attempts: 5, blocked: true));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(m.blocked, isTrue);
+        m.dispose();
+      });
+
+      test('una lectura vieja del sondeo no pisa un aviso más nuevo', () async {
+        final m = DeliveryQrViewModel(
+            orderId: 'o1',
+            trips: trips,
+            pollInterval: const Duration(milliseconds: 20),
+            goHome: () => homeCalls++);
+        await m.initialize();
+        final vieja = Completer<DeliveryCodeInfo>();
+        when(trips.deliveryCode('o1')).thenAnswer((_) => vieja.future);
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+
+        // El aviso del socket llega mientras la lectura sigue en vuelo.
+        when(trips.deliveryCode('o1')).thenAnswer((_) async =>
+            const DeliveryCodeInfo('A1B2C3D4E5', attempts: 5, blocked: true));
+        codeEvents.add(ev(5, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+        vieja.complete(const DeliveryCodeInfo('A1B2C3D4E5'));
+        await Future<void>.delayed(Duration.zero);
+
+        expect(m.blocked, isTrue);
+        expect(m.attempts, 5);
+        m.dispose();
+      });
+
+      test('una lectura vieja no revive el bloqueo tras generar el código',
+          () async {
+        when(trips.deliveryCode('o1')).thenAnswer((_) async =>
+            const DeliveryCodeInfo('A1B2C3D4E5', attempts: 5, blocked: true));
+        when(trips.regenerateDeliveryCode('o1'))
+            .thenAnswer((_) async => '482913');
+        final m = DeliveryQrViewModel(
+            orderId: 'o1',
+            trips: trips,
+            pollInterval: const Duration(milliseconds: 20),
+            goHome: () => homeCalls++);
+        await m.initialize();
+        final vieja = Completer<DeliveryCodeInfo>();
+        when(trips.deliveryCode('o1')).thenAnswer((_) => vieja.future);
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+
+        await m.regenerateCode();
+        when(trips.deliveryCode('o1'))
+            .thenAnswer((_) async => const DeliveryCodeInfo('482913'));
+        vieja.complete(
+            const DeliveryCodeInfo('A1B2C3D4E5', attempts: 5, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+
+        expect(m.blocked, isFalse);
+        expect(m.code, '482913');
+        m.dispose();
+      });
+
+      test('el número mostrado no pasa del tope (6.º simultáneo)', () async {
+        final m = qr();
+        await m.initialize();
+        codeEvents.add(ev(6, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+        expect(m.attempts, 5);
+        m.dispose();
+      });
+
+      test('al bloquearse se cierra la confirmación pendiente', () async {
+        final m = qr();
+        await m.initialize();
+        m.askRegenerate();
+        expect(m.confirmingRegenerate, isTrue);
+        codeEvents.add(ev(5, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+        expect(m.confirmingRegenerate, isFalse);
+        m.dispose();
+      });
+
+      test('la primera lectura vieja no pisa un aviso que llegó antes',
+          () async {
+        final lenta = Completer<DeliveryCodeInfo>();
+        when(trips.deliveryCode('o1')).thenAnswer((_) => lenta.future);
+        final m = qr();
+        final init = m.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        codeEvents.add(ev(5, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+        lenta.complete(const DeliveryCodeInfo('A1B2C3D4E5'));
+        await init;
+        expect(m.blocked, isTrue);
+        expect(m.attempts, 5);
+        expect(m.code, 'A1B2C3D4E5');
+        m.dispose();
+      });
+
+      test('bloqueado, generar código nuevo va directo y limpia el aviso',
+          () async {
+        when(trips.regenerateDeliveryCode('o1'))
+            .thenAnswer((_) async => '482913');
+        final m = qr();
+        await m.initialize();
+        codeEvents.add(ev(5, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+
+        m.askRegenerate();
+        await Future<void>.delayed(Duration.zero);
+
+        verify(trips.regenerateDeliveryCode('o1')).called(1);
+        expect(m.confirmingRegenerate, isFalse);
+        expect(m.blocked, isFalse);
+        expect(m.attempts, 0);
+        expect(m.code, '482913');
+        m.dispose();
+      });
+
+      test('si el back no genera el código, sigue bloqueado con el motivo',
+          () async {
+        when(trips.regenerateDeliveryCode('o1'))
+            .thenThrow(StateError('El pedido ya no está en camino'));
+        final m = qr();
+        await m.initialize();
+        codeEvents.add(ev(5, blocked: true));
+        await Future<void>.delayed(Duration.zero);
+
+        await m.regenerateCode();
+
+        expect(m.blocked, isTrue);
+        expect(m.regenerateError, 'El pedido ya no está en camino');
+        m.dispose();
+      });
     });
 
     test('el código de 6 dígitos se lee agrupado y uno viejo queda como está',

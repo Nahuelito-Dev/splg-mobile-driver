@@ -52,7 +52,22 @@ void main() {
     when(socket.hasSocket).thenReturn(true);
     when(trips.activeOrderId).thenReturn(null);
   });
-  tearDown(() {
+  final vms = <HomeViewModel>[];
+  HomeViewModel vm(HomeViewModel m) {
+    vms.add(m);
+    return m;
+  }
+
+  tearDown(() async {
+    for (final m in vms) {
+      try {
+        m.dispose();
+      } catch (_) {
+        // StreamViewModel.dispose falla si nunca se inicializó el stream.
+      }
+    }
+    vms.clear();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
     NavigationLauncher.launcher = null;
     locator.reset();
   });
@@ -112,7 +127,7 @@ void main() {
   });
 
   group('Inicio: aceptar y rechazar', () {
-    HomeViewModel home() => HomeViewModel(trips: trips);
+    HomeViewModel home() => vm(HomeViewModel(trips: trips));
 
     test(
         'aceptar: PATCH accepted, tracking, mapa elegido y pantalla del pedido',
@@ -183,7 +198,7 @@ void main() {
     });
 
     Future<void> abrir() async {
-      HomeViewModel(trips: trips, apiClient: api)
+      vm(HomeViewModel(trips: trips, apiClient: api))
           .syncAvailabilityOnOpenForTest();
       await Future<void>.delayed(const Duration(milliseconds: 30));
     }
@@ -203,8 +218,11 @@ void main() {
           status: DriverOrderStatus.onTheWay,
           total: 1,
           createdAt: DateTime(2026)));
+      when(socket.waitUntilConnected(any)).thenAnswer((_) async => true);
       await abrir();
-      verifyNever(api.patch(any, any, any));
+      verify(socket.connect('tok', 'u1')).called(1);
+      verifyNever(api.patch(
+          'delivery/user/u1/availability', {'available': false}, 'tok'));
     });
 
     test('si no se puede averiguar el pedido en curso, no lo baja', () async {
@@ -229,7 +247,7 @@ void main() {
       when(socket.isConnected).thenReturn(false);
       when(socket.hasSocket).thenReturn(false);
       when(socket.waitUntilConnected(any)).thenAnswer((_) async => true);
-      return HomeViewModel(trips: trips, apiClient: api);
+      return vm(HomeViewModel(trips: trips, apiClient: api));
     }
 
     test('confirmar la oferta acepta con el mapa y las coordenadas elegidas',

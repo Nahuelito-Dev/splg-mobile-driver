@@ -181,6 +181,8 @@ class HomeViewModel extends StreamViewModel<Position>
   /// empieza el tracking si se concede.
   Future<void> initialize() async {
     WidgetsBinding.instance.addObserver(this);
+    _driverSocketService.addListener(_onSocketStateChanged);
+    _listenToSocketStreams();
     _startLoadPolling();
     _syncAvailabilityOnOpen();
     await _resolveLocation(interactive: true);
@@ -192,33 +194,48 @@ class HomeViewModel extends StreamViewModel<Position>
     unawaited(_notifier.sync());
   }
 
-  /// Al abrir la app el estado en memoria se perdió: si el back conserva al
-  /// chofer «en línea» de una sesión anterior (la app se cerró sin
-  /// desconectarse), manda la app, que dice «Desconectado»: se lo baja. Así el
-  /// despacho no le ofrece pedidos que nadie va a ver. Para estar en línea hay
-  /// que tocar «Conectarse».
+  /// Al abrir la app el estado en memoria se perdió. Si el chofer tiene un
+  /// pedido aceptado o en camino, el back lo tiene en línea y la app lo
+  /// reconecta sola (si no, nadie escucharía las ofertas ni los avisos). Si no
+  /// tiene ninguno y el back lo conserva «en línea» de una sesión anterior (la
+  /// app se cerró sin desconectarse), manda la app, que dice «Desconectado»: se
+  /// lo baja, así el despacho no le ofrece pedidos que nadie va a ver. Para
+  /// estar en línea hay que tocar «Conectarse».
   Future<void>? _openSync;
 
   @visibleForTesting
   void syncAvailabilityOnOpenForTest() => _syncAvailabilityOnOpen();
 
-  /// No toca a un chofer en entrega: si tiene un pedido aceptado o en camino
-  /// (o no se pudo averiguar), no se lo baja.
+  /// No baja a un chofer en entrega: si tiene un pedido aceptado o en camino
+  /// lo conecta (socket, posición, ofertas); si no se pudo averiguar, lo deja.
   void _syncAvailabilityOnOpen() {
     if (isOnline || _connecting || _connectInFlight != null) return;
+    final epoch = _sessionEpoch;
     _openSync = () async {
       try {
-        if (_trips.activeOrderId != null) return;
+        if (_trips.activeOrderId != null) {
+          if (epoch == _sessionEpoch) {
+            unawaited(connect(inDelivery: true, epoch: epoch));
+          }
+          return;
+        }
         final order = await _driverApi.activeOrder();
         if (order != null &&
             (order.status == DriverOrderStatus.accepted ||
                 order.status == DriverOrderStatus.onTheWay)) {
+          // En entrega el back lo tiene en línea: sin socket no le llegarían
+          // las ofertas, los avisos de código ni las cancelaciones.
+          if (epoch == _sessionEpoch) {
+            unawaited(connect(inDelivery: true, epoch: epoch));
+          }
           return;
         }
       } catch (e) {
         debugPrint('No se pudo revisar el pedido en curso al abrir: $e');
         return;
       }
+      // Cerró sesión mientras se consultaba: ya se lo bajó el logout.
+      if (epoch != _sessionEpoch) return;
       if (isOnline || _connecting || _connectInFlight != null) return;
       await _setAvailability(false);
     }();
@@ -312,7 +329,15 @@ class HomeViewModel extends StreamViewModel<Position>
         _resolveLocation(interactive: false);
       }
       if (_isHomeVisible()) unawaited(refreshNoOrdersReason());
-      unawaited(resumeActiveOrder());
+      if (!_inactive) unawaited(resumeActiveOrder());
+      // En entrega sin socket (falló al abrir): se reintenta.
+      if (_trips.activeOrderId != null && !_manuallyOffline && !_inactive) {
+        if (!isConnected) {
+          unawaited(connect(inDelivery: true, epoch: _sessionEpoch));
+        } else if (!_listeningToSocket || !_onlineSetupDone) {
+          unawaited(_completeOnlineSetup());
+        }
+      }
       unawaited(_notifier.sync());
       if (isOnline) unawaited(syncRouteBatches());
     } else if (state == AppLifecycleState.paused ||
@@ -323,15 +348,26 @@ class HomeViewModel extends StreamViewModel<Position>
     }
   }
 
+  bool _disposed = false;
+
+  /// Cerrando sesión: nada se reconecta ni se arma hasta terminar.
+  bool _loggingOut = false;
+
+  bool get _inactive => _disposed || _loggingOut;
+
   @override
   void dispose() {
+    _disposed = true;
     _searchTimer?.cancel();
     _loadTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    _driverSocketService.removeListener(_onSocketStateChanged);
+    _retryTimer?.cancel();
     _incomingOrdersSubscription?.cancel();
     _batchSubscription?.cancel();
     _batchClearTimer?.cancel();
     _rejectedSubscription?.cancel();
+    _cancelledSubscription?.cancel();
     _maintenanceChanges?.cancel();
     _maintenanceOpenedSubscription?.cancel();
     _locationService.stopTracking();
@@ -502,7 +538,11 @@ class HomeViewModel extends StreamViewModel<Position>
   /// "true" no llegue después del "false".
   Future<void> logout() async {
     setBusy(true);
+    _loggingOut = true;
     _sessionEpoch++;
+    _manuallyOffline = false;
+    _retryTimer?.cancel();
+    _endRetryChain();
     try {
       final inFlight = _connectInFlight;
       if (inFlight != null) {
@@ -511,10 +551,22 @@ class HomeViewModel extends StreamViewModel<Position>
         } catch (_) {}
       }
       await _rollbackOnline();
-
-      // Detener el seguimiento de ubicación
+    } catch (e) {
+      debugPrint('Error al bajar al chofer al cerrar sesión: $e');
+    }
+    // Cada paso va aparte: si uno falla, los demás igual se hacen.
+    try {
+      // Que no quede un socket ni un envío de posición del chofer anterior.
+      _driverSocketService.stopBroadcasting();
+    } catch (e) {
+      debugPrint('Error al cortar el socket al cerrar sesión: $e');
+    }
+    try {
       await _locationService.stopTracking();
-
+    } catch (e) {
+      debugPrint('Error al detener la ubicación al cerrar sesión: $e');
+    }
+    try {
       // Cerrar la sesión de verdad: sin esto la app la restaura al reabrir.
       await _driverAuthService.signOut();
     } catch (e) {
@@ -522,6 +574,7 @@ class HomeViewModel extends StreamViewModel<Position>
     } finally {
       // Las claves de idempotencia y el flujo en curso son de la sesión.
       _trips.reset();
+      _queuedOrderId = null;
       _notifier.reset();
       _fcm.clearPendingMaintenance();
       _board.reset();
@@ -529,6 +582,7 @@ class HomeViewModel extends StreamViewModel<Position>
       _batches.reset();
       _recovery.reset();
       _clearBatch();
+      _loggingOut = false;
       setBusy(false);
     }
 
@@ -545,12 +599,18 @@ class HomeViewModel extends StreamViewModel<Position>
   /// socket de choferes, registra su ubicación actual en el GEO y se suscribe
   /// a las ofertas de pedido. Si algo falla después de marcarlo disponible, lo
   /// deja como estaba (no disponible, sin servicio en primer plano ni socket).
-  Future<void> connect() {
+  ///
+  /// [inDelivery] lo pasa la reconexión automática de quien tiene una entrega
+  /// en curso: si falla no se lo baja ni se corta (ver `_connect`). [epoch] es
+  /// la sesión con que se decidió conectar; si cambió, se aborta.
+  Future<void> connect({bool inDelivery = false, int? epoch}) {
     if (isConnected || _connecting || _connectInFlight != null) {
       debugPrint('connect() ignorado: el chofer ya está conectado');
       return Future.value();
     }
-    final run = _connect();
+    // Conectarse a mano deja de respetar un «desconectar» anterior.
+    if (!inDelivery) _manuallyOffline = false;
+    final run = _connect(inDelivery: inDelivery, epoch: epoch);
     _connectInFlight = run;
     notifyListeners();
     return run.whenComplete(() {
@@ -558,13 +618,21 @@ class HomeViewModel extends StreamViewModel<Position>
     });
   }
 
-  Future<void> _connect() async {
-    final epoch = _sessionEpoch;
+  /// El chofer se desconectó a mano: no se lo reconecta solo al volver a
+  /// primer plano, aunque tenga una entrega en curso.
+  bool _manuallyOffline = false;
+
+  Future<void> _connect({bool inDelivery = false, int? epoch}) async {
+    epoch ??= _sessionEpoch;
+    if (epoch != _sessionEpoch || _inactive) return;
     if (isConnected || _connecting) {
       debugPrint('connect() ignorado: el chofer ya está conectado');
       return;
     }
 
+    // Primero las suscripciones: cualquier socket que se abra después (por
+    // este connect o por el flujo de una entrega) ya tiene quién lo escuche.
+    _listenToSocketStreams();
     final userId = _driverAuthService.userId;
     final token = await _driverAuthService.token;
     if (userId == null || token == null) {
@@ -605,25 +673,27 @@ class HomeViewModel extends StreamViewModel<Position>
       }
       _abortIfLoggedOut(epoch);
 
-      // Registra la posición actual en el GEO apenas se conecta, sin esperar
-      // al próximo tick del tracking de ubicación.
-      final position = _locationService.currentPosition ??
-          await _locationService.getCurrentLocation();
-      if (position != null) {
-        _driverSocketService.sendLocation(
-          userId,
-          position.latitude,
-          position.longitude,
-        );
-      }
-
-      _subscribeToIncomingOrders();
-      _startSearching();
+      // Posición inicial, recorridos, taller y búsqueda.
+      await _completeOnlineSetup(connected: true);
+      _abortIfLoggedOut(epoch);
       unawaited(resumeActiveOrder());
     } on _LoggedOutDuringConnect {
       debugPrint('connect() abortado: se cerró la sesión mientras conectaba');
       await _rollbackOnline();
     } catch (e) {
+      if (inDelivery || _trips.activeOrderId != null) {
+        // En plena entrega no se lo baja ni se corta: el socket reconecta solo
+        // o se reintenta al volver a primer plano. Si lo pidió el chofer a mano,
+        // se le dice.
+        debugPrint('No se pudo conectar el socket en plena entrega: $e');
+        if (!inDelivery) {
+          await _dialogService.showDialog(
+            title: 'No pudimos ponerte en línea',
+            description: 'Revisá tu conexión e intentá de nuevo.',
+          );
+        }
+        return;
+      }
       debugPrint('No se pudo poner en línea al chofer: $e');
       await _rollbackOnline();
       await _dialogService.showDialog(
@@ -638,13 +708,14 @@ class HomeViewModel extends StreamViewModel<Position>
 
   static const _socketTimeout = Duration(seconds: 8);
 
-  void _abortIfLoggedOut(int epoch) {
+  void _abortIfLoggedOut(int? epoch) {
     if (epoch != _sessionEpoch) throw const _LoggedOutDuringConnect();
   }
 
   /// Deja al chofer fuera de línea sin depender del estado del socket.
   Future<void> _rollbackOnline() async {
     _markedOnline = false;
+    _onlineSetupDone = false;
     _stopSearching();
     await _setAvailability(false);
     await _foregroundService.stop();
@@ -654,6 +725,8 @@ class HomeViewModel extends StreamViewModel<Position>
     _batchSubscription = null;
     _rejectedSubscription?.cancel();
     _rejectedSubscription = null;
+    _cancelledSubscription?.cancel();
+    _cancelledSubscription = null;
     _notifier.stop();
     _board.detach();
     _driverSocketService.disconnect();
@@ -662,6 +735,7 @@ class HomeViewModel extends StreamViewModel<Position>
   /// Desconecta al chofer: se marca NO DISPONIBLE (el backend lo saca del radar),
   /// deja de recibir ofertas y cierra el socket.
   Future<void> disconnect() async {
+    _manuallyOffline = true;
     await _rollbackOnline();
     notifyListeners();
   }
@@ -689,12 +763,14 @@ class HomeViewModel extends StreamViewModel<Position>
   }
 
   StreamSubscription<void>? _rejectedSubscription;
+  StreamSubscription<Map<String, dynamic>>? _cancelledSubscription;
 
   /// El servidor cortó el socket varias veces seguidas apenas conectar: la
   /// sesión no es válida. Se baja al chofer de línea y se le avisa.
   Future<void> _onSocketRejected() async {
     // Se lee antes de volver a fuera de línea: cerrar el socket lo limpia.
     final revoked = _driverSocketService.accessRevoked;
+    _manuallyOffline = true;
     await _rollbackOnline();
     notifyListeners();
     await _dialogService.showDialog(
@@ -708,23 +784,66 @@ class HomeViewModel extends StreamViewModel<Position>
     );
   }
 
-  void _subscribeToIncomingOrders() {
-    _rejectedSubscription?.cancel();
-    _rejectedSubscription =
-        _driverSocketService.rejected.listen((_) => _onSocketRejected());
-    _incomingOrdersSubscription?.cancel();
-    _incomingOrdersSubscription =
-        _driverSocketService.incomingOrders.listen(_showOrderOfferDialog);
-    _batchSubscription?.cancel();
-    _batchSubscription =
-        _driverSocketService.routeBatchEvents.listen(_onRouteBatchEvent);
+  /// Lo que completa «estar en línea» una vez que hay socket: suscripciones,
+  /// recorridos, taller y posición inicial. Idempotente: lo llaman `_connect` y
+  /// el aviso de que el socket reconectó solo.
+  bool _onlineSetupDone = false;
+
+  Future<void> _completeOnlineSetup({bool connected = false}) async {
+    if (_inactive) return;
+    _listenToSocketStreams();
+    if (_onlineSetupDone) return;
+    final userId = _driverAuthService.userId;
+    if (userId == null || !(connected || isConnected)) return;
+    _onlineSetupDone = true;
     unawaited(syncRouteBatches());
-    _board.bind(_driverAuthService.userId);
+    _board.bind(userId);
     _board.attach(_driverSocketService.maintenanceEvents);
     _notifier.isBusyWithOrder = () => _trips.activeOrderId != null;
     _notifier.start();
     unawaited(_notifier.sync());
+    final position = _locationService.currentPosition ??
+        await _locationService.getCurrentLocation();
+    if (position != null && (connected || isConnected)) {
+      _driverSocketService.sendLocation(
+          userId, position.latitude, position.longitude);
+    }
+    if (!busyWithOrder) _startSearching();
   }
+
+  bool _wasSocketConnected = false;
+
+  /// El servicio del socket cambió: si pasó a conectado (reconectó solo), se
+  /// completa lo que `_connect` no llegó a hacer.
+  void _onSocketStateChanged() {
+    final connected = isConnected;
+    if (connected &&
+        !_wasSocketConnected &&
+        !_manuallyOffline &&
+        !_inactive &&
+        (_markedOnline || _trips.activeOrderId != null)) {
+      unawaited(_completeOnlineSetup());
+    }
+    if (!connected) _onlineSetupDone = false;
+    _wasSocketConnected = connected;
+  }
+
+  /// Escucha los avisos del socket (ofertas, cancelaciones, rechazos,
+  /// recorridos). Los streams del servicio existen aunque el socket no esté
+  /// conectado; se renuevan en cada llamada y se cortan al desconectar.
+  void _listenToSocketStreams() {
+    _rejectedSubscription ??=
+        _driverSocketService.rejected.listen((_) => _onSocketRejected());
+    _incomingOrdersSubscription ??=
+        _driverSocketService.incomingOrders.listen(_showOrderOfferDialog);
+    _cancelledSubscription ??=
+        _driverSocketService.orderCancelled.listen(_onQueuedOrderGone);
+    _batchSubscription ??=
+        _driverSocketService.routeBatchEvents.listen(_onRouteBatchEvent);
+  }
+
+  /// ¿Hay quien escuche las ofertas del socket?
+  bool get _listeningToSocket => _incomingOrdersSubscription != null;
 
   StreamSubscription<void>? _maintenanceChanges;
 
@@ -740,12 +859,104 @@ class HomeViewModel extends StreamViewModel<Position>
   /// una oferta en pantalla (o un pedido en curso) las demás se ignoran.
   bool _offerOpen = false;
 
+  /// Espera antes de reintentar abrir una entrega que falló al arrancar.
+  @visibleForTesting
+  Duration flowRetryDelay = const Duration(seconds: 3);
+
+  /// Entrega que falló al arrancar y espera su reintento: cuenta como en curso
+  /// para que otra oferta no se mezcle.
+  String? _retryingOrderId;
+  Timer? _retryTimer;
+
+  /// Reintentos seguidos de abrir una entrega; vuelve a 0 cuando se abre.
+  int _flowRetryCount = 0;
+  static const _maxFlowRetries = 3;
+
+  /// Hay un reintento programado (lo marca [_scheduleFlowRetry]).
+  bool _retryScheduled = false;
+
+  void _scheduleFlowRetry(int epoch, {bool consume = true}) {
+    _retryTimer?.cancel();
+    if (consume && ++_flowRetryCount > _maxFlowRetries) {
+      _endRetryChain();
+      unawaited(_dialogService.showDialog(
+        title: 'No pudimos abrir tu entrega',
+        description:
+            'Tenés un pedido en curso que no se pudo abrir. Reabrí la app o '
+            'consultá con tu distribuidora.',
+      ));
+      return;
+    }
+    _retryScheduled = true;
+    _retryTimer = Timer(flowRetryDelay, () async {
+      _retryScheduled = false;
+      if (epoch != _sessionEpoch || _disposed) {
+        _endRetryChain();
+        return;
+      }
+      // Si hay una oferta o un anuncio en pantalla, la retoma espera su turno
+      // sin gastar un intento.
+      if (_offerOpen || _startingOrderId != null) {
+        _scheduleFlowRetry(epoch, consume: false);
+        return;
+      }
+      await resumeActiveOrder(collect: false, retry: true);
+      // Si la retoma no reprogramó, la cadena terminó (bien o mal).
+      if (!_retryScheduled) _endRetryChain();
+    });
+  }
+
+  void _endRetryChain() {
+    _flowRetryCount = 0;
+    _retryingOrderId = null;
+    _retryScheduled = false;
+  }
+
+  /// Pedido en espera que se está anunciando antes de abrir su entrega: hasta
+  /// que arranca cuenta como en curso, para que otra oferta no abra un segundo flujo.
+  String? _startingOrderId;
+
   /// Hay una oferta abierta o un pedido en curso.
   @visibleForTesting
   bool get busyWithOrder =>
-      _offerOpen || _trips.activeOrderId != null || _batchQueue.isNotEmpty;
+      _offerOpen ||
+      _startingOrderId != null ||
+      _retryingOrderId != null ||
+      _trips.activeOrderId != null ||
+      _batchQueue.isNotEmpty;
 
-  Future<void> _showOrderOfferDialog(Map<String, dynamic> offer) async {
+  /// Pedido ya aceptado que espera a que termine la entrega en curso (CU-013):
+  /// el chofer por terminar puede tomar UNO más, nunca dos encolados.
+  String? _queuedOrderId;
+
+  @visibleForTesting
+  String? get queuedOrderId => _queuedOrderId;
+
+  /// Con la entrega en curso EN CAMINO y nada más en espera, la oferta que
+  /// llega se muestra: el despacho sólo la manda si el chofer está por terminar.
+  /// Cualquier otro caso (pedido recién aceptado, oferta abierta, recorrido) la
+  /// rechaza como siempre. Si no se puede averiguar, no se encola.
+  Future<bool> _canQueueOffer() async {
+    if (_startingOrderId != null ||
+        _retryingOrderId != null ||
+        _trips.activeOrderId == null ||
+        _queuedOrderId != null ||
+        _batchQueue.isNotEmpty) {
+      return false;
+    }
+    try {
+      final current = await _driverApi.activeOrder();
+      // Si mientras tanto arrancó el anuncio de otro pedido, no hay lugar.
+      if (_startingOrderId != null || _retryingOrderId != null) return false;
+      return current?.status == DriverOrderStatus.onTheWay;
+    } catch (e) {
+      debugPrint('No se pudo revisar el pedido en curso para la oferta: $e');
+      return false;
+    }
+  }
+
+  Future<void> _showOrderOfferDialog(Map<String, dynamic> offer,
+      {bool reshown = false}) async {
     final orderId = offer['orderId']?.toString();
     if (orderId == null) {
       debugPrint('Oferta de pedido sin orderId, se ignora: $offer');
@@ -761,14 +972,33 @@ class HomeViewModel extends StreamViewModel<Position>
     // si no, el diálogo y la pantalla del pedido retomado se pisarían.
     final deciding = _resumeDecision;
     if (_resuming && deciding != null) await deciding.future;
-    if (busyWithOrder) {
+    final busy = busyWithOrder;
+    var toQueue = false;
+    if (!busy) {
+      _offerOpen = true;
+    } else if (!_offerOpen) {
+      // Una oferta a la vez: se reserva antes de consultar al back, para que
+      // otra que llega casi junta se rechace por ocupado.
+      _offerOpen = true;
+      toQueue = await _canQueueOffer();
+      if (!toQueue) {
+        // Se libera como lo haría el cierre de una oferta: si la entrega en
+        // curso terminó mientras se esperaba, la retoma se programa igual.
+        _offerOpen = false;
+        final done = _justFinished;
+        _justFinished = null;
+        if (done != null) _resumeSoon(done);
+      }
+    }
+    if (!_offerOpen || (busy && !toQueue)) {
       // Ocupado: se rechaza explícitamente para que el back la pase a otro
       // chofer enseguida, en vez de esperar a que venza.
       debugPrint('Oferta $orderId rechazada: ya hay un pedido en pantalla');
       await rejectOrder(orderId);
       return;
     }
-    _offerOpen = true;
+    var reshow = false;
+    Future<void> Function()? startFlow;
     // La oferta tiene prioridad: un aviso de taller abierto se cierra y vuelve después.
     _notifier.offerStarted();
     try {
@@ -800,8 +1030,27 @@ class HomeViewModel extends StreamViewModel<Position>
           }
           return;
         }
-        await acceptOrder(orderId,
-            map: map, lat: lat, lng: lng, alreadyAccepted: alreadyAccepted);
+        if (toQueue) {
+          await _queueOrder(orderId, alreadyAccepted: alreadyAccepted);
+        } else {
+          // La entrega dura mucho más que la oferta: se decide acá, se libera
+          // la oferta y el flujo arranca después (si no, durante toda la
+          // entrega se rechazaría cualquier oferta nueva).
+          final session = await _confirmAccept(orderId, alreadyAccepted);
+          if (session != null) {
+            startFlow = () => _runOrderFlow(orderId,
+                token: session.$1,
+                userId: session.$2,
+                map: map,
+                lat: lat,
+                lng: lng);
+          }
+        }
+      } else if (response == null && toQueue) {
+        // Al terminar la entrega en curso la navegación cerró el diálogo: no
+        // fue una decisión del chofer, así que no se rechaza sola.
+        final vigente = await _recoverDismissedOffer(orderId, offer);
+        reshow = vigente && !reshown;
       } else {
         await rejectOrder(orderId);
         if (isOnline) {
@@ -819,9 +1068,81 @@ class HomeViewModel extends StreamViewModel<Position>
       final done = _justFinished;
       _justFinished = null;
       // Si va a retomarse un pedido asignado, los avisos esperan a que termine.
-      _notifier.offerEnded(pump: done == null);
+      // Si arranca la entrega, los avisos esperan a que termine (`_resumeSoon`).
+      _notifier.offerEnded(pump: done == null && startFlow == null);
       if (done != null) _resumeSoon(done);
     }
+    if (reshow) unawaited(_showOrderOfferDialog(offer, reshown: true));
+    if (startFlow != null) {
+      try {
+        await startFlow();
+      } catch (e) {
+        // El pedido ya está aceptado: no se rechaza. Se suelta el flujo, se
+        // vuelve a buscar y se programa la retoma (`resumeActiveOrder`).
+        debugPrint('No se pudo abrir la entrega de $orderId: $e');
+        _trips.endFlow();
+        // El pedido sigue aceptado en el back: se vuelve a intentar retomarlo.
+        _retryingOrderId = orderId;
+        _scheduleFlowRetry(_sessionEpoch);
+        if (isOnline) {
+          _startSearching();
+          notifyListeners();
+        }
+      }
+    }
+  }
+
+  /// El diálogo de una oferta en espera se cerró sin respuesta. Si el pedido ya
+  /// quedó aceptado por este chofer, pasa a ser el que espera; si la oferta
+  /// sigue vigente, devuelve true para mostrarla de nuevo; si no, no hay nada
+  /// que hacer (el despacho la vence).
+  Future<bool> _recoverDismissedOffer(
+      String orderId, Map<String, dynamic> offer) async {
+    try {
+      final o = await _trips.order(orderId);
+      final mine = (await _driverApi.profile()).deliveryId;
+      if (o.status == DriverOrderStatus.accepted &&
+          o.deliveryId != null &&
+          o.deliveryId == mine) {
+        _queuedOrderId = orderId;
+        return false;
+      }
+      final expires = DateTime.tryParse(offer['expiresAt']?.toString() ?? '');
+      return o.status == DriverOrderStatus.pending &&
+          expires != null &&
+          expires.isAfter(now());
+    } catch (e) {
+      debugPrint('No se pudo revisar la oferta $orderId: $e');
+      return false;
+    }
+  }
+
+  /// El pedido en espera se canceló, se liberó o se reasignó (`order:cancelled`
+  /// llega por los tres): deja de esperar y el chofer puede recibir otra oferta.
+  void _onQueuedOrderGone(Map<String, dynamic> payload) {
+    final id = payload['orderId']?.toString();
+    if (id == null || id != _queuedOrderId) return;
+    _queuedOrderId = null;
+    debugPrint('El pedido en espera $id ya no es del chofer');
+    unawaited(_dialogService.showDialog(
+      title: 'Tu próximo pedido',
+      description: 'Tu próximo pedido ya no está asignado a vos.',
+    ));
+  }
+
+  /// Acepta un pedido que llegó con otra entrega en curso: queda en espera y
+  /// se retoma al terminar la actual (`resumeActiveOrder`). No abre pantalla,
+  /// ni mapa, ni cambia el tracking de la entrega que sigue en curso.
+  Future<void> _queueOrder(String orderId,
+      {required bool alreadyAccepted}) async {
+    if (!alreadyAccepted && !await _acceptWithConfirmation(orderId)) return;
+    _queuedOrderId = orderId;
+    debugPrint('Pedido $orderId aceptado en espera');
+    await _dialogService.showDialog(
+      title: 'Tu próximo pedido',
+      description: 'Aceptaste un pedido más. Terminá la entrega que llevás: '
+          'apenas la confirmes te lo mostramos para que salgas.',
+    );
   }
 
   /// Rechaza una oferta (CU-016): `POST /orders/:orderId/reject`. El backend
@@ -847,11 +1168,21 @@ class HomeViewModel extends StreamViewModel<Position>
     double? lng,
     bool alreadyAccepted = false,
   }) async {
+    final session = await _confirmAccept(orderId, alreadyAccepted);
+    if (session == null) return;
+    await _runOrderFlow(orderId,
+        token: session.$1, userId: session.$2, map: map, lat: lat, lng: lng);
+  }
+
+  /// Deja el pedido aceptado en el back (sin abrir su flujo). Devuelve el
+  /// token y el usuario con que seguir, o null si no se pudo.
+  Future<(String, String)?> _confirmAccept(
+      String orderId, bool alreadyAccepted) async {
     final token = await _driverAuthService.token;
     final userId = _driverAuthService.userId;
     if (token == null || userId == null) {
       debugPrint('No se puede aceptar el pedido $orderId: falta la sesión');
-      return;
+      return null;
     }
 
     // La oferta ya lo aceptó en el back (antes de elegir mapa): no se repite.
@@ -860,11 +1191,10 @@ class HomeViewModel extends StreamViewModel<Position>
         _startSearching();
         notifyListeners();
       }
-      return;
+      return null;
     }
     debugPrint('Pedido $orderId aceptado');
-    await _runOrderFlow(orderId,
-        token: token, userId: userId, map: map, lat: lat, lng: lng);
+    return (token, userId);
   }
 
   /// `PATCH accepted`. Con la red caída o un timeout no se sabe si el back lo
@@ -922,6 +1252,8 @@ class HomeViewModel extends StreamViewModel<Position>
     _promptedPayments.add(orderId);
     _trips.beginFlow(orderId);
     _stopSearching();
+    // El socket que abre la entrega tiene que tener quién escuche las ofertas.
+    _listenToSocketStreams();
     _driverSocketService.startBroadcasting(orderId, userId, token);
     await _foregroundService.update(
       title: 'En reparto',
@@ -931,8 +1263,16 @@ class HomeViewModel extends StreamViewModel<Position>
       unawaited(NavigationLauncher.open(map, lat, lng));
     }
     await _navigationService.navigateToDeliveryView(orderId: orderId);
-    await _trips.waitFlow();
-    await _afterFlow(orderId);
+    // Abrió: termina la cadena de reintentos.
+    _flowRetryCount = 0;
+    _retryingOrderId = null;
+    // Desde acá la entrega ya arrancó: un error al cerrarla no la reintenta.
+    try {
+      await _trips.waitFlow();
+      await _afterFlow(orderId);
+    } catch (e) {
+      debugPrint('Error al cerrar la entrega $orderId: $e');
+    }
   }
 
   /// Pedido entregado en efectivo y sin cobrar (la app se cerró en medio del
@@ -943,9 +1283,19 @@ class HomeViewModel extends StreamViewModel<Position>
     _promptedPayments.add(orderId);
     _trips.beginFlow(orderId);
     _stopSearching();
-    await _navigationService.navigateToPaymentView(orderId: orderId);
-    await _trips.waitFlow();
-    await _afterFlow(orderId);
+    try {
+      await _navigationService.navigateToPaymentView(orderId: orderId);
+    } catch (e) {
+      // No se abrió el cobro: no se deja el pedido activo pegado.
+      _trips.endFlow();
+      rethrow;
+    }
+    try {
+      await _trips.waitFlow();
+      await _afterFlow(orderId);
+    } catch (e) {
+      debugPrint('Error al cerrar el cobro $orderId: $e');
+    }
   }
 
   /// Pedido que terminó su flujo hace un instante: el reintento de retomar
@@ -964,6 +1314,10 @@ class HomeViewModel extends StreamViewModel<Position>
       title: 'Estás en línea',
       text: 'Recibiendo pedidos cercanos',
     );
+    // Una entrega que reabrió el socket por su cuenta completa el armado.
+    if (isOnline && !_onlineSetupDone && !_manuallyOffline) {
+      await _completeOnlineSetup();
+    }
     if (isOnline) _startSearching();
     notifyListeners();
     // Si el admin le asignó otro pedido mientras tanto, la oferta se rechazó
@@ -980,9 +1334,12 @@ class HomeViewModel extends StreamViewModel<Position>
   /// `_resuming` sigue arriba hasta entonces).
   void _resumeSoon(String except) {
     final notifier = _notifier;
+    final epoch = _sessionEpoch;
     unawaited(Future<void>.delayed(
         Duration.zero,
-        () => resumeActiveOrder(except: except, collect: false)
+        () => (epoch != _sessionEpoch || _disposed
+                ? Future<void>.value()
+                : resumeActiveOrder(except: except, collect: false))
             // Terminado el pedido (y el que se haya retomado): los avisos de
             // taller que esperaban pueden salir.
             .whenComplete(notifier.recheck)));
@@ -1183,15 +1540,27 @@ class HomeViewModel extends StreamViewModel<Position>
   /// [collect] además retoma el cobro de la jornada: SÓLO el último pedido que
   /// el chofer entregó hoy en efectivo y sigue sin cobrar (nunca en cadena, ni
   /// los de días anteriores, que quedan en "Cobros pendientes").
-  Future<void> resumeActiveOrder({String? except, bool collect = true}) async {
+  Future<void> resumeActiveOrder({
+    String? except,
+    bool collect = true,
+    bool retry = false,
+  }) async {
+    if (_inactive) return;
     if (_resuming || _offerOpen || _trips.activeOrderId != null) return;
     _resuming = true;
     final decision = _resumeDecision = Completer<void>();
+    final epoch = _sessionEpoch;
+    String? openingOrderId;
     try {
       final token = await _driverAuthService.token;
       final userId = _driverAuthService.userId;
-      if (token == null || userId == null) return;
+      if (token == null || userId == null || _inactive) return;
+      final queuedId = _queuedOrderId;
+      // La marca se conserva si la consulta falla: se limpia recién con la respuesta.
       final order = await _driverApi.activeOrder();
+      // Cerró sesión mientras se consultaba: no se abre nada.
+      if (epoch != _sessionEpoch || _inactive) return;
+      _queuedOrderId = null;
       DriverOrder? current;
       DriverOrder? toCollect;
       if (order != null && order.id != except) {
@@ -1208,6 +1577,22 @@ class HomeViewModel extends StreamViewModel<Position>
         // La oferta que espera se reanuda en un microtask, cuando el flujo ya
         // marcó el pedido como activo (primera línea de `_runOrderFlow`).
         decision.complete();
+        if (current.id == queuedId) {
+          _startingOrderId = current.id;
+          _trips.beginFlow(current.id);
+          try {
+            await _announceNext(current);
+          } catch (e) {
+            debugPrint('No se pudo anunciar el próximo pedido: $e');
+          } finally {
+            _startingOrderId = null;
+          }
+          if (epoch != _sessionEpoch || _inactive) {
+            _trips.endFlow();
+            return;
+          }
+        }
+        openingOrderId = current.id;
         await _runOrderFlow(current.id, token: token, userId: userId);
       } else if (toCollect != null) {
         debugPrint('Retomando el cobro del pedido ${toCollect.id}');
@@ -1216,10 +1601,33 @@ class HomeViewModel extends StreamViewModel<Position>
       }
     } catch (e) {
       debugPrint('No se pudo buscar un pedido en curso: $e');
+      // Si falló al abrir la entrega, no se deja el pedido activo pegado.
+      final failed = openingOrderId;
+      if (failed != null) _trips.endFlow();
+      // Si ya venía reintentando, cualquier error (también de red al consultar)
+      // reprograma mientras queden intentos.
+      if (failed != null || retry) {
+        _retryingOrderId = failed ?? _retryingOrderId;
+        _scheduleFlowRetry(epoch);
+      }
     } finally {
       _resuming = false;
       if (!decision.isCompleted) decision.complete();
     }
+  }
+
+  /// El pedido que el chofer había aceptado en espera pasa a ser el actual.
+  Future<void> _announceNext(DriverOrder next) {
+    final who = [next.customerName, next.address]
+        .whereType<String>()
+        .where((t) => t.trim().isNotEmpty)
+        .join(' · ');
+    return _dialogService.showDialog(
+      title: 'Tu próximo pedido',
+      description: who.isEmpty
+          ? 'Ya podés salir con el pedido que aceptaste.'
+          : 'Ya podés salir con el pedido que aceptaste: $who.',
+    );
   }
 
   bool _isTodaysPendingCollection(DriverOrder o) {

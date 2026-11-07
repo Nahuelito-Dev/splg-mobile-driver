@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 
@@ -7,7 +8,7 @@ import 'package:splg_driver/models/truck_load.dart';
 import 'package:splg_driver/ui/widgets/load_scaffold.dart';
 import 'my_load_viewmodel.dart';
 
-/// Mi carga: lo que el chofer lleva en el camión, sólo lectura.
+/// Mi carga: lo que el chofer lleva en el camión, la salida y el regreso.
 class MyLoadView extends StackedView<MyLoadViewModel> {
   const MyLoadView({super.key});
 
@@ -60,10 +61,11 @@ class MyLoadView extends StackedView<MyLoadViewModel> {
                       ],
                       _LoadHeader(load: load),
                       for (final item in load.items) _ItemCard(item: item),
+                      _Actions(model: model, load: load),
                       Text(
-                        'La carga la abre y la rinde tu distribuidora. Acá ves '
-                        'lo que llevás y lo que te queda; se actualiza con '
-                        'cada entrega.',
+                        'La carga la abre y la cierra tu distribuidora. Acá '
+                        'ves lo que llevás y lo que te queda; se actualiza '
+                        'con cada entrega.',
                         style: SplgType.of(context).caption,
                       ),
                     ]),
@@ -73,6 +75,215 @@ class MyLoadView extends StackedView<MyLoadViewModel> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Salida y regreso del camión, según el estado de la carga.
+class _Actions extends StatelessWidget {
+  const _Actions({required this.model, required this.load});
+
+  final MyLoadViewModel model;
+  final TruckLoad load;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!load.canDepart && !load.canDeclareReturn) {
+      return const SizedBox.shrink();
+    }
+    final type = SplgType.of(context);
+    final brasa = context.brasa;
+    final error = model.actionError;
+    final hint = switch (load.status) {
+      TruckLoadStatus.loading =>
+        'Cuando tengas todo cargado en el camión, confirmá la salida: recién '
+            'ahí empezás a recibir pedidos.',
+      TruckLoadStatus.onRoute =>
+        'Al volver, declarás lo que traés en el camión. Antes tenés que '
+            'entregar o liberar los pedidos en curso.',
+      _ => 'Ya declaraste el regreso. Si te equivocaste, podés corregirlo '
+          'hasta que tu distribuidora cierre la carga.',
+    };
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(hint, key: const Key('my-load-hint'), style: type.caption),
+          const SizedBox(height: 10),
+          if (error != null) ...[
+            Text(error,
+                key: const Key('my-load-action-error'),
+                style: type.body.copyWith(color: brasa.danger)),
+            const SizedBox(height: 10),
+          ],
+          if (load.canDepart)
+            SplgButton(
+              key: const Key('my-load-depart'),
+              title: 'Confirmar salida del camión',
+              loading: model.acting,
+              onPressed: () => _depart(context),
+            )
+          else
+            SplgButton(
+              key: const Key('my-load-return'),
+              title: load.status == TruckLoadStatus.returned
+                  ? 'Corregir el regreso'
+                  : 'Declarar regreso del camión',
+              loading: model.acting,
+              onPressed: () => _return(context),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _depart(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Confirmar la salida?'),
+        content: Text('El camión sale con la carga N° ${load.number}: lo '
+            'cargado pasa del depósito al camión.'),
+        actions: [
+          TextButton(
+            key: const Key('my-load-depart-cancel'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            key: const Key('my-load-depart-confirm'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Confirmar salida'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await model.depart();
+  }
+
+  Future<void> _return(BuildContext context) async {
+    model.startReturn();
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ReturnSheet(model: model),
+    );
+  }
+}
+
+/// Formulario del regreso: por cada garrafa, las llenas y las vacías que
+/// vuelven en el camión.
+class ReturnSheet extends StatelessWidget {
+  const ReturnSheet({super.key, required this.model});
+
+  final MyLoadViewModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = SplgType.of(context);
+    final brasa = context.brasa;
+    return ListenableBuilder(
+      listenable: model,
+      builder: (context, _) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, 0, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Regreso del camión', style: type.subtitle),
+              const SizedBox(height: 4),
+              Text(
+                  'Contá lo que traés en el camión de cada garrafa, aunque '
+                  'sea cero.',
+                  style: type.caption),
+              const SizedBox(height: 12),
+              for (final f in model.returnFields) ...[
+                Text(f.item.type, style: type.bodyStrong),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _CountField(
+                        fieldKey: Key('return-full-${f.item.gasCylinderId}'),
+                        label: 'Llenas',
+                        controller: f.full,
+                        error: f.fullError,
+                        enabled: !model.acting,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _CountField(
+                        fieldKey: Key('return-empty-${f.item.gasCylinderId}'),
+                        label: 'Vacías',
+                        controller: f.empty,
+                        error: f.emptyError,
+                        enabled: !model.acting,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (model.returnError != null) ...[
+                Text(model.returnError!,
+                    key: const Key('return-error'),
+                    style: type.body.copyWith(color: brasa.danger)),
+                const SizedBox(height: 10),
+              ],
+              SplgButton(
+                key: const Key('return-submit'),
+                title: 'Declarar regreso',
+                loading: model.acting,
+                onPressed: () async {
+                  final ok = await model.submitReturn();
+                  if (ok && context.mounted) Navigator.of(context).pop(true);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountField extends StatelessWidget {
+  const _CountField({
+    required this.fieldKey,
+    required this.label,
+    required this.controller,
+    required this.error,
+    required this.enabled,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final TextEditingController controller;
+  final String? error;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: SplgType.of(context).caption),
+        const SizedBox(height: 4),
+        SplgTextField(
+          key: fieldKey,
+          controller: controller,
+          enabled: enabled,
+          errorText: error,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        ),
+      ],
     );
   }
 }
@@ -154,6 +365,9 @@ class _LoadHeader extends StatelessWidget {
               SplgInfoRow(title: 'Apertura:', value: formatDateTime(opened)),
             if (departed != null)
               SplgInfoRow(title: 'Salida:', value: formatDateTime(departed)),
+            if (load.returnedAt != null)
+              SplgInfoRow(
+                  title: 'Regreso:', value: formatDateTime(load.returnedAt!)),
             if (load.helperName != null)
               SplgInfoRow(title: 'Ayudante:', value: load.helperName),
           ],
@@ -219,6 +433,13 @@ class _ItemCard extends StatelessWidget {
               ],
             ),
           ),
+          if (item.declaredReturnFull != null &&
+              item.declaredReturnEmpty != null) ...[
+            const SizedBox(height: 8),
+            row('Declaraste llenas', item.declaredReturnFull!,
+                key: Key('my-load-declared-full-${item.type}')),
+            row('Declaraste vacías', item.declaredReturnEmpty!),
+          ],
         ],
       ),
     );

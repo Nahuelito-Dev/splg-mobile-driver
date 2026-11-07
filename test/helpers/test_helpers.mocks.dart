@@ -14,27 +14,28 @@ import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i13;
 import 'package:socket_io_client/socket_io_client.dart' as _i21;
 import 'package:splg_driver/core/network/api_client.dart' as _i26;
-import 'package:splg_driver/models/cylinder_pickup.dart' as _i36;
+import 'package:splg_driver/models/cylinder_pickup.dart' as _i37;
 import 'package:splg_driver/models/driver_data.dart' as _i5;
 import 'package:splg_driver/models/driver_ops.dart' as _i9;
 import 'package:splg_driver/models/maintenance.dart' as _i10;
+import 'package:splg_driver/models/order_history.dart' as _i29;
 import 'package:splg_driver/models/route_batch.dart' as _i11;
 import 'package:splg_driver/models/trip_order.dart' as _i7;
 import 'package:splg_driver/models/truck_load.dart' as _i6;
 import 'package:splg_driver/services/app_permissions.dart' as _i25;
 import 'package:splg_driver/services/driver_api_service.dart' as _i28;
 import 'package:splg_driver/services/driver_auth_service.dart' as _i22;
-import 'package:splg_driver/services/driver_ops_repository.dart' as _i30;
+import 'package:splg_driver/services/driver_ops_repository.dart' as _i31;
 import 'package:splg_driver/services/driver_socket_service.dart' as _i20;
 import 'package:splg_driver/services/fcm_service.dart' as _i24;
 import 'package:splg_driver/services/foreground_service.dart' as _i23;
 import 'package:splg_driver/services/location_service.dart' as _i17;
-import 'package:splg_driver/services/maintenance_board.dart' as _i32;
-import 'package:splg_driver/services/maintenance_notifier.dart' as _i33;
-import 'package:splg_driver/services/maintenance_repository.dart' as _i31;
-import 'package:splg_driver/services/payment_repository.dart' as _i29;
-import 'package:splg_driver/services/recovery_repository.dart' as _i35;
-import 'package:splg_driver/services/route_batch_repository.dart' as _i34;
+import 'package:splg_driver/services/maintenance_board.dart' as _i33;
+import 'package:splg_driver/services/maintenance_notifier.dart' as _i34;
+import 'package:splg_driver/services/maintenance_repository.dart' as _i32;
+import 'package:splg_driver/services/payment_repository.dart' as _i30;
+import 'package:splg_driver/services/recovery_repository.dart' as _i36;
+import 'package:splg_driver/services/route_batch_repository.dart' as _i35;
 import 'package:splg_driver/services/trip_service.dart' as _i8;
 import 'package:splg_lib/permissions/app_permission.dart' as _i19;
 import 'package:splg_lib/permissions/permission_gateway.dart' as _i2;
@@ -178,8 +179,8 @@ class _FakeWorkday_11 extends _i1.SmartFake implements _i9.Workday {
         );
 }
 
-class _FakeSettlement_12 extends _i1.SmartFake implements _i9.Settlement {
-  _FakeSettlement_12(
+class _FakeTruckLoad_12 extends _i1.SmartFake implements _i6.TruckLoad {
+  _FakeTruckLoad_12(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -188,9 +189,19 @@ class _FakeSettlement_12 extends _i1.SmartFake implements _i9.Settlement {
         );
 }
 
-class _FakeSettlementPreview_13 extends _i1.SmartFake
+class _FakeSettlement_13 extends _i1.SmartFake implements _i9.Settlement {
+  _FakeSettlement_13(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
+class _FakeSettlementPreview_14 extends _i1.SmartFake
     implements _i9.SettlementPreview {
-  _FakeSettlementPreview_13(
+  _FakeSettlementPreview_14(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -199,9 +210,9 @@ class _FakeSettlementPreview_13 extends _i1.SmartFake
         );
 }
 
-class _FakeFuelLoadRecord_14 extends _i1.SmartFake
+class _FakeFuelLoadRecord_15 extends _i1.SmartFake
     implements _i9.FuelLoadRecord {
-  _FakeFuelLoadRecord_14(
+  _FakeFuelLoadRecord_15(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -210,9 +221,9 @@ class _FakeFuelLoadRecord_14 extends _i1.SmartFake
         );
 }
 
-class _FakeAccidentRecord_15 extends _i1.SmartFake
+class _FakeAccidentRecord_16 extends _i1.SmartFake
     implements _i9.AccidentRecord {
-  _FakeAccidentRecord_15(
+  _FakeAccidentRecord_16(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -221,9 +232,9 @@ class _FakeAccidentRecord_15 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenancePage_16 extends _i1.SmartFake
+class _FakeMaintenancePage_17 extends _i1.SmartFake
     implements _i10.MaintenancePage {
-  _FakeMaintenancePage_16(
+  _FakeMaintenancePage_17(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -232,9 +243,9 @@ class _FakeMaintenancePage_16 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceSettings_17 extends _i1.SmartFake
+class _FakeMaintenanceSettings_18 extends _i1.SmartFake
     implements _i10.MaintenanceSettings {
-  _FakeMaintenanceSettings_17(
+  _FakeMaintenanceSettings_18(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -243,9 +254,9 @@ class _FakeMaintenanceSettings_17 extends _i1.SmartFake
         );
 }
 
-class _FakeMaintenanceProposal_18 extends _i1.SmartFake
+class _FakeMaintenanceProposal_19 extends _i1.SmartFake
     implements _i10.MaintenanceProposal {
-  _FakeMaintenanceProposal_18(
+  _FakeMaintenanceProposal_19(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -254,8 +265,8 @@ class _FakeMaintenanceProposal_18 extends _i1.SmartFake
         );
 }
 
-class _FakeRouteBatch_19 extends _i1.SmartFake implements _i11.RouteBatch {
-  _FakeRouteBatch_19(
+class _FakeRouteBatch_20 extends _i1.SmartFake implements _i11.RouteBatch {
+  _FakeRouteBatch_20(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -264,9 +275,9 @@ class _FakeRouteBatch_19 extends _i1.SmartFake implements _i11.RouteBatch {
         );
 }
 
-class _FakeRouteBatchDecision_20 extends _i1.SmartFake
+class _FakeRouteBatchDecision_21 extends _i1.SmartFake
     implements _i11.RouteBatchDecision {
-  _FakeRouteBatchDecision_20(
+  _FakeRouteBatchDecision_21(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -2111,6 +2122,32 @@ class MockDriverApiService extends _i1.Mock implements _i28.DriverApiService {
       ) as _i15.Future<_i5.DriverOrder?>);
 
   @override
+  _i15.Future<List<_i29.OrderIncident>> orderIncidents(String? orderId) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #orderIncidents,
+          [orderId],
+        ),
+        returnValue:
+            _i15.Future<List<_i29.OrderIncident>>.value(<_i29.OrderIncident>[]),
+        returnValueForMissingStub:
+            _i15.Future<List<_i29.OrderIncident>>.value(<_i29.OrderIncident>[]),
+      ) as _i15.Future<List<_i29.OrderIncident>>);
+
+  @override
+  _i15.Future<List<_i29.StatusChange>> orderStatusHistory(String? orderId) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #orderStatusHistory,
+          [orderId],
+        ),
+        returnValue:
+            _i15.Future<List<_i29.StatusChange>>.value(<_i29.StatusChange>[]),
+        returnValueForMissingStub:
+            _i15.Future<List<_i29.StatusChange>>.value(<_i29.StatusChange>[]),
+      ) as _i15.Future<List<_i29.StatusChange>>);
+
+  @override
   _i15.Future<List<_i5.DriverOrder>> orders() => (super.noSuchMethod(
         Invocation.method(
           #orders,
@@ -2251,6 +2288,16 @@ class MockTripService extends _i1.Mock implements _i8.TripService {
   _i15.Future<void> reject(String? id) => (super.noSuchMethod(
         Invocation.method(
           #reject,
+          [id],
+        ),
+        returnValue: _i15.Future<void>.value(),
+        returnValueForMissingStub: _i15.Future<void>.value(),
+      ) as _i15.Future<void>);
+
+  @override
+  _i15.Future<void> release(String? id) => (super.noSuchMethod(
+        Invocation.method(
+          #release,
           [id],
         ),
         returnValue: _i15.Future<void>.value(),
@@ -2416,7 +2463,7 @@ class MockTripService extends _i1.Mock implements _i8.TripService {
 /// A class which mocks [PaymentRepository].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockPaymentRepository extends _i1.Mock implements _i29.PaymentRepository {
+class MockPaymentRepository extends _i1.Mock implements _i30.PaymentRepository {
   @override
   _i15.Future<bool> confirmReceived(String? orderId) => (super.noSuchMethod(
         Invocation.method(
@@ -2464,7 +2511,7 @@ class MockPaymentRepository extends _i1.Mock implements _i29.PaymentRepository {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockDriverOpsRepository extends _i1.Mock
-    implements _i30.DriverOpsRepository {
+    implements _i31.DriverOpsRepository {
   @override
   _i15.Future<_i9.Workday?> currentWorkday() => (super.noSuchMethod(
         Invocation.method(
@@ -2522,6 +2569,66 @@ class MockDriverOpsRepository extends _i1.Mock
       ) as _i15.Future<_i9.Workday>);
 
   @override
+  _i15.Future<_i6.TruckLoad> departTruckLoad(String? loadId) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #departTruckLoad,
+          [loadId],
+        ),
+        returnValue: _i15.Future<_i6.TruckLoad>.value(_FakeTruckLoad_12(
+          this,
+          Invocation.method(
+            #departTruckLoad,
+            [loadId],
+          ),
+        )),
+        returnValueForMissingStub:
+            _i15.Future<_i6.TruckLoad>.value(_FakeTruckLoad_12(
+          this,
+          Invocation.method(
+            #departTruckLoad,
+            [loadId],
+          ),
+        )),
+      ) as _i15.Future<_i6.TruckLoad>);
+
+  @override
+  _i15.Future<_i6.TruckLoad> returnTruckLoad(
+    String? loadId,
+    List<_i6.ReturnDeclaration>? items,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #returnTruckLoad,
+          [
+            loadId,
+            items,
+          ],
+        ),
+        returnValue: _i15.Future<_i6.TruckLoad>.value(_FakeTruckLoad_12(
+          this,
+          Invocation.method(
+            #returnTruckLoad,
+            [
+              loadId,
+              items,
+            ],
+          ),
+        )),
+        returnValueForMissingStub:
+            _i15.Future<_i6.TruckLoad>.value(_FakeTruckLoad_12(
+          this,
+          Invocation.method(
+            #returnTruckLoad,
+            [
+              loadId,
+              items,
+            ],
+          ),
+        )),
+      ) as _i15.Future<_i6.TruckLoad>);
+
+  @override
   _i15.Future<_i9.Settlement> mySettlement({DateTime? date}) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -2529,7 +2636,7 @@ class MockDriverOpsRepository extends _i1.Mock
           [],
           {#date: date},
         ),
-        returnValue: _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
+        returnValue: _i15.Future<_i9.Settlement>.value(_FakeSettlement_13(
           this,
           Invocation.method(
             #mySettlement,
@@ -2538,7 +2645,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
+            _i15.Future<_i9.Settlement>.value(_FakeSettlement_13(
           this,
           Invocation.method(
             #mySettlement,
@@ -2580,7 +2687,7 @@ class MockDriverOpsRepository extends _i1.Mock
             #idempotencyKey: idempotencyKey,
           },
         ),
-        returnValue: _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
+        returnValue: _i15.Future<_i9.Settlement>.value(_FakeSettlement_13(
           this,
           Invocation.method(
             #submitSettlement,
@@ -2594,7 +2701,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i15.Future<_i9.Settlement>.value(_FakeSettlement_12(
+            _i15.Future<_i9.Settlement>.value(_FakeSettlement_13(
           this,
           Invocation.method(
             #submitSettlement,
@@ -2625,7 +2732,7 @@ class MockDriverOpsRepository extends _i1.Mock
           },
         ),
         returnValue:
-            _i15.Future<_i9.SettlementPreview>.value(_FakeSettlementPreview_13(
+            _i15.Future<_i9.SettlementPreview>.value(_FakeSettlementPreview_14(
           this,
           Invocation.method(
             #previewSettlement,
@@ -2637,7 +2744,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i15.Future<_i9.SettlementPreview>.value(_FakeSettlementPreview_13(
+            _i15.Future<_i9.SettlementPreview>.value(_FakeSettlementPreview_14(
           this,
           Invocation.method(
             #previewSettlement,
@@ -2692,7 +2799,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i15.Future<_i9.FuelLoadRecord>.value(_FakeFuelLoadRecord_14(
+            _i15.Future<_i9.FuelLoadRecord>.value(_FakeFuelLoadRecord_15(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2701,7 +2808,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i15.Future<_i9.FuelLoadRecord>.value(_FakeFuelLoadRecord_14(
+            _i15.Future<_i9.FuelLoadRecord>.value(_FakeFuelLoadRecord_15(
           this,
           Invocation.method(
             #registerFuelLoad,
@@ -2723,7 +2830,7 @@ class MockDriverOpsRepository extends _i1.Mock
           {#idempotencyKey: idempotencyKey},
         ),
         returnValue:
-            _i15.Future<_i9.AccidentRecord>.value(_FakeAccidentRecord_15(
+            _i15.Future<_i9.AccidentRecord>.value(_FakeAccidentRecord_16(
           this,
           Invocation.method(
             #reportAccident,
@@ -2732,7 +2839,7 @@ class MockDriverOpsRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i15.Future<_i9.AccidentRecord>.value(_FakeAccidentRecord_15(
+            _i15.Future<_i9.AccidentRecord>.value(_FakeAccidentRecord_16(
           this,
           Invocation.method(
             #reportAccident,
@@ -2747,7 +2854,7 @@ class MockDriverOpsRepository extends _i1.Mock
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockMaintenanceRepository extends _i1.Mock
-    implements _i31.MaintenanceRepository {
+    implements _i32.MaintenanceRepository {
   @override
   _i15.Future<_i10.MaintenancePage> proposals({
     int? limit = 50,
@@ -2763,7 +2870,7 @@ class MockMaintenanceRepository extends _i1.Mock
           },
         ),
         returnValue:
-            _i15.Future<_i10.MaintenancePage>.value(_FakeMaintenancePage_16(
+            _i15.Future<_i10.MaintenancePage>.value(_FakeMaintenancePage_17(
           this,
           Invocation.method(
             #proposals,
@@ -2775,7 +2882,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i15.Future<_i10.MaintenancePage>.value(_FakeMaintenancePage_16(
+            _i15.Future<_i10.MaintenancePage>.value(_FakeMaintenancePage_17(
           this,
           Invocation.method(
             #proposals,
@@ -2795,7 +2902,7 @@ class MockMaintenanceRepository extends _i1.Mock
           [],
         ),
         returnValue: _i15.Future<_i10.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_17(
+            _FakeMaintenanceSettings_18(
           this,
           Invocation.method(
             #settings,
@@ -2803,7 +2910,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i15.Future<_i10.MaintenanceSettings>.value(
-            _FakeMaintenanceSettings_17(
+            _FakeMaintenanceSettings_18(
           this,
           Invocation.method(
             #settings,
@@ -2829,7 +2936,7 @@ class MockMaintenanceRepository extends _i1.Mock
           [proposalId],
         ),
         returnValue: _i15.Future<_i10.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_18(
+            _FakeMaintenanceProposal_19(
           this,
           Invocation.method(
             #accept,
@@ -2837,7 +2944,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i15.Future<_i10.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_18(
+            _FakeMaintenanceProposal_19(
           this,
           Invocation.method(
             #accept,
@@ -2864,7 +2971,7 @@ class MockMaintenanceRepository extends _i1.Mock
           },
         ),
         returnValue: _i15.Future<_i10.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_18(
+            _FakeMaintenanceProposal_19(
           this,
           Invocation.method(
             #reject,
@@ -2877,7 +2984,7 @@ class MockMaintenanceRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i15.Future<_i10.MaintenanceProposal>.value(
-            _FakeMaintenanceProposal_18(
+            _FakeMaintenanceProposal_19(
           this,
           Invocation.method(
             #reject,
@@ -2895,7 +3002,7 @@ class MockMaintenanceRepository extends _i1.Mock
 /// A class which mocks [MaintenanceBoard].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockMaintenanceBoard extends _i1.Mock implements _i32.MaintenanceBoard {
+class MockMaintenanceBoard extends _i1.Mock implements _i33.MaintenanceBoard {
   @override
   int get tallerOpen => (super.noSuchMethod(
         Invocation.getter(#tallerOpen),
@@ -2994,7 +3101,7 @@ class MockMaintenanceBoard extends _i1.Mock implements _i32.MaintenanceBoard {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockMaintenanceNotifier extends _i1.Mock
-    implements _i33.MaintenanceNotifier {
+    implements _i34.MaintenanceNotifier {
   @override
   List<_i10.MaintenanceProposal> get pending => (super.noSuchMethod(
         Invocation.getter(#pending),
@@ -3132,7 +3239,7 @@ class MockMaintenanceNotifier extends _i1.Mock
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockRouteBatchRepository extends _i1.Mock
-    implements _i34.RouteBatchRepository {
+    implements _i35.RouteBatchRepository {
   @override
   _i15.Future<List<_i11.RouteBatch>> mine({
     int? limit = 20,
@@ -3159,7 +3266,7 @@ class MockRouteBatchRepository extends _i1.Mock
           #batch,
           [batchId],
         ),
-        returnValue: _i15.Future<_i11.RouteBatch>.value(_FakeRouteBatch_19(
+        returnValue: _i15.Future<_i11.RouteBatch>.value(_FakeRouteBatch_20(
           this,
           Invocation.method(
             #batch,
@@ -3167,7 +3274,7 @@ class MockRouteBatchRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i15.Future<_i11.RouteBatch>.value(_FakeRouteBatch_19(
+            _i15.Future<_i11.RouteBatch>.value(_FakeRouteBatch_20(
           this,
           Invocation.method(
             #batch,
@@ -3184,7 +3291,7 @@ class MockRouteBatchRepository extends _i1.Mock
           [batchId],
         ),
         returnValue: _i15.Future<_i11.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_20(
+            _FakeRouteBatchDecision_21(
           this,
           Invocation.method(
             #accept,
@@ -3192,7 +3299,7 @@ class MockRouteBatchRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i15.Future<_i11.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_20(
+            _FakeRouteBatchDecision_21(
           this,
           Invocation.method(
             #accept,
@@ -3209,7 +3316,7 @@ class MockRouteBatchRepository extends _i1.Mock
           [batchId],
         ),
         returnValue: _i15.Future<_i11.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_20(
+            _FakeRouteBatchDecision_21(
           this,
           Invocation.method(
             #reject,
@@ -3217,7 +3324,7 @@ class MockRouteBatchRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub: _i15.Future<_i11.RouteBatchDecision>.value(
-            _FakeRouteBatchDecision_20(
+            _FakeRouteBatchDecision_21(
           this,
           Invocation.method(
             #reject,
@@ -3240,18 +3347,18 @@ class MockRouteBatchRepository extends _i1.Mock
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockRecoveryRepository extends _i1.Mock
-    implements _i35.RecoveryRepository {
+    implements _i36.RecoveryRepository {
   @override
-  _i15.Future<List<_i36.CylinderPickup>> pickups() => (super.noSuchMethod(
+  _i15.Future<List<_i37.CylinderPickup>> pickups() => (super.noSuchMethod(
         Invocation.method(
           #pickups,
           [],
         ),
-        returnValue: _i15.Future<List<_i36.CylinderPickup>>.value(
-            <_i36.CylinderPickup>[]),
-        returnValueForMissingStub: _i15.Future<List<_i36.CylinderPickup>>.value(
-            <_i36.CylinderPickup>[]),
-      ) as _i15.Future<List<_i36.CylinderPickup>>);
+        returnValue: _i15.Future<List<_i37.CylinderPickup>>.value(
+            <_i37.CylinderPickup>[]),
+        returnValueForMissingStub: _i15.Future<List<_i37.CylinderPickup>>.value(
+            <_i37.CylinderPickup>[]),
+      ) as _i15.Future<List<_i37.CylinderPickup>>);
 
   @override
   _i15.Future<void> confirm(String? noticeId) => (super.noSuchMethod(

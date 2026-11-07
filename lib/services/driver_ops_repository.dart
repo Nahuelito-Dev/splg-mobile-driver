@@ -10,6 +10,7 @@ import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_ops.dart';
+import 'package:splg_driver/models/truck_load.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 
 /// Lo que el chofer hace en el día además de entregar. Las pantallas programan
@@ -28,6 +29,16 @@ abstract class DriverOpsRepository {
 
   /// `POST /attendance/mine/check-out`.
   Future<Workday> checkOut();
+
+  /// `PATCH /truck-loads/:id/depart`: confirma la salida del camión
+  /// (`loading -> on_route`). Devuelve la carga como queda.
+  Future<TruckLoad> departTruckLoad(String loadId);
+
+  /// `PATCH /truck-loads/:id/return`: declara lo que vuelve de TODAS las
+  /// garrafas de la carga (`on_route -> returned`). Se puede volver a declarar
+  /// hasta que la distribuidora cierre. Devuelve la carga como queda.
+  Future<TruckLoad> returnTruckLoad(
+      String loadId, List<ReturnDeclaration> items);
 
   /// `GET /driver-settlements/mine`: la rendición del día (la abre si no existe).
   Future<Settlement> mySettlement({DateTime? date});
@@ -89,6 +100,8 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
   static const fuelPath = 'fleet/fuel-loads/mine';
   static const accidentPath = 'fleet/accidents/mine';
   static String submitPath(String id) => 'driver-settlements/$id/submit';
+  static String departPath(String id) => 'truck-loads/$id/depart';
+  static String returnPath(String id) => 'truck-loads/$id/return';
   static String fuelQuotePath(num liters, num unitPrice) =>
       '${AppConfig.apiV2Url}fleet/fuel-loads/mine/quote'
       '?liters=$liters&unitPrice=$unitPrice';
@@ -142,6 +155,22 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
     }
   }
 
+  /// `PATCH` con `Idempotency-Key`, con la misma regla de la clave que [_post].
+  Future<Response> _patchIdempotent(
+      String path, Map<String, dynamic> body) async {
+    final id = 'PATCH $path:${jsonEncode(body)}';
+    final key = _keys.putIfAbsent(id, _uuid.v4);
+    try {
+      final r = await _api
+          .patch(path, body, await _token(), {'Idempotency-Key': key});
+      _keys.remove(id);
+      return r;
+    } catch (e) {
+      if (!keepIdempotencyKey(e)) _keys.remove(id);
+      rethrow;
+    }
+  }
+
   static Map<String, dynamic> _map(Response r) =>
       Map<String, dynamic>.from(r.data as Map);
 
@@ -188,6 +217,22 @@ class HttpDriverOpsRepository implements DriverOpsRepository {
   @override
   Future<Workday> checkOut() async =>
       _remember(Workday.fromJson(_map(await _post(checkOutPath, const {}))));
+
+  @override
+  Future<TruckLoad> departTruckLoad(String loadId) async => TruckLoad.fromJson(
+      _map(await _patchIdempotent(departPath(loadId), const {})));
+
+  /// Sin `Idempotency-Key`: el back no la toma en esta ruta y repetir la misma
+  /// declaración la deja igual.
+  @override
+  Future<TruckLoad> returnTruckLoad(
+          String loadId, List<ReturnDeclaration> items) async =>
+      TruckLoad.fromJson(_map(await _api.patch(
+          returnPath(loadId),
+          {
+            'items': [for (final i in items) i.toJson()],
+          },
+          await _token())));
 
   @override
   Future<Settlement> mySettlement({DateTime? date}) async {

@@ -4,6 +4,7 @@ import 'package:golden_toolkit/golden_toolkit.dart';
 import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/order_history.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/ui/views/change_password/change_password_view.dart';
 import 'package:splg_driver/ui/views/deliveries/deliveries_view.dart';
@@ -174,6 +175,35 @@ void main() {
 
   testGoldens('Detalle de la entrega', (t) async {
     await loadAppFonts();
+    when(api.orderIncidents('o1')).thenAnswer((_) async => [
+          OrderIncident(
+            id: 'i1',
+            type: 'no_show',
+            description: 'Toqué timbre dos veces y no atendió nadie.',
+            status: IncidentStatus.resolved,
+            resolutionNote: 'Se reprogramó con el cliente por teléfono.',
+            createdAt: DateTime(2026, 10, 3, 18, 20),
+          ),
+        ]);
+    when(api.orderStatusHistory('o1')).thenAnswer((_) async => [
+          StatusChange(
+              toStatus: DriverOrderStatus.pending,
+              isNote: false,
+              changedAt: DateTime(2026, 10, 3, 17, 50),
+              actorRole: 'customer'),
+          StatusChange(
+              fromStatus: DriverOrderStatus.pending,
+              toStatus: DriverOrderStatus.accepted,
+              isNote: false,
+              changedAt: DateTime(2026, 10, 3, 17, 55),
+              actorRole: 'delivery'),
+          StatusChange(
+              fromStatus: DriverOrderStatus.onTheWay,
+              toStatus: DriverOrderStatus.delivered,
+              isNote: false,
+              changedAt: DateTime(2026, 10, 3, 18, 51),
+              actorRole: 'customer'),
+        ]);
     await pumpScreen(t, DeliveryDetailView(order: delivered));
     await check(t, 'delivery_detail');
   });

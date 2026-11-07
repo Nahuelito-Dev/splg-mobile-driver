@@ -333,14 +333,14 @@ class _TripSheet extends StatelessWidget {
             SplgActionButton(
               key: const Key('trip-leave'),
               title: 'Salir hacia el cliente',
-              loading: model.isUpdatingStatus,
+              loading: model.isUpdatingStatus || model.isReleasing,
               onPressed: model.markOnTheWay,
             )
           else
             SplgActionButton(
               key: const Key('trip-arrive'),
               title: 'Llegué / Entregar',
-              loading: model.isUpdatingStatus,
+              loading: model.isUpdatingStatus || model.isReleasing,
               onPressed: model.arriveAndDeliver,
             ),
         ],
@@ -402,6 +402,16 @@ Future<void> _showMore(BuildContext context, DeliveryViewModel model) {
               );
             },
           ),
+          if (model.canRelease)
+            SplgOptionRow(
+              key: const Key('trip-release'),
+              icon: SplgIcons.userMinus,
+              title: 'Liberar pedido',
+              onTap: () {
+                Navigator.pop(sheet);
+                _confirmRelease(context, model);
+              },
+            ),
           SplgOptionRow(
             icon: SplgIcons.error,
             title: 'Reportar un problema',
@@ -419,4 +429,31 @@ Future<void> _showMore(BuildContext context, DeliveryViewModel model) {
       ),
     ),
   );
+}
+
+/// Liberar el pedido no tiene vuelta atrás: se confirma antes.
+Future<void> _confirmRelease(
+    BuildContext context, DeliveryViewModel model) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('¿Liberar el pedido?'),
+      content: const Text('Si no podés entregarlo, el pedido vuelve a quedar '
+          'pendiente para otro chofer y dejás de verlo. Seguís en línea para '
+          'recibir otros.'),
+      actions: [
+        TextButton(
+          key: const Key('trip-release-cancel'),
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Volver'),
+        ),
+        TextButton(
+          key: const Key('trip-release-confirm'),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('Liberar'),
+        ),
+      ],
+    ),
+  );
+  if (ok == true) await model.releaseOrder();
 }

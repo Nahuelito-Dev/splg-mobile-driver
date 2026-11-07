@@ -134,6 +134,14 @@ class DeliveryViewModel extends BaseViewModel {
   bool _updating = false;
   bool get isUpdatingStatus => _updating;
 
+  bool _releasing = false;
+
+  /// Liberación del pedido en curso (`PATCH /orders/:id/cancel`).
+  bool get isReleasing => _releasing;
+
+  /// El chofer puede liberar el pedido: lo tiene aceptado o en camino.
+  bool get canRelease => (isAccepted || isOnTheWay) && !_closing;
+
   /// El chofer ya avisó al cliente que llegó (`PATCH arrived`). El back no
   /// cambia el estado, sólo notifica.
   bool arrivedNotified = false;
@@ -572,7 +580,7 @@ class DeliveryViewModel extends BaseViewModel {
 
   /// "Salir hacia el cliente": `PATCH status on_the_way`.
   Future<void> markOnTheWay() async {
-    if (_updating || !isAccepted) return;
+    if (_updating || _releasing || !isAccepted) return;
     _updating = true;
     errorMessage = null;
     notifyListeners();
@@ -586,10 +594,41 @@ class DeliveryViewModel extends BaseViewModel {
     if (!_disposed) notifyListeners();
   }
 
+  /// El chofer libera el pedido que no puede entregar (`PATCH
+  /// /orders/:id/cancel`): el back lo devuelve a pendiente para otro chofer.
+  /// La vista pide la confirmación antes. Con éxito se corta el reparto y se
+  /// vuelve al Inicio, que sigue en línea. Si el back lo rechaza se muestra el
+  /// motivo y se relee el pedido (pudo haberse entregado, cancelado o
+  /// reasignado mientras tanto). Devuelve `true` si quedó liberado.
+  Future<bool> releaseOrder() async {
+    if (_updating || _releasing || !canRelease) return false;
+    _releasing = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await _trips.release(orderId);
+    } catch (e) {
+      debugPrint('Error liberando el pedido $orderId: $e');
+      _releasing = false;
+      if (_disposed) return false;
+      errorMessage = _text(e);
+      notifyListeners();
+      await _refresh(silent: true);
+      return false;
+    }
+    _releasing = false;
+    _closing = true;
+    _stopPolling();
+    _driverSocketService.stopTracking();
+    _trips.endFlow();
+    _goHome();
+    return true;
+  }
+
   /// "Llegué / Entregar": avisa al cliente (`PATCH arrived`) y abre la entrega
   /// con QR. Si el aviso falla se dice y no se avanza.
   Future<void> arriveAndDeliver() async {
-    if (_updating || !isOnTheWay) return;
+    if (_updating || _releasing || !isOnTheWay) return;
     _updating = true;
     errorMessage = null;
     notifyListeners();

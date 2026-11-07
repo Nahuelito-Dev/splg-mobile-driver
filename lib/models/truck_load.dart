@@ -1,4 +1,5 @@
-// Carga del camión tal como la ve el chofer: lectura de `GET /truck-loads/mine`.
+// Carga del camión tal como la ve el chofer: `GET /truck-loads/mine` y las
+// respuestas de la salida y el regreso del camión.
 // Es tolerante: lo que falte queda en cero o null, nunca rompe.
 
 String? _str(Object? v) {
@@ -8,6 +9,9 @@ String? _str(Object? v) {
 
 int _int(Object? v) =>
     v is num ? v.toInt() : (int.tryParse(v?.toString() ?? '') ?? 0);
+
+int? _intOrNull(Object? v) =>
+    v is num ? v.toInt() : int.tryParse(v?.toString() ?? '');
 
 /// Estados de una carga (`TruckLoadStatus` del back).
 enum TruckLoadStatus {
@@ -35,6 +39,7 @@ enum TruckLoadStatus {
 /// Un renglón de la carga: un tipo de garrafa.
 class TruckLoadItem {
   const TruckLoadItem({
+    this.gasCylinderId = '',
     required this.type,
     required this.loadedFull,
     required this.loadedEmpty,
@@ -43,7 +48,12 @@ class TruckLoadItem {
     required this.collectedEmpty,
     required this.expectedFull,
     required this.expectedEmpty,
+    this.declaredReturnFull,
+    this.declaredReturnEmpty,
   });
+
+  /// Id de la garrafa: con él se declara lo que vuelve.
+  final String gasCylinderId;
 
   /// Tal como lo trae el back: "Garrafa 10kg".
   final String type;
@@ -61,7 +71,12 @@ class TruckLoadItem {
   /// Vacías que debería llevar: cargadas + recolectadas.
   final int expectedEmpty;
 
+  /// Lo que el chofer declaró que vuelve (null mientras no declaró).
+  final int? declaredReturnFull;
+  final int? declaredReturnEmpty;
+
   factory TruckLoadItem.fromJson(Map<String, dynamic> json) => TruckLoadItem(
+        gasCylinderId: _str(json['gasCylinderId']) ?? '',
         type: _str(json['gasCylinderType']) ?? 'Garrafa',
         loadedFull: _int(json['loadedFull']),
         loadedEmpty: _int(json['loadedEmpty']),
@@ -70,7 +85,32 @@ class TruckLoadItem {
         collectedEmpty: _int(json['collectedEmpty']),
         expectedFull: _int(json['expectedFull']),
         expectedEmpty: _int(json['expectedEmpty']),
+        declaredReturnFull: _intOrNull(json['declaredReturnFull']),
+        declaredReturnEmpty: _intOrNull(json['declaredReturnEmpty']),
       );
+}
+
+/// Lo que vuelve de un tipo de garrafa (`DeclaredItemInputDto` de
+/// `PATCH /truck-loads/:id/return`).
+class ReturnDeclaration {
+  const ReturnDeclaration({
+    required this.gasCylinderId,
+    required this.declaredFull,
+    required this.declaredEmpty,
+  });
+
+  final String gasCylinderId;
+  final int declaredFull;
+  final int declaredEmpty;
+
+  /// Tope por tipo que acepta el back (`MAX_POR_TIPO * 2`).
+  static const int max = 4000;
+
+  Map<String, dynamic> toJson() => {
+        'gasCylinderId': gasCylinderId,
+        'declaredFull': declaredFull,
+        'declaredEmpty': declaredEmpty,
+      };
 }
 
 class TruckLoad {
@@ -82,6 +122,7 @@ class TruckLoad {
     required this.originName,
     required this.openedAt,
     this.departedAt,
+    this.returnedAt,
     this.helperName,
     this.items = const [],
   });
@@ -93,8 +134,18 @@ class TruckLoad {
   final String originName;
   final DateTime? openedAt;
   final DateTime? departedAt;
+  final DateTime? returnedAt;
   final String? helperName;
   final List<TruckLoadItem> items;
+
+  /// El chofer puede confirmar la salida: la carga todavía está en el depósito
+  /// y tiene garrafas.
+  bool get canDepart => status == TruckLoadStatus.loading && items.isNotEmpty;
+
+  /// El chofer puede declarar lo que vuelve; ya declarado, puede corregirlo
+  /// hasta que la distribuidora cierre la carga.
+  bool get canDeclareReturn =>
+      status == TruckLoadStatus.onRoute || status == TruckLoadStatus.returned;
 
   factory TruckLoad.fromJson(Map<String, dynamic> json) {
     final items = json['items'];
@@ -106,6 +157,7 @@ class TruckLoad {
       originName: _str(json['originName']) ?? 'Sin depósito',
       openedAt: DateTime.tryParse(_str(json['openedAt']) ?? '')?.toLocal(),
       departedAt: DateTime.tryParse(_str(json['departedAt']) ?? '')?.toLocal(),
+      returnedAt: DateTime.tryParse(_str(json['returnedAt']) ?? '')?.toLocal(),
       helperName: _str(json['helperName']),
       items: items is List
           ? [

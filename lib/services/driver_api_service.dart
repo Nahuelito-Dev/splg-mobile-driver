@@ -6,6 +6,7 @@ import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/core/network/api_client.dart';
 import 'package:splg_driver/models/driver_ops.dart' show apiDay;
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/order_history.dart';
 import 'package:splg_driver/models/truck_load.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 
@@ -130,6 +131,31 @@ class DriverApiService {
     final data = res.data;
     if (res.statusCode == 204 || data is! Map || data.isEmpty) return null;
     return DriverOrder.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// `GET /incidents/order/:orderId`: las incidencias del pedido, con su
+  /// estado y la nota de resolución.
+  Future<List<OrderIncident>> orderIncidents(String orderId) async {
+    final res = await _api.get('incidents/order/$orderId', await _token());
+    final data = res.data;
+    return [
+      if (data is List)
+        for (final i in data.whereType<Map>())
+          OrderIncident.fromJson(Map<String, dynamic>.from(i)),
+    ];
+  }
+
+  /// `GET /orders/:id/status-history`: de qué estado a cuál, cuándo y quién,
+  /// del más viejo al más nuevo.
+  Future<List<StatusChange>> orderStatusHistory(String orderId) async {
+    final res =
+        await _api.get('orders/$orderId/status-history', await _token());
+    final data = res.data;
+    return [
+      if (data is List)
+        for (final i in data.whereType<Map>())
+          StatusChange.fromJson(Map<String, dynamic>.from(i)),
+    ];
   }
 
   /// Todo el historial: recorre las páginas hasta llegar al `total` del back.

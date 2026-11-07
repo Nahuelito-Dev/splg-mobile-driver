@@ -25,7 +25,7 @@ class DeliveryCodeInfo {
 }
 
 /// Llamadas del chofer sobre un pedido en curso: leerlo, aceptarlo, salir,
-/// avisar la llegada, pedir el código del QR y calificar al cliente. Cada
+/// avisar la llegada, liberarlo, pedir el código del QR y calificar al cliente. Cada
 /// método lanza si el back falla; las pantallas muestran el texto con
 /// `ApiErrorText`.
 ///
@@ -129,6 +129,16 @@ class TripService {
     return _once(action, () async {
       await _api.post(
           'orders/$id/reject', const {}, await _token(), _idem(action));
+    });
+  }
+
+  /// `PATCH /orders/:id/cancel` con el rol chofer: el back no lo cancela, lo
+  /// libera (vuelve a pendiente para otro chofer). El chofer no manda motivo.
+  Future<void> release(String id) {
+    final action = 'release:$id';
+    return _once(action, () async {
+      await _api.patch(
+          'orders/$id/cancel', const {}, await _token(), _idem(action));
     });
   }
 

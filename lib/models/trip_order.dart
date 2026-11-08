@@ -126,11 +126,7 @@ class TripOrder {
       notes: _s(json['customer_notes']),
       lines: items is List
           ? [
-              for (final i in items.whereType<Map>())
-                OrderLine(
-                  label: _s((i['gas_cylinder'] as Map?)?['type']) ?? 'Producto',
-                  quantity: _n(i['quantity']).toInt(),
-                ),
+              for (final i in items.whereType<Map>()) OrderLine.fromJson(i),
             ]
           : const [],
     );

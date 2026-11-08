@@ -61,9 +61,55 @@ class DriverVehicle {
 }
 
 class OrderLine {
-  const OrderLine({required this.label, required this.quantity});
+  const OrderLine({
+    required this.label,
+    required this.quantity,
+    this.gasCylinderId,
+    this.containersCharged = 0,
+    int? emptiesExpected,
+    this.emptiesReceived,
+  }) : _emptiesExpected = emptiesExpected;
+
+  /// Un renglón de `order_items[]` del pedido. Tolerante: un pedido sin los
+  /// campos de F35 espera una vacía por unidad y no tiene vacías declaradas.
+  factory OrderLine.fromJson(Map<dynamic, dynamic> json) {
+    final cylinder = json['gas_cylinder'];
+    final quantity = _num(json['quantity']).toInt();
+    final charged = _num(json['containersCharged']).toInt();
+    final expected = json['emptiesExpected'];
+    final received = json['emptiesReceived'];
+    return OrderLine(
+      label: _str(cylinder is Map ? cylinder['type'] : null) ?? 'Producto',
+      quantity: quantity,
+      gasCylinderId: _str(cylinder is Map ? cylinder['gas_cylinder_id'] : null),
+      containersCharged: charged,
+      emptiesExpected: expected == null ? null : _num(expected).toInt(),
+      emptiesReceived: received == null ? null : _num(received).toInt(),
+    );
+  }
+
   final String label;
   final int quantity;
+
+  /// Tipo de garrafa del renglón (`gas_cylinder.gas_cylinder_id`).
+  final String? gasCylinderId;
+
+  /// Envases que el cliente compró en este renglón: por esos no devuelve vacía.
+  final int containersCharged;
+  final int? _emptiesExpected;
+
+  /// Vacías declaradas por el chofer; null = no declaró (se toman las
+  /// esperadas).
+  final int? emptiesReceived;
+
+  /// Vacías del canje que el chofer tiene que recibir (el back las calcula:
+  /// cantidad menos envases comprados), entre 0 y la cantidad. Un pedido sin
+  /// el campo espera una por unidad.
+  int get emptiesExpected {
+    final n = _emptiesExpected ?? quantity;
+    if (n < 0) return 0;
+    return n > quantity ? quantity : n;
+  }
 }
 
 /// Estados de pedido que devuelve el back (`OrderStatus`).

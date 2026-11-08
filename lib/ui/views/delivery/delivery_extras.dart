@@ -514,3 +514,119 @@ class NotCollectedSheetState extends State<NotCollectedSheet> {
     );
   }
 }
+
+/// «Vacías» de la entrega en curso, antes de mostrar el QR: por tipo de
+/// garrafa las esperadas y el selector «Te dio» (0 a esperadas), precargado
+/// con lo que tiene registrado el back.
+class EmptiesCard extends StatelessWidget {
+  const EmptiesCard({super.key, required this.model});
+
+  final DeliveryViewModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = SplgType.of(context);
+    final brasa = context.brasa;
+    return Container(
+      key: const Key('empties-card'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+      decoration: BoxDecoration(
+        color: brasa.primarySoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Vacías', style: type.subtitle),
+          for (final r in model.emptiesRows)
+            _EmptiesTile(
+              row: r,
+              enabled: !model.isUpdatingStatus,
+              onAdd: () => model.addEmpty(r.gasCylinderId),
+              onRemove: () => model.removeEmpty(r.gasCylinderId),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptiesTile extends StatelessWidget {
+  const _EmptiesTile({
+    required this.row,
+    required this.enabled,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final EmptiesRow row;
+  final bool enabled;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = SplgType.of(context);
+    final brasa = context.brasa;
+    final id = row.gasCylinderId;
+    final canRemove = enabled && row.canRemove;
+    final canAdd = enabled && row.canAdd;
+    return Padding(
+      key: Key('empties-$id'),
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(row.label, style: type.body),
+                    Text('Esperadas: ${row.expected}',
+                        key: Key('empties-expected-$id'),
+                        style: type.caption.copyWith(color: brasa.muted)),
+                  ],
+                ),
+              ),
+              Text('Te dio', style: type.caption),
+              IconButton(
+                key: Key('empties-remove-$id'),
+                tooltip: 'Una vacía menos',
+                visualDensity: VisualDensity.compact,
+                onPressed: canRemove ? onRemove : null,
+                icon: Icon(SplgIcons.minus,
+                    color: canRemove ? brasa.primaryStrong : brasa.faint),
+              ),
+              SizedBox(
+                width: 28,
+                child: Text('${row.value}',
+                    key: Key('empties-value-$id'),
+                    textAlign: TextAlign.center,
+                    style: type.value),
+              ),
+              IconButton(
+                key: Key('empties-add-$id'),
+                tooltip: 'Una vacía más',
+                visualDensity: VisualDensity.compact,
+                onPressed: canAdd ? onAdd : null,
+                icon: Icon(SplgIcons.plus,
+                    color: canAdd ? brasa.primaryStrong : brasa.faint),
+              ),
+            ],
+          ),
+          if (row.purchasedText != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(row.purchasedText!,
+                  key: Key('empties-purchased-$id'),
+                  style: type.caption.copyWith(color: brasa.muted)),
+            ),
+        ],
+      ),
+    );
+  }
+}

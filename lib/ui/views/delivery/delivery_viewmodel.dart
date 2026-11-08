@@ -31,6 +31,48 @@ const Duration kTripPollInterval = Duration(seconds: 5);
 /// Cada cuánto se relee la lista de retiros de envases mientras dura el viaje.
 const Duration kPickupsRefresh = Duration(seconds: 30);
 
+/// Vacías de un tipo de garrafa en la entrega: las que el cliente tiene que
+/// devolver por el canje y las que el chofer dice que recibió.
+@immutable
+class EmptiesRow {
+  const EmptiesRow({
+    required this.gasCylinderId,
+    required this.label,
+    required this.expected,
+    required this.purchased,
+    required this.declared,
+    required this.value,
+  });
+
+  final String gasCylinderId;
+  final String label;
+
+  /// Vacías esperadas (cantidad menos envases comprados).
+  final int expected;
+
+  /// Envases que el cliente compró: por esos no devuelve vacía.
+  final int purchased;
+
+  /// Lo que el back tiene registrado (las declaradas o, si no hay, las
+  /// esperadas).
+  final int declared;
+
+  /// Lo que marca el selector «Te dio».
+  final int value;
+
+  bool get changed => value != declared;
+  bool get canAdd => value < expected;
+  bool get canRemove => value > 0;
+
+  /// «El cliente compró 2 envases: no devuelve vacía por esos.»; null si no
+  /// compró ninguno.
+  String? get purchasedText => purchased <= 0
+      ? null
+      : purchased == 1
+          ? 'El cliente compró 1 envase: no devuelve vacía por ese.'
+          : 'El cliente compró $purchased envases: no devuelve vacía por esos.';
+}
+
 /// Pantalla del pedido en curso: desde que el chofer lo acepta hasta que sale
 /// hacia el cliente y llega ("Pedido aceptado" y "En camino"). La entrega con
 /// QR, el cobro y la calificación son pantallas siguientes.
@@ -509,6 +551,7 @@ class DeliveryViewModel extends BaseViewModel {
       final firstLoad = order == null;
       order = fresh;
       loadError = null;
+      _rebuildEmpties();
       if (firstLoad) {
         final cid = fresh.customerId;
         if (cid != null) {
@@ -637,15 +680,88 @@ class DeliveryViewModel extends BaseViewModel {
         await _trips.arrived(orderId);
         arrivedNotified = true;
       }
+      await _declareEmpties();
     } catch (e) {
+      debugPrint('Error antes de abrir el QR del pedido $orderId: $e');
       errorMessage = _text(e);
       _updating = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
       return;
     }
     _updating = false;
+    if (_disposed) return;
     notifyListeners();
     await openDeliveryQr();
+  }
+
+  // --- Vacías recibidas (F35 E4) ------------------------------------------
+
+  /// Vacías por tipo de garrafa, en el orden del pedido. Vacía si el pedido no
+  /// trae el tipo de cada renglón.
+  List<EmptiesRow> emptiesRows = const [];
+
+  /// Lo que el chofer movió en el selector, por tipo; se conserva entre
+  /// lecturas del pedido hasta que el back lo registra.
+  final Map<String, int> _emptiesDraft = {};
+
+  /// La sección «Vacías» se muestra en camino, antes del QR.
+  bool get showEmpties => isOnTheWay && emptiesRows.isNotEmpty;
+
+  /// El chofer cambió alguna cantidad respecto de lo registrado en el back.
+  bool get emptiesChanged => emptiesRows.any((r) => r.changed);
+
+  /// Un renglón por tipo de garrafa (el back arma un renglón por tipo). Las
+  /// esperadas y las declaradas las manda el back: la app no hace cuentas.
+  void _rebuildEmpties() {
+    final lines = order?.lines ?? const <OrderLine>[];
+    emptiesRows = [
+      for (final l in lines)
+        if (l.gasCylinderId case final id?)
+          () {
+            final max = l.emptiesExpected;
+            final declared = _clampEmpties(l.emptiesReceived ?? max, max);
+            return EmptiesRow(
+              gasCylinderId: id,
+              label: l.label,
+              expected: max,
+              purchased: l.containersCharged,
+              declared: declared,
+              value: _clampEmpties(_emptiesDraft[id] ?? declared, max),
+            );
+          }(),
+    ];
+  }
+
+  static int _clampEmpties(int v, int max) => v < 0 ? 0 : (v > max ? max : v);
+
+  void _setEmpties(String gasCylinderId, int delta) {
+    final i = emptiesRows.indexWhere((r) => r.gasCylinderId == gasCylinderId);
+    if (i < 0 || _updating) return;
+    final r = emptiesRows[i];
+    final next = r.value + delta;
+    if (next < 0 || next > r.expected) return;
+    _emptiesDraft[gasCylinderId] = next;
+    _rebuildEmpties();
+    notifyListeners();
+  }
+
+  /// «Te dio» +1 (hasta las esperadas).
+  void addEmpty(String gasCylinderId) => _setEmpties(gasCylinderId, 1);
+
+  /// «Te dio» −1 (hasta 0).
+  void removeEmpty(String gasCylinderId) => _setEmpties(gasCylinderId, -1);
+
+  /// Si el chofer cambió algo, `PATCH /v2/orders/:id/empties` con todos los
+  /// tipos y el pedido que devuelve el back pasa a ser el vigente. Si no cambió
+  /// nada no se llama. Lanza si el back lo rechaza.
+  Future<void> _declareEmpties() async {
+    if (!emptiesChanged) return;
+    final fresh = await _trips.declareEmpties(
+        orderId, {for (final r in emptiesRows) r.gasCylinderId: r.value});
+    if (_disposed) return;
+    order = fresh;
+    _emptiesDraft.clear();
+    _rebuildEmpties();
   }
 
   /// Abre la pantalla del QR. Mientras está abierta ella lleva el control del

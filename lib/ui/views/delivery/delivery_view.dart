@@ -293,6 +293,7 @@ class _TripSheet extends StatelessWidget {
                 '${paymentLabel(order.paymentMethod)} - ${formatTotal(order.amountToCollect)}',
             color: brasa.primaryStrong,
           ),
+          if (model.showEmpties) EmptiesCard(model: model),
           PickupCard(model: model.pickups),
           if (model.errorMessage != null || model.notice != null) ...[
             const SizedBox(height: 8),

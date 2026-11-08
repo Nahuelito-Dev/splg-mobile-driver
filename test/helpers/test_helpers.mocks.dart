@@ -2363,6 +2363,42 @@ class MockTripService extends _i1.Mock implements _i8.TripService {
       ) as _i15.Future<String>);
 
   @override
+  _i15.Future<_i7.TripOrder> declareEmpties(
+    String? id,
+    Map<String, int>? received,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #declareEmpties,
+          [
+            id,
+            received,
+          ],
+        ),
+        returnValue: _i15.Future<_i7.TripOrder>.value(_FakeTripOrder_9(
+          this,
+          Invocation.method(
+            #declareEmpties,
+            [
+              id,
+              received,
+            ],
+          ),
+        )),
+        returnValueForMissingStub:
+            _i15.Future<_i7.TripOrder>.value(_FakeTripOrder_9(
+          this,
+          Invocation.method(
+            #declareEmpties,
+            [
+              id,
+              received,
+            ],
+          ),
+        )),
+      ) as _i15.Future<_i7.TripOrder>);
+
+  @override
   _i15.Future<_i4.Response<dynamic>> reportIncident(
     String? orderId,
     String? type,

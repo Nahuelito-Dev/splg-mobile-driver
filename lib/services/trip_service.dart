@@ -189,6 +189,33 @@ class TripService {
     });
   }
 
+  /// `PATCH /api/v2/orders/:id/empties`: las vacías que el cliente le dio al
+  /// chofer, por tipo de garrafa (`{gasCylinderId: emptiesReceived}`).
+  /// Devuelve el pedido actualizado. La clave es una por intención (pedido +
+  /// valores declarados): un reintento sin respuesta la reusa.
+  Future<TripOrder> declareEmpties(String id, Map<String, int> received) {
+    // Mismo orden en la clave y en el cuerpo: el hash del back respeta el orden.
+    final ids = received.keys.toList()..sort();
+    final items = [
+      for (final k in ids) {'gasCylinderId': k, 'emptiesReceived': received[k]},
+    ];
+    final action =
+        'empties:$id:${ids.map((k) => '$k=${received[k]}').join(',')}';
+    return _once(action, () async {
+      final res = await _api.patch(
+        '${AppConfig.apiV2Url}orders/$id/empties',
+        {'items': items},
+        await _token(),
+        _idem(action),
+      );
+      final data = res.data;
+      if (data is Map && data['order_id'] != null) {
+        return TripOrder.fromJson(Map<String, dynamic>.from(data));
+      }
+      return order(id);
+    });
+  }
+
   /// `POST /incidents`: reporta una incidencia de la entrega. La clave es una
   /// por intención (acción + pedido + tipo): un reintento sin respuesta la
   /// reusa.

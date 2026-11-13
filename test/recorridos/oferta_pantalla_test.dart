@@ -54,6 +54,7 @@ void main() {
     expect(find.text('Recorrido ofrecido'), findsOneWidget);
     expect(find.text('3 paradas'), findsOneWidget);
     expect(find.text('75,5 kg - 3,2 km'), findsOneWidget);
+    expect(find.text('mar 03/11, 08:00–12:00'), findsOneWidget);
     expect(find.byKey(const Key('batch-stop-1')), findsOneWidget);
     expect(find.byKey(const Key('batch-stop-3')), findsOneWidget);
     expect(find.byKey(const Key('batch-stop-4')), findsNothing);

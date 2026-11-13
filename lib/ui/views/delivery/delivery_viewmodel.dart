@@ -13,6 +13,7 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/models/route_batch.dart';
 import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/services/backend_route_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
@@ -20,6 +21,7 @@ import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
 import 'package:splg_driver/services/recovery_repository.dart';
+import 'package:splg_driver/services/route_batch_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
 import 'package:splg_driver/ui/common/pickups_model.dart';
@@ -93,7 +95,9 @@ class DeliveryViewModel extends BaseViewModel {
     this.noPositionRetry = const Duration(seconds: 3),
     Future<BitmapDescriptor?> Function()? iconLoader,
     RecoveryRepository? recovery,
+    RouteBatchRepository? batches,
   })  : _tripsOverride = trips,
+        _batchesOverride = batches,
         pickups = PickupsModel(orderId: orderId, repo: recovery),
         _routeGet = routeGet,
         _goHome = goHome ?? popToHome,
@@ -138,6 +142,41 @@ class DeliveryViewModel extends BaseViewModel {
   }
 
   TripService get _trips => _tripsOverride ?? locator<TripService>();
+  final RouteBatchRepository? _batchesOverride;
+  RouteBatchRepository get _batches =>
+      _batchesOverride ?? locator<RouteBatchRepository>();
+
+  // --- Recorrido (CU-107, M4) ----------------------------------------------
+
+  /// El recorrido aceptado al que pertenece este pedido; null si es un pedido
+  /// suelto o no se pudo leer.
+  RouteBatch? routeBatch;
+
+  /// Paradas del recorrido en orden de entrega.
+  List<RouteBatchStop> get batchStops => routeBatch?.stops ?? const [];
+
+  /// `Recorrido: parada 2 de 4`; null fuera de un recorrido.
+  String? get batchText {
+    final n = routeBatch?.stopNumberOf(orderId);
+    if (n == null) return null;
+    return 'Recorrido: parada $n de ${batchStops.length}';
+  }
+
+  /// Busca entre mis recorridos (`GET /driver/route-batches`) el asignado que
+  /// tiene este pedido. Es de apoyo: si falla, la entrega sigue igual.
+  Future<void> _loadRouteBatch() async {
+    try {
+      final mine = await _batches.mine();
+      if (_disposed) return;
+      routeBatch = mine
+          .where((b) => b.isAssigned && b.stopNumberOf(orderId) != null)
+          .firstOrNull;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('No se pudo leer el recorrido del pedido $orderId: $e');
+    }
+  }
+
   final _navigationService = locator<NavigationService>();
   final _dialogService = locator<DialogService>();
   final _driverSocketService = locator<DriverSocketService>();
@@ -470,6 +509,7 @@ class DeliveryViewModel extends BaseViewModel {
         p.latitude, p.longitude,
         heading: p.heading, speed: p.speed));
     _loadVehicleIcon();
+    unawaited(_loadRouteBatch());
     pickups.addListener(notifyListeners);
     _cancelSub = _driverSocketService.orderCancelled.listen((payload) {
       // Con el QR arriba, ese es el único que maneja la cancelación.

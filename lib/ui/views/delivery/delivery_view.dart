@@ -8,6 +8,7 @@ import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
 import 'package:splg_driver/ui/widgets/driver_menu_drawer.dart';
+import 'package:splg_driver/ui/widgets/route_batch_stops.dart';
 import 'package:splg_driver/ui/dialogs/order_offer/order_offer_dialog.dart'
     show paymentLabel;
 
@@ -279,6 +280,29 @@ class _TripSheet extends StatelessWidget {
               ),
             ],
           ),
+          if (model.batchText != null)
+            InkWell(
+              key: const Key('trip-batch'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => _showBatchStops(context, model),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(SplgIcons.truck, size: 16, color: brasa.primaryStrong),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(model.batchText!,
+                          key: const Key('trip-batch-text'),
+                          style: type.bodyStrong),
+                    ),
+                    Text('Ver paradas',
+                        style:
+                            type.caption.copyWith(color: brasa.primaryStrong)),
+                  ],
+                ),
+              ),
+            ),
           Divider(color: brasa.outline, height: 12),
           SplgPartyRow(
             name: order.customerName ?? 'Cliente',
@@ -431,6 +455,55 @@ Future<void> _showMore(BuildContext context, DeliveryViewModel model) {
         ],
       ),
     ),
+  );
+}
+
+/// Las paradas del recorrido aceptado, en orden, con la actual marcada.
+Future<void> _showBatchStops(BuildContext context, DeliveryViewModel model) {
+  final schedule = model.routeBatch?.scheduleText;
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheet) {
+      final type = SplgType.of(sheet);
+      return ConstrainedBox(
+        constraints:
+            BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.8),
+        child: DecoratedBox(
+          key: const Key('trip-batch-sheet'),
+          decoration: const BoxDecoration(
+            gradient: SplgGradients.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Tu recorrido',
+                      style: type.heading.copyWith(color: Colors.white)),
+                  if (schedule != null)
+                    Text(schedule,
+                        style: type.caption.copyWith(color: Colors.white70)),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: RouteBatchStopList(
+                      key: const Key('trip-batch-stops'),
+                      stops: model.batchStops,
+                      currentOrderId: model.orderId,
+                      shrinkWrap: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 

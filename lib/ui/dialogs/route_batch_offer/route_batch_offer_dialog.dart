@@ -3,26 +3,10 @@ import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
-import 'package:splg_driver/models/maintenance.dart' show formatArTime;
 import 'package:splg_driver/models/route_batch.dart';
+import 'package:splg_driver/ui/widgets/route_batch_stops.dart';
 
 import 'route_batch_offer_dialog_model.dart';
-
-/// "1,2 km" (con coma); sin decimales si es entero.
-String kmText(double km) {
-  final s = km == km.roundToDouble()
-      ? km.toStringAsFixed(0)
-      : km.toStringAsFixed(1).replaceAll('.', ',');
-  return '$s km';
-}
-
-/// "75,5 kg".
-String kgText(double kg) {
-  final s = kg == kg.roundToDouble()
-      ? kg.toStringAsFixed(0)
-      : kg.toStringAsFixed(1).replaceAll('.', ',');
-  return '$s kg';
-}
 
 /// Oferta de un recorrido, a pantalla completa: las paradas en orden con la
 /// llegada estimada, la distancia y el peso total, y la cuenta regresiva hasta
@@ -110,6 +94,10 @@ class RouteBatchOfferDialog extends StackedView<RouteBatchOfferDialogModel> {
                         '${stops.length} ${stops.length == 1 ? 'parada' : 'paradas'}',
                         key: const Key('batch-stops-count'),
                         style: type.amount.copyWith(color: Colors.white)),
+                    if (batch.scheduleText != null)
+                      Text(batch.scheduleText!,
+                          key: const Key('batch-schedule'),
+                          style: type.bodyStrong.copyWith(color: Colors.white)),
                     Text(
                         [
                           kgText(batch.totalWeightKg),
@@ -119,11 +107,9 @@ class RouteBatchOfferDialog extends StackedView<RouteBatchOfferDialogModel> {
                         style: type.caption.copyWith(color: Colors.white70)),
                     const SizedBox(height: 10),
                     Expanded(
-                      child: ListView.separated(
+                      child: RouteBatchStopList(
                         key: const Key('batch-stops'),
-                        itemCount: stops.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _StopTile(stop: stops[i]),
+                        stops: stops,
                       ),
                     ),
                     if (model.acceptError != null)
@@ -175,61 +161,5 @@ class RouteBatchOfferDialog extends StackedView<RouteBatchOfferDialogModel> {
   void onViewModelReady(RouteBatchOfferDialogModel viewModel) {
     viewModel.start((outcome) => _done(viewModel, outcome));
     super.onViewModelReady(viewModel);
-  }
-}
-
-class _StopTile extends StatelessWidget {
-  const _StopTile({required this.stop});
-
-  final RouteBatchStop stop;
-
-  @override
-  Widget build(BuildContext context) {
-    final type = SplgType.of(context);
-    final eta = stop.etaAt;
-    final caption = [
-      if (eta != null) 'Llegada ${formatArTime(eta)}',
-      if (stop.sequence > 1 && stop.legDistanceKm > 0)
-        '${kmText(stop.legDistanceKm)} desde la anterior',
-      if (stop.slotText != null) stop.slotText!,
-    ].join(' - ');
-    return Container(
-      key: Key('batch-stop-${stop.sequence}'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: Colors.white,
-            child: Text('${stop.sequence}',
-                style: type.bodyStrong.copyWith(color: Colors.black87)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(stop.address ?? 'Dirección no disponible',
-                    style: type.bodyStrong.copyWith(color: Colors.white)),
-                if (stop.customerName != null)
-                  Text(stop.customerName!,
-                      style: type.caption.copyWith(color: Colors.white70)),
-                if (stop.items.isNotEmpty)
-                  Text(stop.itemsText,
-                      style: type.caption.copyWith(color: Colors.white70)),
-                if (caption.isNotEmpty)
-                  Text(caption,
-                      style: type.caption.copyWith(color: Colors.white70)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

@@ -4,6 +4,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:splg_lib/splg_lib.dart';
 import 'package:stacked/stacked.dart';
 
+import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
 import 'package:splg_driver/ui/widgets/driver_menu_drawer.dart';
@@ -67,7 +68,8 @@ class _TripMap extends StatelessWidget {
     Widget map(Set<Marker> markers) => GoogleMap(
           mapType: MapType.terrain,
           initialCameraPosition: CameraPosition(
-            target: model.destination ?? const LatLng(-27.3671, -55.8961),
+            target: model.destination ??
+                LatLng(AppConfig.mapFallbackLat, AppConfig.mapFallbackLng),
             zoom: 14,
           ),
           onMapCreated: model.onMapCreated,

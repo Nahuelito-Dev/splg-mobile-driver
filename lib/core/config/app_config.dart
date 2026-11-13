@@ -15,6 +15,20 @@
 class AppConfig {
   const AppConfig._();
 
+  /// Dónde arranca el mapa mientras no hay GPS ni una dirección elegida: la ciudad
+  /// donde opera la distribuidora. Por omisión, Posadas (Misiones);
+  /// `--dart-define=MAP_LAT=... --dart-define=MAP_LNG=...` la cambia.
+  static double get mapFallbackLat =>
+      _coordenada(const String.fromEnvironment('MAP_LAT'), 90) ?? -27.3671;
+  static double get mapFallbackLng =>
+      _coordenada(const String.fromEnvironment('MAP_LNG'), 180) ?? -55.8961;
+
+  /// Un número finito dentro de ±[limite]; si no, null (se usa Posadas).
+  static double? _coordenada(String texto, double limite) {
+    final v = double.tryParse(texto);
+    return v != null && v.isFinite && v.abs() <= limite ? v : null;
+  }
+
   /// Host + puerto del backend (SIN el sufijo `/api`). Overridable por build.
   /// Default: `10.0.2.2` = localhost de la máquina de desarrollo visto desde el
   /// emulador Android (en el emulador `localhost` apunta al propio Android).

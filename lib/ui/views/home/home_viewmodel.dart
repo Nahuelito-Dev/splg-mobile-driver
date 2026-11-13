@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:stacked/stacked.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:splg_driver/core/config/app_config.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 import 'package:splg_driver/app/app.dialogs.dart';
@@ -136,11 +137,12 @@ class HomeViewModel extends StreamViewModel<Position>
   /// se resolvió el perfil.
   String get driverName => _driverAuthService.fullName ?? 'Chofer';
 
-  // Posición inicial del mapa (Buenos Aires, Argentina como ejemplo)
-  static const CameraPosition initialPosition = CameraPosition(
-    target: LatLng(-34.6037, -58.3816),
-    zoom: 14.0,
-  );
+  /// Posición inicial del mapa mientras no hay GPS: la ciudad de la distribuidora
+  /// (`AppConfig.mapFallbackLat/Lng`, Posadas por omisión).
+  static CameraPosition get initialPosition => CameraPosition(
+        target: LatLng(AppConfig.mapFallbackLat, AppConfig.mapFallbackLng),
+        zoom: 14.0,
+      );
 
   Set<Marker> markers = {};
   LatLng? currentLocation;

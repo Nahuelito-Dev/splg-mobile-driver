@@ -577,6 +577,7 @@ class HomeViewModel extends StreamViewModel<Position>
       // Las claves de idempotencia y el flujo en curso son de la sesión.
       _trips.reset();
       _queuedOrderId = null;
+      _assignedWaiting.clear();
       _notifier.reset();
       _fcm.clearPendingMaintenance();
       _board.reset();
@@ -970,6 +971,13 @@ class HomeViewModel extends StreamViewModel<Position>
       debugPrint('Pedido $orderId del recorrido: ya está asignado');
       return;
     }
+    // La distribuidora lo asignó a mano (`assigned: true`): ya es de este
+    // chofer. No es una oferta: nunca se muestra con cuenta regresiva ni se
+    // rechaza.
+    if (offer['assigned'] == true) {
+      await _onAssigned(orderId);
+      return;
+    }
     // Mientras se busca un pedido para retomar, la oferta espera la decisión:
     // si no, el diálogo y la pantalla del pedido retomado se pisarían.
     final deciding = _resumeDecision;
@@ -1072,7 +1080,13 @@ class HomeViewModel extends StreamViewModel<Position>
       // Si va a retomarse un pedido asignado, los avisos esperan a que termine.
       // Si arranca la entrega, los avisos esperan a que termine (`_resumeSoon`).
       _notifier.offerEnded(pump: done == null && startFlow == null);
-      if (done != null) _resumeSoon(done);
+      if (done != null) {
+        _resumeSoon(done);
+      } else if (startFlow == null && _assignedWaiting.isNotEmpty) {
+        // Llegó una asignación con la oferta en pantalla: ahora que se cerró
+        // sin abrir otra entrega, se abre la asignada.
+        _resumeSoon('');
+      }
     }
     if (reshow) unawaited(_showOrderOfferDialog(offer, reshown: true));
     if (startFlow != null) {
@@ -1091,6 +1105,90 @@ class HomeViewModel extends StreamViewModel<Position>
           notifyListeners();
         }
       }
+    }
+  }
+
+  /// Pedidos asignados a mano que llegaron con el chofer ocupado (oferta en
+  /// pantalla, entrega en curso con otro ya en espera, otra entrega abriéndose).
+  /// Siguen siendo suyos en el back: se abren con la retoma cuando quede libre.
+  /// También reservan el id para que un aviso repetido no abra dos entregas.
+  final List<String> _assignedWaiting = [];
+
+  @visibleForTesting
+  List<String> get assignedWaiting => List.unmodifiable(_assignedWaiting);
+
+  /// El pedido ya está abierto, abriéndose, en espera o anotado.
+  bool _assignmentKnown(String id) =>
+      _trips.activeOrderId == id ||
+      _queuedOrderId == id ||
+      _startingOrderId == id ||
+      _retryingOrderId == id ||
+      _assignedWaiting.contains(id);
+
+  /// Asignación manual (`server:new-order-request` con `assigned: true`). La
+  /// reserva del id es sincrónica, antes de cualquier await: un aviso repetido
+  /// (o el aviso más la retoma al reconectar) no abre dos entregas.
+  Future<void> _onAssigned(String orderId) async {
+    if (_assignmentKnown(orderId)) {
+      debugPrint('Pedido asignado $orderId: ya se está atendiendo');
+      return;
+    }
+    final deciding = _resumeDecision;
+    if (_resuming && deciding != null && !deciding.isCompleted) {
+      // Se está buscando un pedido para retomar: queda anotado (reservado) y
+      // se decide cuando la retoma decidió. Si la retoma lo abrió, ya está.
+      // (Ya decidida, la retoma sigue `_resuming` mientras dura la entrega que
+      // abrió: eso es estar ocupado, no esperar.)
+      _assignedWaiting.add(orderId);
+      await deciding.future;
+      if (!_assignedWaiting.remove(orderId)) return;
+      return _onAssigned(orderId);
+    }
+    if (!busyWithOrder) {
+      // Libre: se abre la entrega.
+      _startingOrderId = orderId;
+      debugPrint('Pedido $orderId asignado por la distribuidora');
+      await _openAssigned(orderId);
+      return;
+    }
+    if (_trips.activeOrderId != null &&
+        _queuedOrderId == null &&
+        !_offerOpen &&
+        _startingOrderId == null &&
+        _retryingOrderId == null) {
+      // Con una entrega en curso queda como el próximo (CU-013).
+      _queuedOrderId = orderId;
+      await _dialogService.showDialog(
+        title: 'Tu próximo pedido',
+        description: 'Te asignaron un pedido más. Terminá la entrega que '
+            'llevás: apenas la confirmes te lo mostramos para que salgas.',
+      );
+      return;
+    }
+    // Ocupado de otra forma: no se pierde, se abre al quedar libre.
+    _assignedWaiting.add(orderId);
+    debugPrint('Pedido asignado $orderId en espera: el chofer está ocupado');
+  }
+
+  Future<void> _openAssigned(String orderId) async {
+    final epoch = _sessionEpoch;
+    try {
+      final session = await _confirmAccept(orderId, true);
+      if (session == null || epoch != _sessionEpoch || _disposed) {
+        _startingOrderId = null;
+        return;
+      }
+      // Sin await entre soltar la reserva y marcar el pedido activo
+      // (primera línea de `_runOrderFlow`).
+      _startingOrderId = null;
+      await _runOrderFlow(orderId, token: session.$1, userId: session.$2);
+    } catch (e) {
+      // Sigue asignado en el back: se suelta el flujo y se reintenta retomarlo.
+      debugPrint('No se pudo abrir la entrega asignada $orderId: $e');
+      _startingOrderId = null;
+      _trips.endFlow();
+      _retryingOrderId = orderId;
+      _scheduleFlowRetry(_sessionEpoch);
     }
   }
 
@@ -1123,6 +1221,7 @@ class HomeViewModel extends StreamViewModel<Position>
   /// llega por los tres): deja de esperar y el chofer puede recibir otra oferta.
   void _onQueuedOrderGone(Map<String, dynamic> payload) {
     final id = payload['orderId']?.toString();
+    if (id != null) _assignedWaiting.remove(id);
     if (id == null || id != _queuedOrderId) return;
     _queuedOrderId = null;
     debugPrint('El pedido en espera $id ya no es del chofer');
@@ -1150,6 +1249,12 @@ class HomeViewModel extends StreamViewModel<Position>
   /// Rechaza una oferta (CU-016): `POST /orders/:orderId/reject`. El backend
   /// cierra la oferta y re-ofrece al siguiente chofer de inmediato. Best-effort.
   Future<void> rejectOrder(String orderId) async {
+    // La distribuidora se lo asignó mientras la oferta estaba en pantalla: ya
+    // es suyo y no se rechaza.
+    if (_assignmentKnown(orderId)) {
+      debugPrint('Pedido $orderId asignado: la oferta no se rechaza');
+      return;
+    }
     try {
       await _trips.reject(orderId);
       debugPrint('Oferta $orderId rechazada por el chofer');
@@ -1553,6 +1658,7 @@ class HomeViewModel extends StreamViewModel<Position>
     final decision = _resumeDecision = Completer<void>();
     final epoch = _sessionEpoch;
     String? openingOrderId;
+    final waitingBefore = [..._assignedWaiting];
     try {
       final token = await _driverAuthService.token;
       final userId = _driverAuthService.userId;
@@ -1563,6 +1669,10 @@ class HomeViewModel extends StreamViewModel<Position>
       // Cerró sesión mientras se consultaba: no se abre nada.
       if (epoch != _sessionEpoch || _inactive) return;
       _queuedOrderId = null;
+      // Sin pedido en curso en el back, las asignaciones anotadas antes de la
+      // consulta ya no son del chofer (canceladas o reasignadas).
+      if (order == null) _assignedWaiting.removeWhere(waitingBefore.contains);
+      final assignedNow = order != null && _assignedWaiting.contains(order.id);
       DriverOrder? current;
       DriverOrder? toCollect;
       if (order != null && order.id != except) {
@@ -1573,17 +1683,20 @@ class HomeViewModel extends StreamViewModel<Position>
           toCollect = order;
         }
       }
+      // Una asignación anotada que el back ya no da como en curso, no espera más.
+      if (assignedNow && current == null) _assignedWaiting.remove(order.id);
       if (_offerOpen || _trips.activeOrderId != null) return;
       if (current != null) {
         debugPrint('Retomando el pedido en curso ${current.id}');
+        _assignedWaiting.remove(current.id);
         // La oferta que espera se reanuda en un microtask, cuando el flujo ya
         // marcó el pedido como activo (primera línea de `_runOrderFlow`).
         decision.complete();
-        if (current.id == queuedId) {
+        if (current.id == queuedId || assignedNow) {
           _startingOrderId = current.id;
           _trips.beginFlow(current.id);
           try {
-            await _announceNext(current);
+            await _announceNext(current, assigned: assignedNow);
           } catch (e) {
             debugPrint('No se pudo anunciar el próximo pedido: $e');
           } finally {
@@ -1615,20 +1728,31 @@ class HomeViewModel extends StreamViewModel<Position>
     } finally {
       _resuming = false;
       if (!decision.isCompleted) decision.complete();
+      // Una asignación que llegó mientras se consultaba (y no vino en la
+      // respuesta) se busca otra vez; las anteriores ya las contestó el back.
+      if (epoch == _sessionEpoch &&
+          !_inactive &&
+          _trips.activeOrderId == null &&
+          _assignedWaiting.any((id) => !waitingBefore.contains(id))) {
+        _resumeSoon('');
+      }
     }
   }
 
   /// El pedido que el chofer había aceptado en espera pasa a ser el actual.
-  Future<void> _announceNext(DriverOrder next) {
+  Future<void> _announceNext(DriverOrder next, {bool assigned = false}) {
     final who = [next.customerName, next.address]
         .whereType<String>()
         .where((t) => t.trim().isNotEmpty)
         .join(' · ');
+    final what = assigned
+        ? 'el pedido que te asignó la distribuidora'
+        : 'el pedido que aceptaste';
     return _dialogService.showDialog(
       title: 'Tu próximo pedido',
       description: who.isEmpty
-          ? 'Ya podés salir con el pedido que aceptaste.'
-          : 'Ya podés salir con el pedido que aceptaste: $who.',
+          ? 'Ya podés salir con $what.'
+          : 'Ya podés salir con $what: $who.',
     );
   }
 

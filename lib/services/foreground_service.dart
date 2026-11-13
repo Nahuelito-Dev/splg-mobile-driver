@@ -1,28 +1,18 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-/// Callback de arranque del foreground service. Corre en un ISOLATE aparte y
-/// solo setea un TaskHandler mínimo: el socket y el GPS viven en el isolate
-/// PRINCIPAL; el único objetivo del service es que Android/iOS no maten el
+/// Encapsula el foreground service: su único objetivo es que Android no mate el
 /// proceso mientras el chofer está en línea o repartiendo, así el socket y el
-/// stream de ubicación siguen vivos en background.
-@pragma('vm:entry-point')
-void startForegroundCallback() {
-  FlutterForegroundTask.setTaskHandler(_KeepAliveTaskHandler());
-}
-
-class _KeepAliveTaskHandler extends TaskHandler {
-  @override
-  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {}
-
-  @override
-  void onRepeatEvent(DateTime timestamp) {}
-
-  @override
-  Future<void> onDestroy(DateTime timestamp) async {}
-}
-
-/// Encapsula el foreground service (mantener vivo el proceso del chofer).
+/// stream de ubicación (que viven en el isolate principal) siguen vivos en
+/// background. En iOS lo que lo sostiene es la ubicación en segundo plano
+/// (`UIBackgroundModes: location`).
+///
+/// El servicio arranca SIN `callback` a propósito: con un callback, el plugin
+/// crea en Android otro FlutterEngine y corre el bundle de Dart en un isolate
+/// nuevo dentro de `onStartCommand`, en el hilo principal. Eso congela la app
+/// varios segundos al tocar «Conectarse» y, con el equipo cargado, pasa los
+/// 20 s y Android tira el ANR («executing service … ForegroundService»). Sin
+/// callback el servicio igual muestra la notificación y mantiene el proceso.
 class DriverForegroundService {
   bool _initialized = false;
 
@@ -65,7 +55,6 @@ class DriverForegroundService {
         serviceId: 2001,
         notificationTitle: title,
         notificationText: text,
-        callback: startForegroundCallback,
       );
     } catch (e) {
       debugPrint('[ForegroundService] start: $e');

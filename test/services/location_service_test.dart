@@ -203,4 +203,137 @@ void main() {
       expect(status.hasListener, isFalse);
     });
   });
+
+  group('readFreshPosition -', () {
+    late MockAppPermissions permissions;
+    late bool gpsOn;
+    late Future<Position> Function() reading;
+    late int reads;
+    late LocationService service;
+
+    setUp(() {
+      registerServices();
+      permissions = locator<AppPermissions>() as MockAppPermissions;
+      when(permissions.ensure(any, interactive: anyNamed('interactive')))
+          .thenAnswer((_) async => PermissionOutcome.granted);
+      gpsOn = true;
+      reads = 0;
+      reading = () async => _pos();
+      service = LocationService(
+        positionStreamFactory: (_) => const Stream<Position>.empty(),
+        serviceStatusStreamFactory: () => const Stream<ServiceStatus>.empty(),
+        isServiceEnabled: () async => gpsOn,
+        currentPositionGetter: (_) {
+          reads++;
+          return reading();
+        },
+      );
+    });
+    tearDown(() {
+      service.dispose();
+      locator.reset();
+    });
+
+    test('con permiso y GPS devuelve la lectura y la deja como actual',
+        () async {
+      final r = await service.readFreshPosition();
+      expect(r.block, isNull);
+      expect(r.position?.latitude, -27.36);
+      expect(service.currentPosition, same(r.position));
+    });
+
+    test('sin permiso no lee el GPS y dice que falta el permiso', () async {
+      when(permissions.ensure(any, interactive: anyNamed('interactive')))
+          .thenAnswer((_) async => PermissionOutcome.denied);
+      final r = await service.readFreshPosition();
+      expect(r.position, isNull);
+      expect(r.block, LocationBlock.permissionDenied);
+      expect(reads, 0);
+    });
+
+    test('permiso bloqueado para siempre: lo distingue', () async {
+      when(permissions.ensure(any, interactive: anyNamed('interactive')))
+          .thenAnswer((_) async => PermissionOutcome.permanentlyDenied);
+      final r = await service.readFreshPosition();
+      expect(r.block, LocationBlock.permissionPermanentlyDenied);
+      expect(reads, 0);
+    });
+
+    test('con el GPS apagado no lee y dice que está apagado', () async {
+      gpsOn = false;
+      final r = await service.readFreshPosition();
+      expect(r.position, isNull);
+      expect(r.block, LocationBlock.serviceDisabled);
+      expect(reads, 0);
+    });
+
+    test('si la lectura no llega a tiempo: no se pudo leer', () async {
+      reading = () => Completer<Position>().future;
+      final r = await service.readFreshPosition(
+          timeout: const Duration(milliseconds: 20));
+      expect(r.position, isNull);
+      expect(r.block, LocationBlock.unreadable);
+      expect(service.currentPosition, isNull);
+    });
+
+    test('si el GPS falla: no se pudo leer, sin lanzar', () async {
+      reading = () async => throw const LocationServiceDisabledException();
+      final r = await service.readFreshPosition();
+      expect(r.block, LocationBlock.unreadable);
+    });
+  });
+
+  group('locationBlock -', () {
+    late MockAppPermissions permissions;
+    late bool gpsOn;
+    late LocationService service;
+
+    setUp(() {
+      registerServices();
+      permissions = locator<AppPermissions>() as MockAppPermissions;
+      gpsOn = true;
+      service = LocationService(
+        positionStreamFactory: (_) => const Stream<Position>.empty(),
+        serviceStatusStreamFactory: () => const Stream<ServiceStatus>.empty(),
+        isServiceEnabled: () async => gpsOn,
+      );
+    });
+    tearDown(() {
+      service.dispose();
+      locator.reset();
+    });
+
+    void outcome(PermissionOutcome o) =>
+        when(permissions.ensure(any, interactive: anyNamed('interactive')))
+            .thenAnswer((_) async => o);
+
+    test('con permiso y GPS no hay bloqueo, y no pide nada con avisos',
+        () async {
+      outcome(PermissionOutcome.granted);
+      expect(await service.locationBlock(), isNull);
+      verify(permissions.ensure(any, interactive: false)).called(1);
+    });
+
+    test('con permiso y GPS apagado: serviceDisabled', () async {
+      outcome(PermissionOutcome.granted);
+      gpsOn = false;
+      expect(await service.locationBlock(), LocationBlock.serviceDisabled);
+      expect(service.serviceDisabled, isTrue);
+    });
+
+    test('denegado o no disponible: permissionDenied', () async {
+      outcome(PermissionOutcome.denied);
+      expect(await service.locationBlock(), LocationBlock.permissionDenied);
+      outcome(PermissionOutcome.unavailable);
+      expect(await service.locationBlock(), LocationBlock.permissionDenied);
+    });
+
+    test('denegado para siempre: permissionPermanentlyDenied (aunque el GPS '
+        'esté apagado)', () async {
+      outcome(PermissionOutcome.permanentlyDenied);
+      gpsOn = false;
+      expect(await service.locationBlock(),
+          LocationBlock.permissionPermanentlyDenied);
+    });
+  });
 }

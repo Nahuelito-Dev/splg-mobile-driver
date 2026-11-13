@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
+import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
+import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
 import 'package:stacked_services/stacked_services.dart';
@@ -20,6 +22,7 @@ void main() {
   late MockNavigationService nav;
   late MockDialogService dialogs;
   late MockDriverSocketService socket;
+  late MockLocationService loc;
   late int homeCalls;
 
   setUp(() {
@@ -28,6 +31,8 @@ void main() {
     nav = locator<NavigationService>() as MockNavigationService;
     dialogs = locator<DialogService>() as MockDialogService;
     socket = locator<DriverSocketService>() as MockDriverSocketService;
+    loc = locator<LocationService>() as MockLocationService;
+    when(loc.currentPosition).thenReturn(fix());
     homeCalls = 0;
     when(trips.order('o1')).thenAnswer((_) async => trip());
     when(trips.customerRating('c1')).thenAnswer((_) async => null);
@@ -122,10 +127,14 @@ void main() {
           .thenAnswer((_) async => trip(status: 'out_for_delivery'));
       final m = build();
       await m.initialize();
-      when(trips.arrived('o1')).thenAnswer((_) async {});
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
       await m.arriveAndDeliver();
       await m.arriveAndDeliver();
-      verify(trips.arrived('o1')).called(1);
+      verify(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .called(1);
       verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(2);
       m.dispose();
     });
@@ -135,7 +144,9 @@ void main() {
           .thenAnswer((_) async => trip(status: 'out_for_delivery'));
       final m = build();
       await m.initialize();
-      when(trips.arrived('o1')).thenThrow(rejected());
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenThrow(rejected());
       await m.arriveAndDeliver();
       expect(m.errorMessage, isNotNull);
       expect(m.arrivedNotified, false);
@@ -147,7 +158,374 @@ void main() {
       final m = build();
       await m.initialize();
       await m.arriveAndDeliver();
-      verifyNever(trips.arrived(any));
+      verifyNever(trips.arrived(any,
+          latitude: anyNamed('latitude'), longitude: anyNamed('longitude')));
+      m.dispose();
+    });
+  });
+
+  group('llegué con control de distancia (v2)', () {
+    final now = DateTime(2026, 11, 13, 10);
+
+    DeliveryViewModel buildAt() => DeliveryViewModel(
+          orderId: 'o1',
+          trips: trips,
+          pollInterval: const Duration(hours: 1),
+          goHome: () => homeCalls++,
+          clock: () => now,
+        );
+
+    Future<DeliveryViewModel> onTheWay() async {
+      when(trips.order('o1'))
+          .thenAnswer((_) async => trip(status: 'out_for_delivery'));
+      final m = buildAt();
+      await m.initialize();
+      return m;
+    }
+
+    DioException tooFar() => DioException(
+        requestOptions: RequestOptions(path: ''),
+        response: Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 409,
+            data: {
+              'statusCode': 409,
+              'code': 'ARRIVAL_TOO_FAR',
+              'message': 'Todavía estás a 320 m del domicilio. Marcá «Llegué» '
+                  'cuando estés en la puerta.',
+              'distanceMeters': 320,
+              'radiusMeters': 100,
+            }));
+
+    test('200: manda la posición actual, avisa y abre la entrega', () async {
+      when(loc.currentPosition).thenReturn(fix(
+          lat: -27.3576,
+          lng: -55.8905,
+          at: now.subtract(const Duration(seconds: 5))));
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      await m.arriveAndDeliver();
+      verify(trips.arrived('o1', latitude: -27.3576, longitude: -55.8905))
+          .called(1);
+      verifyNever(loc.readFreshPosition(timeout: anyNamed('timeout')));
+      expect(m.arrivedNotified, true);
+      expect(m.errorMessage, isNull);
+      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      m.dispose();
+    });
+
+    test(
+        '409 ARRIVAL_TOO_FAR: muestra el mensaje del back, no abre la entrega '
+        'y deja reintentar', () async {
+      when(loc.currentPosition).thenReturn(fix(at: now));
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenThrow(tooFar());
+      await m.arriveAndDeliver();
+      const text = 'Todavía estás a 320 m del domicilio. Marcá «Llegué» '
+          'cuando estés en la puerta.';
+      expect(m.errorMessage, text);
+      verify(dialogs.showDialog(
+              title: 'Todavía no llegaste',
+              description: text,
+              buttonTitle: 'Entendido'))
+          .called(1);
+      expect(m.arrivedNotified, false);
+      expect(m.isUpdatingStatus, false);
+      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+
+      // Ya en la puerta: el reintento pasa y abre la entrega.
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      await m.arriveAndDeliver();
+      expect(m.arrivedNotified, true);
+      expect(m.errorMessage, isNull);
+      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      m.dispose();
+    });
+
+    test('409 ARRIVAL_TOO_FAR sin message: texto de respaldo', () async {
+      when(loc.currentPosition).thenReturn(fix(at: now));
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenThrow(DioException(
+              requestOptions: RequestOptions(path: ''),
+              response: Response(
+                  requestOptions: RequestOptions(path: ''),
+                  statusCode: 409,
+                  data: {'code': 'ARRIVAL_TOO_FAR'})));
+      await m.arriveAndDeliver();
+      expect(m.errorMessage, kArrivalTooFarText);
+      m.dispose();
+    });
+
+    test('otro 409 (estado): se muestra en la hoja, sin el diálogo de lejos',
+        () async {
+      when(loc.currentPosition).thenReturn(fix(at: now));
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenThrow(DioException(
+              requestOptions: RequestOptions(path: ''),
+              response: Response(
+                  requestOptions: RequestOptions(path: ''),
+                  statusCode: 409,
+                  data: {
+                    'statusCode': 409,
+                    'code': 'ORDER_NOT_ON_THE_WAY',
+                    'message':
+                        'El pedido debe estar en camino para avisar llegada',
+                  })));
+      await m.arriveAndDeliver();
+      expect(
+          m.errorMessage, 'El pedido debe estar en camino para avisar llegada');
+      verifyNever(dialogs.showDialog(
+          title: 'Todavía no llegaste',
+          description: anyNamed('description'),
+          buttonTitle: anyNamed('buttonTitle')));
+      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      m.dispose();
+    });
+
+    test('la lectura no llega a tiempo: no llama al back y lo dice', () async {
+      when(loc.currentPosition).thenReturn(null);
+      when(loc.readFreshPosition(timeout: anyNamed('timeout'))).thenAnswer(
+          (_) async => const PositionRead.blocked(LocationBlock.unreadable));
+      final m = await onTheWay();
+      await m.arriveAndDeliver();
+      expect(
+          m.errorMessage,
+          'No pudimos leer tu ubicación a tiempo. Esperá unos segundos y probá '
+          'de nuevo.');
+      verifyNever(trips.arrived(any,
+          latitude: anyNamed('latitude'), longitude: anyNamed('longitude')));
+      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      expect(m.isUpdatingStatus, false);
+      m.dispose();
+    });
+
+    test('ubicación vieja (más de 30 s): pide una lectura nueva y manda esa',
+        () async {
+      when(loc.currentPosition).thenReturn(fix(
+          lat: -27.30,
+          lng: -55.80,
+          at: now.subtract(const Duration(seconds: 31))));
+      when(loc.readFreshPosition(timeout: anyNamed('timeout'))).thenAnswer(
+          (_) async =>
+              PositionRead.ok(fix(lat: -27.3575, lng: -55.8904, at: now)));
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      await m.arriveAndDeliver();
+      verify(loc.readFreshPosition(timeout: kArrivalPositionTimeout)).called(1);
+      verify(trips.arrived('o1', latitude: -27.3575, longitude: -55.8904))
+          .called(1);
+      verifyNever(trips.arrived('o1', latitude: -27.30, longitude: -55.80));
+      m.dispose();
+    });
+
+    test('ubicación de 30 s justos todavía sirve: no pide lectura nueva',
+        () async {
+      when(loc.currentPosition).thenReturn(fix(
+          lat: -27.30,
+          lng: -55.80,
+          at: now.subtract(const Duration(seconds: 30))));
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      await m.arriveAndDeliver();
+      verifyNever(loc.readFreshPosition(timeout: anyNamed('timeout')));
+      verify(trips.arrived('o1', latitude: -27.30, longitude: -55.80))
+          .called(1);
+      m.dispose();
+    });
+
+    group('posición reciente pero sin ubicación disponible', () {
+      Future<DeliveryViewModel> blockedWith(LocationBlock block) async {
+        when(loc.currentPosition)
+            .thenReturn(fix(at: now.subtract(const Duration(seconds: 5))));
+        when(loc.locationBlock()).thenAnswer((_) async => block);
+        return onTheWay();
+      }
+
+      void expectNothingSent() {
+        verifyNever(trips.arrived(any,
+            latitude: anyNamed('latitude'), longitude: anyNamed('longitude')));
+        verifyNever(loc.readFreshPosition(timeout: anyNamed('timeout')));
+        verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      }
+
+      test('GPS apagado: no manda la posición guardada y pide prenderlo',
+          () async {
+        final m = await blockedWith(LocationBlock.serviceDisabled);
+        await m.arriveAndDeliver();
+        expect(
+            m.errorMessage, 'Tenés el GPS apagado. Activalo y probá de nuevo.');
+        expectNothingSent();
+        expect(m.isUpdatingStatus, false);
+        m.dispose();
+      });
+
+      test('GPS apagado: no pide el permiso', () async {
+        final m = await blockedWith(LocationBlock.serviceDisabled);
+        await m.arriveAndDeliver();
+        verifyNever(loc.requestLocationPermission());
+        m.dispose();
+      });
+
+      test('permiso revocado y lo da al pedírselo: lee el GPS de nuevo y manda',
+          () async {
+        when(loc.currentPosition).thenReturn(fix(
+            lat: -27.30,
+            lng: -55.80,
+            at: now.subtract(const Duration(seconds: 5))));
+        final blocks = <LocationBlock?>[LocationBlock.permissionDenied, null];
+        when(loc.locationBlock()).thenAnswer((_) async => blocks.removeAt(0));
+        when(loc.requestLocationPermission()).thenAnswer((_) async => true);
+        when(loc.readFreshPosition(timeout: anyNamed('timeout'))).thenAnswer(
+            (_) async =>
+                PositionRead.ok(fix(lat: -27.3575, lng: -55.8904, at: now)));
+        final m = await onTheWay();
+        when(trips.arrived('o1',
+                latitude: anyNamed('latitude'),
+                longitude: anyNamed('longitude')))
+            .thenAnswer((_) async {});
+        await m.arriveAndDeliver();
+        verify(loc.requestLocationPermission()).called(1);
+        verify(loc.readFreshPosition(timeout: kArrivalPositionTimeout))
+            .called(1);
+        verify(trips.arrived('o1', latitude: -27.3575, longitude: -55.8904))
+            .called(1);
+        expect(m.errorMessage, isNull);
+        verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+        m.dispose();
+      });
+
+      test('permiso revocado y lo niega al pedírselo: no manda y lo dice',
+          () async {
+        final m = await blockedWith(LocationBlock.permissionDenied);
+        when(loc.requestLocationPermission()).thenAnswer((_) async => false);
+        await m.arriveAndDeliver();
+        verify(loc.requestLocationPermission()).called(1);
+        expect(
+            m.errorMessage,
+            'La app no tiene permiso para usar tu ubicación. Permitilo y '
+            'probá de nuevo.');
+        expectNothingSent();
+        verifyNever(dialogs.showDialog(
+            title: 'Ubicación bloqueada',
+            description: anyNamed('description'),
+            buttonTitle: anyNamed('buttonTitle'),
+            cancelTitle: anyNamed('cancelTitle')));
+        m.dispose();
+      });
+
+      test('permiso bloqueado para siempre: ofrece abrir Ajustes y los abre',
+          () async {
+        when(dialogs.showDialog(
+                title: 'Ubicación bloqueada',
+                description: anyNamed('description'),
+                buttonTitle: 'Abrir Ajustes',
+                cancelTitle: 'Ahora no'))
+            .thenAnswer((_) async => DialogResponse(confirmed: true));
+        final m = await blockedWith(LocationBlock.permissionPermanentlyDenied);
+        await m.arriveAndDeliver();
+        verifyNever(loc.requestLocationPermission());
+        const text = 'La ubicación está bloqueada para la app. Habilitala en '
+            'Ajustes y probá de nuevo.';
+        expect(m.errorMessage, text);
+        verify(dialogs.showDialog(
+                title: 'Ubicación bloqueada',
+                description: text,
+                buttonTitle: 'Abrir Ajustes',
+                cancelTitle: 'Ahora no'))
+            .called(1);
+        verify(loc.openDeviceSettings()).called(1);
+        expectNothingSent();
+        m.dispose();
+      });
+
+      test('permiso bloqueado y el chofer elige «Ahora no»: no abre Ajustes',
+          () async {
+        when(dialogs.showDialog(
+                title: 'Ubicación bloqueada',
+                description: anyNamed('description'),
+                buttonTitle: anyNamed('buttonTitle'),
+                cancelTitle: anyNamed('cancelTitle')))
+            .thenAnswer((_) async => DialogResponse(confirmed: false));
+        final m = await blockedWith(LocationBlock.permissionPermanentlyDenied);
+        await m.arriveAndDeliver();
+        verifyNever(loc.openDeviceSettings());
+        expectNothingSent();
+        m.dispose();
+      });
+    });
+
+    test(
+        'posición con hora futura no cuenta como fresca: pide una lectura nueva',
+        () async {
+      when(loc.currentPosition).thenReturn(fix(
+          lat: -27.30, lng: -55.80, at: now.add(const Duration(seconds: 5))));
+      when(loc.readFreshPosition(timeout: anyNamed('timeout'))).thenAnswer(
+          (_) async =>
+              PositionRead.ok(fix(lat: -27.3575, lng: -55.8904, at: now)));
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      await m.arriveAndDeliver();
+      verify(loc.readFreshPosition(timeout: kArrivalPositionTimeout)).called(1);
+      verify(trips.arrived('o1', latitude: -27.3575, longitude: -55.8904))
+          .called(1);
+      m.dispose();
+    });
+
+    test('mientras se envía no admite un segundo toque', () async {
+      when(loc.currentPosition).thenReturn(fix(at: now));
+      final m = await onTheWay();
+      final pending = Completer<void>();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) => pending.future);
+      final first = m.arriveAndDeliver();
+      expect(m.isUpdatingStatus, true);
+      await m.arriveAndDeliver();
+      await m.arriveAndDeliver();
+      pending.complete();
+      await first;
+      verify(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .called(1);
+      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      expect(m.isUpdatingStatus, false);
+      m.dispose();
+    });
+
+    test('mientras se lee la ubicación tampoco admite un segundo toque',
+        () async {
+      when(loc.currentPosition).thenReturn(null);
+      final reading = Completer<PositionRead>();
+      when(loc.readFreshPosition(timeout: anyNamed('timeout')))
+          .thenAnswer((_) => reading.future);
+      final m = await onTheWay();
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      final first = m.arriveAndDeliver();
+      await m.arriveAndDeliver();
+      reading.complete(PositionRead.ok(fix(at: now)));
+      await first;
+      verify(loc.readFreshPosition(timeout: anyNamed('timeout'))).called(1);
+      verify(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .called(1);
       m.dispose();
     });
   });

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
+import 'package:splg_driver/core/config/app_config.dart';
 import 'package:splg_driver/services/trip_service.dart';
 
 import '../helpers/test_helpers.dart';
@@ -78,13 +79,53 @@ void main() {
         .called(1);
   });
 
-  test('reject y arrived pegan a sus endpoints', () async {
+  test('reject pega a su endpoint', () async {
     when(api.post(any, any, any, any)).thenAnswer((_) async => ok());
-    when(api.patch(any, any, any, any)).thenAnswer((_) async => ok());
     await svc.reject('o1');
-    await svc.arrived('o1');
     verify(api.post('orders/o1/reject', any, 'tok', any)).called(1);
-    verify(api.patch('orders/o1/arrived', any, 'tok', any)).called(1);
+  });
+
+  group('arrived (v2 con posición)', () {
+    test('pega a /api/v2/orders/:id/arrived con latitude y longitude',
+        () async {
+      when(api.patch(any, any, any, any)).thenAnswer((_) async => ok());
+      await svc.arrived('o1', latitude: -27.3575, longitude: -55.8904);
+      verify(api.patch('${AppConfig.apiV2Url}orders/o1/arrived',
+              {'latitude': -27.3575, 'longitude': -55.8904}, 'tok', any))
+          .called(1);
+    });
+
+    test(
+        'red caída: el reintento con la misma posición reusa la clave; con '
+        'otra posición es otra clave', () async {
+      final keys = <String>[];
+      when(api.patch(any, any, any, any)).thenAnswer((i) async {
+        keys.add(keyOf(i));
+        if (keys.length == 1) throw offline();
+        if (keys.length == 2) throw offline();
+        return ok();
+      });
+      await expectLater(svc.arrived('o1', latitude: -27.1, longitude: -55.1),
+          throwsA(isA<DioException>()));
+      await expectLater(svc.arrived('o1', latitude: -27.1, longitude: -55.1),
+          throwsA(isA<DioException>()));
+      await svc.arrived('o1', latitude: -27.2, longitude: -55.1);
+      expect(keys[0], keys[1]);
+      expect(keys[2], isNot(keys[1]));
+    });
+
+    test('el 409 ARRIVAL_TOO_FAR se propaga y descarta la clave', () async {
+      final keys = <String>[];
+      when(api.patch(any, any, any, any)).thenAnswer((i) async {
+        keys.add(keyOf(i));
+        if (keys.length == 1) throw rejected(409);
+        return ok();
+      });
+      await expectLater(svc.arrived('o1', latitude: -27.1, longitude: -55.1),
+          throwsA(isA<DioException>()));
+      await svc.arrived('o1', latitude: -27.1, longitude: -55.1);
+      expect(keys[0], isNot(keys[1]));
+    });
   });
 
   test('deliveryCode devuelve el texto del QR; sin código lanza', () async {

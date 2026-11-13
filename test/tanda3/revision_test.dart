@@ -10,6 +10,7 @@ import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
+import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/dialogs/order_offer/order_offer_dialog.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
@@ -386,7 +387,11 @@ void main() {
       when(trips.order('o1'))
           .thenAnswer((_) async => trip(status: 'out_for_delivery'));
       when(trips.customerRating(any)).thenAnswer((_) async => null);
-      when(trips.arrived('o1')).thenAnswer((_) async {});
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      when((locator<LocationService>() as MockLocationService).currentPosition)
+          .thenReturn(fix());
       var homes = 0;
       final m = DeliveryViewModel(
           orderId: 'o1',

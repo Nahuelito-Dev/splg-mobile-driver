@@ -45,6 +45,31 @@ bool isIdempotencyConflict(Object e) {
   return text.toLowerCase().contains('idempoten');
 }
 
+/// Texto de respaldo del 409 `ARRIVAL_TOO_FAR` si el back no manda `message`.
+const String kArrivalTooFarText =
+    'Todavía no estás en el domicilio. Marcá «Llegué» cuando estés en la puerta.';
+
+/// 409 de `PATCH /v2/orders/:id/arrived` con `code: ARRIVAL_TOO_FAR`: el chofer
+/// todavía está lejos del domicilio. Otros 409 (estado) no cuentan.
+bool isArrivalTooFar(Object e) {
+  if (e is! DioException || e.response?.statusCode != 409) return false;
+  final data = e.response?.data;
+  return data is Map && data['code'] == 'ARRIVAL_TOO_FAR';
+}
+
+/// El `message` del 409 `ARRIVAL_TOO_FAR` tal cual lo manda el back (ya viene
+/// en castellano, con la distancia); [kArrivalTooFarText] si no trae texto.
+String arrivalTooFarText(DioException e) {
+  final data = e.response?.data;
+  final m = data is Map ? data['message'] : null;
+  final text = switch (m) {
+    String s => s.trim(),
+    List l => l.whereType<String>().join('\n').trim(),
+    _ => '',
+  };
+  return text.isEmpty ? kArrivalTooFarText : text;
+}
+
 /// Texto de un fallo al ejecutar una acción: el de idempotencia es propio y el
 /// resto sale de [ApiErrorText]; sin respuesta de red o con otro error, [fallback].
 String actionErrorText(Object e, {String fallback = ApiErrorText.generic}) {

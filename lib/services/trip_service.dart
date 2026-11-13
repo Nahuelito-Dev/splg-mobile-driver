@@ -142,12 +142,23 @@ class TripService {
     });
   }
 
-  /// `PATCH /orders/:id/arrived`: avisa al cliente, no cambia el estado.
-  Future<void> arrived(String id) {
-    final action = 'arrived:$id';
+  /// `PATCH /api/v2/orders/:id/arrived` con la posición actual del chofer:
+  /// avisa al cliente, no cambia el estado. Si el chofer todavía está lejos del
+  /// domicilio el back rechaza con 409 `ARRIVAL_TOO_FAR` (ver
+  /// [isArrivalTooFar]). La clave es una por intención (pedido + posición): un
+  /// reintento sin respuesta con la misma posición la reusa; con otra posición
+  /// es otro aviso.
+  Future<void> arrived(String id,
+      {required double latitude, required double longitude}) {
+    final action = 'arrived:$id:${latitude.toStringAsFixed(6)},'
+        '${longitude.toStringAsFixed(6)}';
     return _once(action, () async {
       await _api.patch(
-          'orders/$id/arrived', const {}, await _token(), _idem(action));
+        '${AppConfig.apiV2Url}orders/$id/arrived',
+        {'latitude': latitude, 'longitude': longitude},
+        await _token(),
+        _idem(action),
+      );
     });
   }
 

@@ -1,3 +1,4 @@
+import 'package:geolocator/geolocator.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
 
@@ -57,3 +58,23 @@ const DriverOrderStatus kAccepted = DriverOrderStatus.accepted;
 class TripOrderFromJson {
   static TripOrder of(Map<String, dynamic> j) => TripOrder.fromJson(j);
 }
+
+/// Posición del chofer en la puerta del pedido de prueba, leída en [at]
+/// (por defecto, ahora).
+Position fix({
+  double lat = -27.357482,
+  double lng = -55.890404,
+  DateTime? at,
+}) =>
+    Position(
+      latitude: lat,
+      longitude: lng,
+      timestamp: at ?? DateTime.now(),
+      accuracy: 5,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: -1,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );

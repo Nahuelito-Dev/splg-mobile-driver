@@ -30,6 +30,34 @@ import 'package:splg_driver/ui/common/pickups_model.dart';
 /// enterarse de que lo cancelaron o lo liberaron desde otro lado.
 const Duration kTripPollInterval = Duration(seconds: 5);
 
+/// Antigüedad máxima de la última posición del stream para mandarla con
+/// «Llegué»; si es más vieja se pide una lectura nueva del GPS.
+const Duration kArrivalPositionMaxAge = Duration(seconds: 30);
+
+/// Lo que se espera la lectura nueva del GPS antes de dar la ubicación por no
+/// disponible.
+const Duration kArrivalPositionTimeout = Duration(seconds: 6);
+
+/// Lo que ve el chofer si no hay ubicación para mandar con «Llegué», según
+/// el motivo.
+const String kGpsOffText = 'Tenés el GPS apagado. Activalo y probá de nuevo.';
+const String kLocationPermissionText =
+    'La app no tiene permiso para usar tu ubicación. Permitilo y probá de nuevo.';
+const String kLocationPermanentlyDeniedText =
+    'La ubicación está bloqueada para la app. Habilitala en Ajustes y probá '
+    'de nuevo.';
+const String kLocationUnreadableText =
+    'No pudimos leer tu ubicación a tiempo. Esperá unos segundos y probá de '
+    'nuevo.';
+
+String noLocationText(LocationBlock block) => switch (block) {
+      LocationBlock.serviceDisabled => kGpsOffText,
+      LocationBlock.permissionDenied => kLocationPermissionText,
+      LocationBlock.permissionPermanentlyDenied =>
+        kLocationPermanentlyDeniedText,
+      LocationBlock.unreadable => kLocationUnreadableText,
+    };
+
 /// Cada cuánto se relee la lista de retiros de envases mientras dura el viaje.
 const Duration kPickupsRefresh = Duration(seconds: 30);
 
@@ -96,7 +124,11 @@ class DeliveryViewModel extends BaseViewModel {
     Future<BitmapDescriptor?> Function()? iconLoader,
     RecoveryRepository? recovery,
     RouteBatchRepository? batches,
+    this.arrivalPositionMaxAge = kArrivalPositionMaxAge,
+    this.arrivalPositionTimeout = kArrivalPositionTimeout,
+    DateTime Function()? clock,
   })  : _tripsOverride = trips,
+        _clock = clock ?? DateTime.now,
         _batchesOverride = batches,
         pickups = PickupsModel(orderId: orderId, repo: recovery),
         _routeGet = routeGet,
@@ -106,6 +138,11 @@ class DeliveryViewModel extends BaseViewModel {
 
   final String orderId;
   final Duration pollInterval;
+
+  /// Ver [kArrivalPositionMaxAge] y [kArrivalPositionTimeout].
+  final Duration arrivalPositionMaxAge;
+  final Duration arrivalPositionTimeout;
+  final DateTime Function() _clock;
 
   /// Envases que el cliente aceptó devolver en este pedido (CU-108).
   final PickupsModel pickups;
@@ -708,8 +745,11 @@ class DeliveryViewModel extends BaseViewModel {
     return true;
   }
 
-  /// "Llegué / Entregar": avisa al cliente (`PATCH arrived`) y abre la entrega
-  /// con QR. Si el aviso falla se dice y no se avanza.
+  /// "Llegué / Entregar": avisa al cliente (`PATCH /v2/orders/:id/arrived` con
+  /// la posición actual) y abre la entrega con QR. Sin ubicación no se llama al
+  /// back; si el back dice que el chofer todavía está lejos (409
+  /// `ARRIVAL_TOO_FAR`) se muestra su mensaje y el chofer puede reintentar. Si
+  /// el aviso falla se dice y no se avanza.
   Future<void> arriveAndDeliver() async {
     if (_updating || _releasing || !isOnTheWay) return;
     _updating = true;
@@ -717,21 +757,88 @@ class DeliveryViewModel extends BaseViewModel {
     notifyListeners();
     try {
       if (!arrivedNotified) {
-        await _trips.arrived(orderId);
+        final read = await _arrivalPosition();
+        if (_disposed) return;
+        final here = read.position;
+        if (here == null) {
+          await _failNoLocation(read.block ?? LocationBlock.unreadable);
+          return;
+        }
+        await _trips.arrived(orderId,
+            latitude: here.latitude, longitude: here.longitude);
         arrivedNotified = true;
       }
       await _declareEmpties();
     } catch (e) {
       debugPrint('Error antes de abrir el QR del pedido $orderId: $e');
-      errorMessage = _text(e);
-      _updating = false;
-      if (!_disposed) notifyListeners();
+      if (e is DioException && isArrivalTooFar(e)) {
+        final text = arrivalTooFarText(e);
+        _failArrival(text);
+        if (!_disposed) {
+          await _dialogService.showDialog(
+            title: 'Todavía no llegaste',
+            description: text,
+            buttonTitle: 'Entendido',
+          );
+        }
+        return;
+      }
+      _failArrival(_text(e));
       return;
     }
     _updating = false;
     if (_disposed) return;
     notifyListeners();
     await openDeliveryQr();
+  }
+
+  void _failArrival(String text) {
+    errorMessage = text;
+    _updating = false;
+    if (!_disposed) notifyListeners();
+  }
+
+  /// Sin ubicación no se avisa. Con el permiso bloqueado para siempre, además
+  /// se ofrece abrir los ajustes de la app.
+  Future<void> _failNoLocation(LocationBlock block) async {
+    final text = noLocationText(block);
+    _failArrival(text);
+    if (block != LocationBlock.permissionPermanentlyDenied || _disposed) return;
+    final response = await _dialogService.showDialog(
+      title: 'Ubicación bloqueada',
+      description: text,
+      buttonTitle: 'Abrir Ajustes',
+      cancelTitle: 'Ahora no',
+    );
+    if (response?.confirmed == true) await _location.openDeviceSettings();
+  }
+
+  /// Con permiso y GPS prendido: la última posición del stream si tiene entre
+  /// 0 y [arrivalPositionMaxAge] (una con hora futura no cuenta como fresca);
+  /// si no, una lectura nueva del GPS. Sin permiso o con el GPS apagado no se
+  /// usa ni la posición guardada. Si el permiso se puede volver a pedir (lo
+  /// revocó durante el reparto), se pide con la misma explicación que al
+  /// conectarse; si lo da, se lee el GPS de nuevo.
+  Future<PositionRead> _arrivalPosition() async {
+    final block = await _location.locationBlock();
+    if (block == LocationBlock.permissionDenied) {
+      await _location.requestLocationPermission();
+      if (_disposed) {
+        return const PositionRead.blocked(LocationBlock.permissionDenied);
+      }
+      final after = await _location.locationBlock();
+      if (after != null) return PositionRead.blocked(after);
+      return _location.readFreshPosition(timeout: arrivalPositionTimeout);
+    }
+    if (block != null) return PositionRead.blocked(block);
+    final last = _location.currentPosition;
+    if (last != null) {
+      final age = _clock().difference(last.timestamp);
+      if (!age.isNegative && age <= arrivalPositionMaxAge) {
+        return PositionRead.ok(last);
+      }
+    }
+    return _location.readFreshPosition(timeout: arrivalPositionTimeout);
   }
 
   // --- Vacías recibidas (F35 E4) ------------------------------------------

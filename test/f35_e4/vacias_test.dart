@@ -6,6 +6,7 @@ import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/models/driver_data.dart';
+import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
 import 'package:splg_lib/splg_lib.dart';
@@ -119,7 +120,11 @@ void main() {
       nav = locator<NavigationService>() as MockNavigationService;
       when(trips.order('o1')).thenAnswer((_) async => tripWithEmpties());
       when(trips.customerRating('c1')).thenAnswer((_) async => null);
-      when(trips.arrived('o1')).thenAnswer((_) async {});
+      when(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .thenAnswer((_) async {});
+      when((locator<LocationService>() as MockLocationService).currentPosition)
+          .thenReturn(fix());
     });
     tearDown(() => locator.reset());
 
@@ -270,7 +275,9 @@ void main() {
       when(trips.declareEmpties('o1', any))
           .thenAnswer((_) async => tripWithEmpties(received10: 1));
       await m.arriveAndDeliver();
-      verify(trips.arrived('o1')).called(1);
+      verify(trips.arrived('o1',
+              latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
+          .called(1);
       verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
       m.dispose();
     });

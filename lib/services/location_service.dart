@@ -17,7 +17,11 @@ class LocationService with ListenableServiceMixin {
     Stream<ServiceStatus> Function()? serviceStatusStreamFactory,
     Future<bool> Function()? isServiceEnabled,
     Future<bool> Function()? openLocationSettings,
-  })  : _positionStreamFactory = positionStreamFactory ??
+    Future<Position> Function(LocationSettings settings)? currentPositionGetter,
+  })  : _currentPositionGetter = currentPositionGetter ??
+            ((settings) =>
+                Geolocator.getCurrentPosition(locationSettings: settings)),
+        _positionStreamFactory = positionStreamFactory ??
             ((settings) =>
                 Geolocator.getPositionStream(locationSettings: settings)),
         _serviceStatusStreamFactory =
@@ -37,6 +41,8 @@ class LocationService with ListenableServiceMixin {
 
   final Stream<Position> Function(LocationSettings settings)
       _positionStreamFactory;
+  final Future<Position> Function(LocationSettings settings)
+      _currentPositionGetter;
   final Stream<ServiceStatus> Function() _serviceStatusStreamFactory;
   final Future<bool> Function() _isServiceEnabled;
   final Future<bool> Function() _openLocationSettings;
@@ -125,6 +131,48 @@ class LocationService with ListenableServiceMixin {
     } catch (e) {
       debugPrint('Error al obtener la ubicación actual: $e');
       return null;
+    }
+  }
+
+  /// Qué impide usar la ubicación en este momento, sin pedir nada ni mostrar
+  /// avisos; null si hay permiso y el GPS está prendido. Actualiza
+  /// [locationPermission] y [serviceDisabled].
+  Future<LocationBlock?> locationBlock() async {
+    final outcome =
+        await _permissions.ensure(AppPermission.location, interactive: false);
+    _locationPermission.value = outcome;
+    final serviceEnabled = await _isServiceEnabled();
+    _serviceDisabled.value = !serviceEnabled;
+    switch (outcome) {
+      case PermissionOutcome.granted:
+        return serviceEnabled ? null : LocationBlock.serviceDisabled;
+      case PermissionOutcome.permanentlyDenied:
+        return LocationBlock.permissionPermanentlyDenied;
+      case PermissionOutcome.denied:
+      case PermissionOutcome.unavailable:
+        return LocationBlock.permissionDenied;
+    }
+  }
+
+  /// Una lectura nueva del GPS que no espera más de [timeout]. Sin permiso o
+  /// con el GPS apagado no lee y dice por qué; si la lectura falla o no llega a
+  /// tiempo, [LocationBlock.unreadable]. Nunca lanza. La lectura pasa a ser la
+  /// [currentPosition].
+  Future<PositionRead> readFreshPosition({
+    Duration timeout = const Duration(seconds: 6),
+  }) async {
+    try {
+      final block = await locationBlock();
+      if (block != null) return PositionRead.blocked(block);
+      final position = await _currentPositionGetter(LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: timeout,
+      )).timeout(timeout);
+      _currentPosition.value = position;
+      return PositionRead.ok(position);
+    } catch (e) {
+      debugPrint('No se pudo leer la ubicación actual: $e');
+      return const PositionRead.blocked(LocationBlock.unreadable);
     }
   }
 
@@ -283,4 +331,28 @@ class LocationService with ListenableServiceMixin {
     _positionSubscription?.cancel();
     _positionStreamController.close();
   }
+}
+
+/// Por qué no hay una ubicación para usar.
+enum LocationBlock {
+  /// El GPS del teléfono está apagado.
+  serviceDisabled,
+
+  /// La app no tiene permiso de ubicación (se puede volver a pedir).
+  permissionDenied,
+
+  /// Permiso denegado para siempre: sólo se habilita desde Ajustes.
+  permissionPermanentlyDenied,
+
+  /// Hay permiso y GPS, pero la lectura falló o no llegó a tiempo.
+  unreadable,
+}
+
+/// Resultado de leer la ubicación: la posición o el motivo por el que no hay.
+class PositionRead {
+  const PositionRead.ok(Position this.position) : block = null;
+  const PositionRead.blocked(LocationBlock this.block) : position = null;
+
+  final Position? position;
+  final LocationBlock? block;
 }

@@ -1584,7 +1584,24 @@ class MockDriverAuthService extends _i1.Mock implements _i22.DriverAuthService {
 class MockDriverForegroundService extends _i1.Mock
     implements _i23.DriverForegroundService {
   @override
-  _i16.Future<void> start({
+  _i16.Future<bool> get isRunning => (super.noSuchMethod(
+        Invocation.getter(#isRunning),
+        returnValue: _i16.Future<bool>.value(false),
+        returnValueForMissingStub: _i16.Future<bool>.value(false),
+      ) as _i16.Future<bool>);
+
+  @override
+  _i16.Future<bool> canStart() => (super.noSuchMethod(
+        Invocation.method(
+          #canStart,
+          [],
+        ),
+        returnValue: _i16.Future<bool>.value(false),
+        returnValueForMissingStub: _i16.Future<bool>.value(false),
+      ) as _i16.Future<bool>);
+
+  @override
+  _i16.Future<bool> start({
     required String? title,
     required String? text,
   }) =>
@@ -1597,9 +1614,9 @@ class MockDriverForegroundService extends _i1.Mock
             #text: text,
           },
         ),
-        returnValue: _i16.Future<void>.value(),
-        returnValueForMissingStub: _i16.Future<void>.value(),
-      ) as _i16.Future<void>);
+        returnValue: _i16.Future<bool>.value(false),
+        returnValueForMissingStub: _i16.Future<bool>.value(false),
+      ) as _i16.Future<bool>);
 
   @override
   _i16.Future<void> update({

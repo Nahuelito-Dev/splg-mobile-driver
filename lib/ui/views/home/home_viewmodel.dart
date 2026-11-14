@@ -172,9 +172,167 @@ class HomeViewModel extends StreamViewModel<Position>
   }
 
   /// En línea pero sin ubicación llegando al despacho (GPS apagado o permiso
-  /// revocado con la app abierta): se avisa y se ofrece ir a Ajustes.
+  /// revocado con la app abierta): se avisa y se ofrece ir a Ajustes. Con la
+  /// franja de entrega sin permiso a la vista, ésa es la que manda.
   bool get showsLocationAlert =>
-      isOnline && hasLocationPermission && _locationService.locationUnavailable;
+      isOnline &&
+      hasLocationPermission &&
+      _locationService.locationUnavailable &&
+      !_foregroundPending;
+
+  /// Entrega en curso sin el servicio en primer plano porque falta el permiso
+  /// de ubicación (Android no deja arrancar un servicio de tipo location sin
+  /// él). Lo decide sólo [_reconcileOnlineState].
+  bool _foregroundPending = false;
+
+  @visibleForTesting
+  bool get foregroundPending => _foregroundPending;
+
+  /// Franja roja persistente del Inicio: «no se está enviando tu posición».
+  bool get showsNoLocationBanner => _foregroundPending && isOnline;
+
+  void _setForegroundPending(bool pending) {
+    if (_foregroundPending == pending) return;
+    _foregroundPending = pending;
+    notifyListeners();
+  }
+
+  /// El chofer tiene una entrega en curso aunque el flujo todavía no se haya
+  /// abierto: lo marca la reconexión de quien está repartiendo
+  /// (`connect(inDelivery: true)`) y se suelta cuando la entrega termina o el
+  /// back dice que no hay ninguna en curso.
+  bool _deliveryHold = false;
+
+  /// Hay una entrega en curso EN ESTE MOMENTO.
+  bool get _isDelivering => _trips.activeOrderId != null || _deliveryHold;
+
+  /// Arranque en vuelo: una segunda llamada mientras tanto espera la misma.
+  Future<bool>? _foregroundStart;
+
+  /// Arranca el servicio en primer plano. Devuelve si quedó corriendo, según
+  /// el estado real del plugin al terminar (no lo que respondió `start`).
+  Future<bool> _startForegroundService() => _foregroundStart ??=
+      _runForegroundStart().whenComplete(() => _foregroundStart = null);
+
+  Future<bool> _runForegroundStart() async {
+    final delivering = _isDelivering;
+    await _foregroundService.start(
+      title: delivering ? 'En reparto' : 'Estás en línea',
+      text: delivering ? 'Entrega en curso' : 'Recibiendo pedidos cercanos',
+    );
+    return _foregroundService.isRunning;
+  }
+
+  @visibleForTesting
+  Future<bool> startForegroundServiceForTest() => _startForegroundService();
+
+  Future<void>? _reconciling;
+  bool _reconcileAgain = false;
+
+  /// ÚNICA fuente de verdad de «en línea + servicio en primer plano + permiso
+  /// de ubicación». Se llama al conectar, al volver a la app, al cambiar el
+  /// permiso, al terminar una entrega y tras cada intento de arranque.
+  ///
+  /// (a) sin permiso y sin entrega: si está en línea se lo baja del todo
+  ///     (disponible false, socket, servicio) y el Inicio pide el permiso;
+  /// (b) sin permiso y con entrega: no se corta la entrega; servicio
+  ///     pendiente y franja roja;
+  /// (c) con permiso y en línea: si el servicio no corre se arranca (con el
+  ///     texto de este momento); si igual no queda corriendo y no hay
+  ///     entrega, se lo baja.
+  /// Fuera de línea el servicio no corre. Una sola corrida a la vez: un
+  /// pedido que llega mientras tanto la repite al terminar.
+  Future<void> _reconcileOnlineState() {
+    final running = _reconciling;
+    if (running != null) {
+      _reconcileAgain = true;
+      return running;
+    }
+    final run = () async {
+      try {
+        do {
+          _reconcileAgain = false;
+          await _reconcileOnce();
+        } while (_reconcileAgain && !_inactive);
+      } catch (e) {
+        debugPrint('No se pudo reconciliar el estado en línea: $e');
+      } finally {
+        _reconciling = null;
+      }
+    }();
+    _reconciling = run;
+    return run;
+  }
+
+  @visibleForTesting
+  Future<void> reconcileOnlineStateForTest() => _reconcileOnlineState();
+
+  Future<void> _reconcileOnce() async {
+    if (_inactive) return;
+    if (!isOnline) {
+      _setForegroundPending(false);
+      if (await _foregroundService.isRunning) await _foregroundService.stop();
+      return;
+    }
+
+    final permitted = await _foregroundService.canStart();
+    if (!permitted) {
+      // Sin permiso el servicio de tipo location no puede seguir.
+      if (await _foregroundService.isRunning) await _foregroundService.stop();
+      if (_isDelivering) {
+        _setForegroundPending(true); // (b)
+      } else {
+        await _goOfflineWithoutLocation(); // (a)
+      }
+      return;
+    }
+
+    // (c)
+    final running =
+        await _foregroundService.isRunning || await _startForegroundService();
+    // Mientras arrancaba pudo desconectarse (o perder el permiso): un servicio
+    // que terminó de arrancar después de la baja no se deja corriendo.
+    if (!isOnline || _inactive || !await _foregroundService.canStart()) {
+      _setForegroundPending(false);
+      if (await _foregroundService.isRunning) await _foregroundService.stop();
+      if (isOnline && !_inactive) _reconcileAgain = true;
+      return;
+    }
+    if (running) {
+      _setForegroundPending(false);
+    } else if (_isDelivering) {
+      _setForegroundPending(true);
+    } else {
+      await _goOfflineWithoutLocation();
+    }
+  }
+
+  /// Baja completa por falta de permiso y el Inicio vuelve a la pantalla que
+  /// lo pide.
+  Future<void> _goOfflineWithoutLocation() async {
+    debugPrint('Sin permiso de ubicación y sin entrega: se baja al chofer');
+    await _rollbackOnline();
+    try {
+      await _locationService.checkLocationPermission();
+    } catch (e) {
+      debugPrint('No se pudo revisar el permiso de ubicación: $e');
+    }
+    hasLocationPermission = false;
+    permissionMessage = _locationBlockedMessage();
+    notifyListeners();
+  }
+
+  String _locationBlockedMessage() {
+    if (_locationService.serviceDisabled) {
+      return 'El GPS del teléfono está apagado. Encendelo para ponerte en línea.';
+    }
+    if (_locationService.locationPermission ==
+        PermissionOutcome.permanentlyDenied) {
+      return 'La ubicación está desactivada para SPLG.\n'
+          'Activala desde Ajustes para ponerte en línea y recibir pedidos.';
+    }
+    return 'Necesitamos tu ubicación para asignarte pedidos cercanos.';
+  }
 
   Future<void> openLocationAlertSettings() =>
       _locationService.openLocationAlertSettings();
@@ -327,9 +485,14 @@ class HomeViewModel extends StreamViewModel<Position>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startLoadPolling();
-      if (!hasLocationPermission || _locationService.locationUnavailable) {
+      // El permiso pudo cambiar desde Ajustes sin que Android matara la app:
+      // en línea se vuelve a mirar siempre, y se reconcilia.
+      if (!hasLocationPermission ||
+          _locationService.locationUnavailable ||
+          isOnline) {
         _resolveLocation(interactive: false);
       }
+      unawaited(_reconcileOnlineState());
       if (_isHomeVisible()) unawaited(refreshNoOrdersReason());
       if (!_inactive) unawaited(resumeActiveOrder());
       // En entrega sin socket (falló al abrir): se reintenta.
@@ -406,17 +569,12 @@ class HomeViewModel extends StreamViewModel<Position>
         await _locationService.startTracking();
       } else if (hasLocationPermission) {
         permissionMessage = null;
-      } else if (_locationService.serviceDisabled) {
-        permissionMessage =
-            'El GPS del teléfono está apagado. Encendelo para ponerte en línea.';
-      } else if (_locationService.locationPermission ==
-          PermissionOutcome.permanentlyDenied) {
-        permissionMessage = 'La ubicación está desactivada para SPLG.\n'
-            'Activala desde Ajustes para ponerte en línea y recibir pedidos.';
       } else {
-        permissionMessage =
-            'Necesitamos tu ubicación para asignarte pedidos cercanos.';
+        permissionMessage = _locationBlockedMessage();
       }
+
+      // El permiso pudo cambiar: se ajusta el estado en línea y el servicio.
+      await _reconcileOnlineState();
     } catch (e) {
       hasLocationPermission = false;
       permissionMessage = 'No pudimos obtener tu ubicación. Probá de nuevo.';
@@ -643,6 +801,18 @@ class HomeViewModel extends StreamViewModel<Position>
       return;
     }
 
+    // Sin permiso de ubicación no se queda en línea: Android no deja arrancar
+    // el servicio en primer plano (tipo location) y, sin él, con la app
+    // minimizada el chofer quedaría en el radar sin nadie que escuche. No se
+    // lo marca disponible y el Inicio muestra el pedido del permiso. Con una
+    // entrega en curso no se corta nada (se avisa con la franja).
+    if (inDelivery) _deliveryHold = true;
+    if (!_isDelivering && !await _foregroundService.canStart()) {
+      debugPrint('connect() sin permiso de ubicación: no se pone en línea');
+      await _resolveLocation(interactive: false);
+      return;
+    }
+
     _connecting = true;
     try {
       // Que la baja de la apertura no llegue después del alta.
@@ -664,11 +834,12 @@ class HomeViewModel extends StreamViewModel<Position>
 
       // Foreground service: mantiene vivo el proceso (socket + GPS) con la app
       // en background. Sin esto, al minimizar la app el chofer se cae del radar.
-      await _foregroundService.start(
-        title: 'Estás en línea',
-        text: 'Recibiendo pedidos cercanos',
-      );
+      // Sin permiso de ubicación no se arranca (Android cerraría la app): lo
+      // decide la reconciliación. En entrega se sigue y se avisa; si no, lo
+      // bajó y no se abre el socket.
+      await _reconcileOnlineState();
       _abortIfLoggedOut(epoch);
+      if (!_markedOnline) return;
 
       _driverSocketService.connect(token, userId);
       if (!await _driverSocketService.waitUntilConnected(_socketTimeout)) {
@@ -719,6 +890,8 @@ class HomeViewModel extends StreamViewModel<Position>
   Future<void> _rollbackOnline() async {
     _markedOnline = false;
     _onlineSetupDone = false;
+    _foregroundPending = false;
+    _deliveryHold = false;
     _stopSearching();
     await _setAvailability(false);
     await _foregroundService.stop();
@@ -1412,6 +1585,9 @@ class HomeViewModel extends StreamViewModel<Position>
   /// Cobros que ya se le abrieron al chofer en esta sesión.
   final Set<String> _promptedPayments = {};
 
+  @visibleForTesting
+  Future<void> afterFlowForTest(String orderId) => _afterFlow(orderId);
+
   Future<void> _afterFlow(String orderId) async {
     // Dentro de un recorrido sigue la próxima parada, en el orden del lote.
     if (_batchQueue.isNotEmpty && !_offerOpen) {
@@ -1421,6 +1597,10 @@ class HomeViewModel extends StreamViewModel<Position>
       title: 'Estás en línea',
       text: 'Recibiendo pedidos cercanos',
     );
+    // Terminó la entrega: sin permiso de ubicación ya no hay qué sostener y
+    // se lo baja; con permiso, el servicio sigue (o arranca si faltaba).
+    _deliveryHold = false;
+    await _reconcileOnlineState();
     // Una entrega que reabrió el socket por su cuenta completa el armado.
     if (isOnline && !_onlineSetupDone && !_manuallyOffline) {
       await _completeOnlineSetup();
@@ -1685,6 +1865,11 @@ class HomeViewModel extends StreamViewModel<Position>
       }
       // Una asignación anotada que el back ya no da como en curso, no espera más.
       if (assignedNow && current == null) _assignedWaiting.remove(order.id);
+      // El back no tiene entrega en curso: la marca de la reconexión se suelta.
+      if (current == null && _deliveryHold && _trips.activeOrderId == null) {
+        _deliveryHold = false;
+        unawaited(_reconcileOnlineState());
+      }
       if (_offerOpen || _trips.activeOrderId != null) return;
       if (current != null) {
         debugPrint('Retomando el pedido en curso ${current.id}');

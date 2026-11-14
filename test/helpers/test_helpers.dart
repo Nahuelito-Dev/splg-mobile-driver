@@ -253,6 +253,11 @@ MockDriverApiService getAndRegisterDriverApiService() {
 MockDriverForegroundService getAndRegisterDriverForegroundService() {
   _removeRegistrationIfExists<DriverForegroundService>();
   final service = MockDriverForegroundService();
+  // Por omisión el servicio arranca (con permiso de ubicación).
+  when(service.start(title: anyNamed('title'), text: anyNamed('text')))
+      .thenAnswer((_) async => true);
+  when(service.isRunning).thenAnswer((_) async => true);
+  when(service.canStart()).thenAnswer((_) async => true);
   locator.registerSingleton<DriverForegroundService>(service);
   return service;
 }

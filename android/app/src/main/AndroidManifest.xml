@@ -26,7 +26,7 @@
 
     <application
         android:label="SPLG Chofer"
-        android:name="${applicationName}"
+        android:name=".SplgDriverApplication"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -60,7 +60,9 @@
             android:value="false" />
         <meta-data android:name="com.google.android.geo.API_KEY"
                android:value="${MAPS_API_KEY}"/>
-        <!-- flutter_foreground_task: servicio que mantiene vivo el proceso -->
+        <!-- flutter_foreground_task: servicio que mantiene vivo el proceso.
+             Sólo lo arranca la app tras verificar el permiso de ubicación; el
+             reinicio automático del plugin lo desarma SplgDriverApplication. -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
             android:foregroundServiceType="location"

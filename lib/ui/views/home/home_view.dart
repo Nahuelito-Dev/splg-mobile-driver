@@ -38,7 +38,8 @@ class HomeView extends StackedView<HomeViewModel> {
   }
 
   Widget _buildBody(BuildContext context, HomeViewModel viewModel) {
-    if (!viewModel.hasLocationPermission) {
+    // En entrega sin permiso no se tapa el mapa: queda la franja roja.
+    if (!viewModel.hasLocationPermission && !viewModel.showsNoLocationBanner) {
       return SafeArea(child: _buildPermissionDeniedView(context, viewModel));
     }
 
@@ -70,6 +71,13 @@ class HomeView extends StackedView<HomeViewModel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (viewModel.showsNoLocationBanner)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: _NoLocationBanner(
+                      onTap: viewModel.requestLocationPermission,
+                    ),
+                  ),
                 if (viewModel.showsLocationAlert)
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 4),
@@ -302,6 +310,51 @@ class _LocationAlert extends StatelessWidget {
               key: const Key('home-location-alert-action'),
               onPressed: onTap,
               child: const Text('Activar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Entrega en curso sin permiso de ubicación: el cliente y el despacho no
+/// reciben la posición del chofer. Persistente hasta que vuelva el permiso; el
+/// botón lo pide (o lleva a Ajustes si quedó denegado para siempre).
+class _NoLocationBanner extends StatelessWidget {
+  const _NoLocationBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brasa = context.brasa;
+    final type = SplgType.of(context);
+    return Material(
+      key: const Key('home-no-location-banner'),
+      color: brasa.dangerSoft,
+      elevation: 3,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(SplgIcons.location, color: brasa.danger),
+            const SizedBox(width: 12),
+            Expanded(
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.3,
+                child: Text(
+                    'Sin permiso de ubicación: no se está enviando tu posición',
+                    style: type.bodyStrong.copyWith(color: brasa.ink2)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              key: const Key('home-no-location-banner-action'),
+              onPressed: onTap,
+              style: TextButton.styleFrom(foregroundColor: brasa.danger),
+              child: const Text('Permitir'),
             ),
           ],
         ),

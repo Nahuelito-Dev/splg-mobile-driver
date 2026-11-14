@@ -9,9 +9,11 @@ import 'package:splg_driver/app/app.locator.dart';
 import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/delivery_offer_slot.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
+import 'package:splg_driver/ui/views/delivery_qr/offer_slot_host.dart';
 
 /// Cobro del pedido ya entregado: medio de pago, total a cobrar y detalle.
 ///
@@ -20,15 +22,29 @@ import 'package:splg_driver/ui/common/navigation_helpers.dart';
 /// muestra el motivo y deja reintentar); "El cliente no pagó" pide una nota
 /// opcional, avisa al back y sigue al cierre con un aviso. Con Mercado Pago lo
 /// paga el cliente: se muestra el estado, sin esos botones.
-class PaymentViewModel extends BaseViewModel {
+/// Una oferta de pedido que llega (o quedó pendiente del QR) se muestra como
+/// banda abajo, sin tapar el cobro.
+class PaymentViewModel extends BaseViewModel with OfferSlotHost {
   PaymentViewModel(
       {required this.orderId,
       TripService? trips,
       PaymentRepository? payments,
-      void Function()? goHome})
+      void Function()? goHome,
+      DeliveryOfferSlot? offers})
       : _tripsOverride = trips,
         _paymentsOverride = payments,
-        _goHome = goHome ?? popToHome;
+        _goHome = goHome ?? popToHome,
+        _offersOverride = offers;
+
+  final DeliveryOfferSlot? _offersOverride;
+  @override
+  DeliveryOfferSlot? get offerSlotOverride => _offersOverride;
+
+  @override
+  void dispose() {
+    releaseOffers();
+    super.dispose();
+  }
 
   final void Function() _goHome;
 

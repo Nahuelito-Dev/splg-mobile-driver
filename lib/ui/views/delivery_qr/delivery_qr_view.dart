@@ -6,6 +6,7 @@ import 'package:stacked/stacked.dart';
 import 'package:splg_driver/models/driver_data.dart';
 
 import 'delivery_qr_viewmodel.dart';
+import 'offer_band.dart';
 
 /// "Finalización": QR grande para que el cliente lo escanee.
 class DeliveryQrView extends StackedView<DeliveryQrViewModel> {
@@ -51,6 +52,11 @@ class DeliveryQrView extends StackedView<DeliveryQrViewModel> {
                     : model.code == null
                         ? _Error(model: model)
                         : _Qr(model: model),
+              ),
+              OfferSlotArea(
+                offer: model.pendingOffer,
+                notice: model.offerNotice,
+                slot: model.offerSlot,
               ),
             ],
           ),

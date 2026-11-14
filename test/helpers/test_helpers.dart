@@ -24,6 +24,7 @@ import 'package:splg_driver/services/maintenance_notifier.dart';
 import 'package:splg_driver/models/maintenance.dart';
 import 'package:splg_driver/services/route_batch_repository.dart';
 import 'package:splg_driver/services/recovery_repository.dart';
+import 'package:splg_driver/services/delivery_offer_slot.dart';
 // @stacked-import
 
 import 'test_helpers.mocks.dart';
@@ -109,7 +110,16 @@ void registerServices() {
   getAndRegisterMaintenanceNotifier();
   getAndRegisterRouteBatchRepository();
   getAndRegisterRecoveryRepository();
+  getAndRegisterDeliveryOfferSlot();
 // @stacked-mock-register
+}
+
+/// Real, no un mock: sólo coordina el Inicio con la pantalla del QR.
+DeliveryOfferSlot getAndRegisterDeliveryOfferSlot() {
+  _removeRegistrationIfExists<DeliveryOfferSlot>();
+  final slot = DeliveryOfferSlot();
+  locator.registerSingleton<DeliveryOfferSlot>(slot);
+  return slot;
 }
 
 MockRouteBatchRepository getAndRegisterRouteBatchRepository() {

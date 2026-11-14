@@ -1,17 +1,19 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:stacked/stacked.dart';
 import 'package:stacked_services/stacked_services.dart';
 
 import 'package:splg_driver/app/app.locator.dart';
-import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/core/network/action_error_text.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
+import 'package:splg_driver/services/delivery_offer_slot.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
+import 'package:splg_driver/ui/views/delivery_qr/offer_slot_host.dart';
 
 /// Cada cuánto se pregunta si el cliente ya confirmó la entrega.
 const Duration kQrPollInterval = Duration(seconds: 3);
@@ -23,19 +25,27 @@ const Duration kQrPollInterval = Duration(seconds: 3);
 ///
 /// El back no deja confirmar la entrega al chofer por el camino del QR y el
 /// QR es justamente la prueba anti-fraude, por eso no hay opción "sin QR".
-class DeliveryQrViewModel extends BaseViewModel {
+class DeliveryQrViewModel extends BaseViewModel with OfferSlotHost {
   DeliveryQrViewModel({
     required this.orderId,
     TripService? trips,
     this.pollInterval = kQrPollInterval,
     void Function()? goHome,
+    DeliveryOfferSlot? offers,
   })  : _tripsOverride = trips,
-        _goHome = goHome ?? popToHome;
+        _goHome = goHome ?? popToHome,
+        _offersOverride = offers;
 
   final String orderId;
   final Duration pollInterval;
   final TripService? _tripsOverride;
   final void Function() _goHome;
+
+  /// Las ofertas que llegan con el QR arriba se muestran en una banda de esta
+  /// pantalla, sin taparlo.
+  final DeliveryOfferSlot? _offersOverride;
+  @override
+  DeliveryOfferSlot? get offerSlotOverride => _offersOverride;
 
   TripService get _trips => _tripsOverride ?? locator<TripService>();
   final _nav = locator<NavigationService>();
@@ -129,6 +139,7 @@ class DeliveryQrViewModel extends BaseViewModel {
   }
 
   Future<void> initialize() async {
+    hostOffers();
     _cancelSub = _socket.orderCancelled.listen((p) {
       if (p['orderId']?.toString() == orderId) _check();
     });
@@ -226,7 +237,18 @@ class DeliveryQrViewModel extends BaseViewModel {
     _closing = true;
     _timer?.cancel();
     _socket.stopTracking();
-    await _nav.replaceWithPaymentView(orderId: orderId);
+    // La pantalla del pedido (abajo) retoma apenas esta ruta se reemplaza: se
+    // marca en el momento, antes de que retome, y sólo si el cobro quedó
+    // arriba.
+    if (openPaymentView(_nav, orderId)) {
+      _trips.paymentOpenedFor = orderId;
+      return;
+    }
+    // No se abrió el cobro: no queda marcado y se sigue esperando aquí (el
+    // próximo sondeo lo vuelve a intentar).
+    debugPrint('El cobro de $orderId no quedó abierto: se reintenta');
+    _closing = false;
+    if (!_disposed) _startPolling();
   }
 
   Future<void> _lost(bool cancelled) async {
@@ -244,7 +266,13 @@ class DeliveryQrViewModel extends BaseViewModel {
     _goHome();
   }
 
-  void back() => _nav.back();
+  /// «Volver»: deja de sondear antes de salir; mientras la ruta se va, la
+  /// pantalla del pedido ya retomó el control.
+  void back() {
+    _closing = true;
+    _timer?.cancel();
+    _nav.back();
+  }
 
   @override
   void dispose() {
@@ -252,6 +280,7 @@ class DeliveryQrViewModel extends BaseViewModel {
     _timer?.cancel();
     _cancelSub?.cancel();
     _codeSub?.cancel();
+    releaseOffers();
     super.dispose();
   }
 }

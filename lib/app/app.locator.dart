@@ -13,6 +13,7 @@ import 'package:stacked_services/src/navigation/navigation_service.dart';
 import 'package:stacked_shared/stacked_shared.dart';
 
 import '../services/app_permissions.dart';
+import '../services/delivery_offer_slot.dart';
 import '../services/driver_api_service.dart';
 import '../services/driver_auth_service.dart';
 import '../services/driver_ops_repository.dart';
@@ -62,4 +63,5 @@ Future<void> setupLocator({
       () => HttpRouteBatchRepository());
   locator.registerLazySingleton<RecoveryRepository>(
       () => HttpRecoveryRepository());
+  locator.registerLazySingleton(() => DeliveryOfferSlot());
 }

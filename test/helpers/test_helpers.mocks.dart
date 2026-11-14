@@ -2262,6 +2262,15 @@ class MockTripService extends _i1.Mock implements _i9.TripService {
       );
 
   @override
+  set paymentOpenedFor(String? _paymentOpenedFor) => super.noSuchMethod(
+        Invocation.setter(
+          #paymentOpenedFor,
+          _paymentOpenedFor,
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void beginFlow(String? orderId) => super.noSuchMethod(
         Invocation.method(
           #beginFlow,

@@ -220,6 +220,9 @@ class DeliveryViewModel extends BaseViewModel {
   LocationService get _location => locator<LocationService>();
 
   Timer? _pollTimer;
+
+  /// Reintento de abrir el cobro cuando la navegación no lo dejó arriba.
+  Timer? _paymentRetry;
   bool _pollInFlight = false;
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<Map<String, dynamic>>? _cancelSub;
@@ -592,6 +595,7 @@ class DeliveryViewModel extends BaseViewModel {
     pickups.removeListener(notifyListeners);
     pickups.dispose();
     _stopPolling();
+    _paymentRetry?.cancel();
     _noPositionTimer?.cancel();
     _positionSub?.cancel();
     _cancelSub?.cancel();
@@ -692,7 +696,20 @@ class DeliveryViewModel extends BaseViewModel {
     _closing = true;
     _stopPolling();
     _driverSocketService.stopTracking();
-    await _navigationService.replaceWithPaymentView(orderId: orderId);
+    if (openPaymentView(_navigationService, orderId)) {
+      _trips.paymentOpenedFor = orderId;
+      return;
+    }
+    // No se abrió el cobro: se reintenta en la próxima vuelta del sondeo (con
+    // el pedido entregado el sondeo normal no corre).
+    debugPrint('El cobro de $orderId no quedó abierto: se reintenta');
+    _closing = false;
+    if (_disposed) return;
+    _paymentRetry?.cancel();
+    _paymentRetry = Timer(pollInterval, () {
+      _paymentRetry = null;
+      if (!_disposed) unawaited(_refresh(silent: true));
+    });
   }
 
   String _text(Object e) => actionErrorText(e,
@@ -916,9 +933,18 @@ class DeliveryViewModel extends BaseViewModel {
   Future<void> openDeliveryQr() async {
     _stopPolling();
     _qrOpen = true;
+    final flow = _trips.activeOrderId;
     await _navigationService.navigateToDeliveryQrView(orderId: orderId);
     _qrOpen = false;
     if (_disposed || _closing) return;
+    // El QR cerró la entrega: o la terminó (cancelado o liberado: ya avisó y
+    // volvió al Inicio) o abrió el cobro. Releer acá repetiría el aviso o
+    // abriría el cobro otra vez.
+    if ((flow != null && _trips.activeOrderId != flow) ||
+        _trips.paymentOpenedFor == orderId) {
+      _closing = true;
+      return;
+    }
     await _refresh(silent: true);
     _startPolling();
   }

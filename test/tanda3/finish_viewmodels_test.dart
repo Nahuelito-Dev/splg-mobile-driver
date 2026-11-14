@@ -297,6 +297,8 @@ void main() {
         () async {
       final m = qr();
       await m.initialize();
+      // La navegación deja el cobro arriba (lo que mira la pantalla del QR).
+      when(nav.currentRoute).thenReturn(Routes.paymentView);
       when(trips.order('o1'))
           .thenAnswer((_) async => trip(status: 'delivered'));
       await Future<void>.delayed(const Duration(milliseconds: 100));

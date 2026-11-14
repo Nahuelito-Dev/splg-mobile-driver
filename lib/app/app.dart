@@ -47,6 +47,7 @@ import 'package:splg_driver/services/maintenance_board.dart';
 import 'package:splg_driver/services/route_batch_repository.dart';
 import 'package:splg_driver/services/recovery_repository.dart';
 import 'package:splg_driver/ui/dialogs/route_batch_offer/route_batch_offer_dialog.dart';
+import 'package:splg_driver/services/delivery_offer_slot.dart';
 // @stacked-import
 
 @StackedApp(
@@ -104,6 +105,7 @@ import 'package:splg_driver/ui/dialogs/route_batch_offer/route_batch_offer_dialo
         classType: HttpRouteBatchRepository, asType: RouteBatchRepository),
     LazySingleton(
         classType: HttpRecoveryRepository, asType: RecoveryRepository),
+    LazySingleton(classType: DeliveryOfferSlot),
 // @stacked-service
   ],
   bottomsheets: [

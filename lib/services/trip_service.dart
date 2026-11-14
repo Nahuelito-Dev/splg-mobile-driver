@@ -52,9 +52,15 @@ class TripService {
 
   /// Arranca el flujo de un pedido (en curso -> QR -> cobro -> completado).
   void beginFlow(String orderId) {
+    if (activeOrderId != orderId) paymentOpenedFor = null;
     activeOrderId = orderId;
     _flow ??= Completer<void>();
   }
+
+  /// Pedido del flujo cuya pantalla de cobro ya se abrió. La abre la pantalla
+  /// del QR al confirmarse la entrega; la del pedido, que queda abajo, no la
+  /// vuelve a abrir al recuperar el control.
+  String? paymentOpenedFor;
 
   /// Espera a que el flujo TERMINE de verdad (completado, cancelado o
   /// liberado), no cuando una pantalla del flujo reemplaza a otra.
@@ -63,6 +69,7 @@ class TripService {
   /// Fin del flujo: libera al Inicio.
   void endFlow() {
     activeOrderId = null;
+    paymentOpenedFor = null;
     final f = _flow;
     _flow = null;
     if (f != null && !f.isCompleted) f.complete();

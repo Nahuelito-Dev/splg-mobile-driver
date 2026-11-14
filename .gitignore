@@ -48,4 +48,4 @@ app.*.map.json
 .orq/
 
 # Diferencias que genera golden_toolkit al fallar un golden (temporales)
-test/golden/failures/
+test/**/failures/

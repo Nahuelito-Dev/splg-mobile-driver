@@ -218,6 +218,27 @@ void main() {
       await leave(t);
     });
 
+    testWidgets(
+        'plegado: esconde cliente y botones, pero la acción y el error se ven',
+        (t) async {
+      when(trips.setStatus('o1', 'on_the_way')).thenThrow(Exception('x'));
+      await pump(t, const DeliveryView(orderId: 'o1'));
+      await t.tap(find.byKey(const Key('trip-collapse')));
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('trip-call')), findsNothing);
+      expect(find.byKey(const Key('trip-navigate')), findsNothing);
+      expect(find.byKey(const Key('trip-leave')), findsOneWidget);
+
+      await t.tap(find.byKey(const Key('trip-leave')));
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('trip-message')), findsOneWidget);
+
+      await t.tap(find.byKey(const Key('trip-collapse')));
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('trip-call')), findsOneWidget);
+      await leave(t);
+    });
+
     testWidgets('Navegar abre el pop-up de mapas y Waze cae a la web',
         (t) async {
       final opened = <Uri>[];

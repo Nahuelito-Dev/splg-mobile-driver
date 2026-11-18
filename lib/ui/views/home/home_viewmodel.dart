@@ -535,6 +535,7 @@ class HomeViewModel extends StreamViewModel<Position>
     _batchClearTimer?.cancel();
     _rejectedSubscription?.cancel();
     _cancelledSubscription?.cancel();
+    _routeSheetStartedSubscription?.cancel();
     _maintenanceChanges?.cancel();
     _maintenanceOpenedSubscription?.cancel();
     _locationService.stopTracking();
@@ -905,6 +906,9 @@ class HomeViewModel extends StreamViewModel<Position>
     _rejectedSubscription = null;
     _cancelledSubscription?.cancel();
     _cancelledSubscription = null;
+    _routeSheetStartedSubscription?.cancel();
+    _routeSheetStartedSubscription = null;
+    _sheetStartPending = false;
     _notifier.stop();
     _board.detach();
     _driverSocketService.disconnect();
@@ -942,6 +946,23 @@ class HomeViewModel extends StreamViewModel<Position>
 
   StreamSubscription<void>? _rejectedSubscription;
   StreamSubscription<Map<String, dynamic>>? _cancelledSubscription;
+  StreamSubscription<void>? _routeSheetStartedSubscription;
+
+  /// El admin inició la hoja de ruta mientras otra retoma consultaba o había una
+  /// oferta en pantalla: se vuelve a buscar la parada cuando eso termina, para
+  /// que el aviso no se pierda.
+  bool _sheetStartPending = false;
+
+  /// `route-sheet:started`: el back ya guardó el inicio; se abre la primera
+  /// parada. Sin cobros pendientes (`collect: false`): el aviso es de la hoja.
+  void _onRouteSheetStarted() {
+    if (_inactive) return;
+    if (_resuming || _offerOpen) {
+      _sheetStartPending = true;
+      return;
+    }
+    unawaited(resumeActiveOrder(collect: false));
+  }
 
   /// El servidor cortó el socket varias veces seguidas apenas conectar: la
   /// sesión no es válida. Se baja al chofer de línea y se le avisa.
@@ -1018,6 +1039,8 @@ class HomeViewModel extends StreamViewModel<Position>
         _driverSocketService.orderCancelled.listen(_onQueuedOrderGone);
     _batchSubscription ??=
         _driverSocketService.routeBatchEvents.listen(_onRouteBatchEvent);
+    _routeSheetStartedSubscription ??= _driverSocketService.routeSheetStarted
+        .listen((_) => _onRouteSheetStarted());
   }
 
   /// ¿Hay quien escuche las ofertas del socket?
@@ -1261,9 +1284,11 @@ class HomeViewModel extends StreamViewModel<Position>
       _notifier.offerEnded(pump: done == null && startFlow == null);
       if (done != null) {
         _resumeSoon(done);
-      } else if (startFlow == null && _assignedWaiting.isNotEmpty) {
-        // Llegó una asignación con la oferta en pantalla: ahora que se cerró
-        // sin abrir otra entrega, se abre la asignada.
+      } else if (startFlow == null &&
+          (_assignedWaiting.isNotEmpty || _sheetStartPending)) {
+        // Llegó una asignación (o el inicio de la hoja de ruta) con la oferta
+        // en pantalla: ahora que se cerró sin abrir otra entrega, se abre.
+        _sheetStartPending = false;
         _resumeSoon('');
       }
     }
@@ -1794,6 +1819,7 @@ class HomeViewModel extends StreamViewModel<Position>
         _startSearching();
         notifyListeners();
       }
+      if (!accepted && _sheetStartPending) _resumeSoon('');
     }
   }
 
@@ -1851,6 +1877,8 @@ class HomeViewModel extends StreamViewModel<Position>
     if (_inactive) return;
     if (_resuming || _offerOpen || _trips.activeOrderId != null) return;
     _resuming = true;
+    // Esta retoma atiende el inicio de hoja que estuviera anotado.
+    _sheetStartPending = false;
     final decision = _resumeDecision = Completer<void>();
     final epoch = _sessionEpoch;
     String? openingOrderId;
@@ -1929,12 +1957,18 @@ class HomeViewModel extends StreamViewModel<Position>
     } finally {
       _resuming = false;
       if (!decision.isCompleted) decision.complete();
+      // Si el admin inició la hoja mientras se consultaba, la marca sigue
+      // prendida hasta que otra retoma la atienda (no se pierde si una oferta
+      // se cruza antes).
+      final sheetStarted = _sheetStartPending;
       // Una asignación que llegó mientras se consultaba (y no vino en la
       // respuesta) se busca otra vez; las anteriores ya las contestó el back.
+      // Lo mismo si en ese lapso el admin inició la hoja de ruta.
       if (epoch == _sessionEpoch &&
           !_inactive &&
           _trips.activeOrderId == null &&
-          _assignedWaiting.any((id) => !waitingBefore.contains(id))) {
+          (sheetStarted ||
+              _assignedWaiting.any((id) => !waitingBefore.contains(id)))) {
         _resumeSoon('');
       }
     }

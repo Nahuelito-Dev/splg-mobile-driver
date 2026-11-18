@@ -139,6 +139,11 @@ class DriverSocketService with ListenableServiceMixin {
   Stream<Map<String, dynamic>> get orderCancelled =>
       _cancelledController.stream;
 
+  /// La hoja de ruta del chofer se inició (desde el panel o la app): hay que
+  /// retomar el viaje sin esperar a que la app vuelva a primer plano.
+  final _routeSheetStartedController = StreamController<void>.broadcast();
+  Stream<void> get routeSheetStarted => _routeSheetStartedController.stream;
+
   /// El cliente cambió la dirección de entrega del pedido en curso
   /// (`order:address-changed`): hay que releerlo y rehacer la ruta.
   final _addressChangedController =
@@ -213,6 +218,10 @@ class DriverSocketService with ListenableServiceMixin {
       if (data is Map) {
         _cancelledController.add(Map<String, dynamic>.from(data));
       }
+    });
+
+    socket.on('route-sheet:started', (_) {
+      _routeSheetStartedController.add(null);
     });
 
     socket.on('order:address-changed', (data) {
@@ -465,6 +474,7 @@ class DriverSocketService with ListenableServiceMixin {
     disconnect();
     _incomingOrdersController.close();
     _cancelledController.close();
+    _routeSheetStartedController.close();
     _addressChangedController.close();
     _deliveryCodeController.close();
     _maintenanceController.close();

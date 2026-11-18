@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:splg_lib/splg_lib.dart';
@@ -238,12 +237,21 @@ class _AddressCard extends StatelessWidget {
   }
 }
 
-class _TripSheet extends StatelessWidget {
+class _TripSheet extends StatefulWidget {
   const _TripSheet({required this.model});
   final DeliveryViewModel model;
 
   @override
+  State<_TripSheet> createState() => _TripSheetState();
+}
+
+class _TripSheetState extends State<_TripSheet> {
+  /// Plegado: sólo el título y la acción principal, para ver el mapa.
+  bool _plegado = false;
+
+  @override
   Widget build(BuildContext context) {
+    final model = widget.model;
     final type = SplgType.of(context);
     final brasa = context.brasa;
     final order = model.order!;
@@ -254,8 +262,21 @@ class _TripSheet extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(SplgIcons.down, size: 18, color: brasa.ink2),
-              const SizedBox(width: 8),
+              Semantics(
+                expanded: !_plegado,
+                child: IconButton(
+                  key: const Key('trip-collapse'),
+                  tooltip: _plegado ? 'Ver el detalle' : 'Achicar',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _plegado = !_plegado),
+                  icon: AnimatedRotation(
+                    turns: _plegado ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(SplgIcons.down, size: 18, color: brasa.ink2),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,45 +301,50 @@ class _TripSheet extends StatelessWidget {
               ),
             ],
           ),
-          if (model.batchText != null)
-            InkWell(
-              key: const Key('trip-batch'),
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => _showBatchStops(context, model),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  children: [
-                    Icon(SplgIcons.truck, size: 16, color: brasa.primaryStrong),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(model.batchText!,
-                          key: const Key('trip-batch-text'),
-                          style: type.bodyStrong),
-                    ),
-                    Text('Ver paradas',
-                        style:
-                            type.caption.copyWith(color: brasa.primaryStrong)),
-                  ],
+          if (!_plegado) ...[
+            if (model.batchText != null)
+              InkWell(
+                key: const Key('trip-batch'),
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => _showBatchStops(context, model),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Icon(SplgIcons.truck,
+                          size: 16, color: brasa.primaryStrong),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(model.batchText!,
+                            key: const Key('trip-batch-text'),
+                            style: type.bodyStrong),
+                      ),
+                      Text('Ver paradas',
+                          style: type.caption
+                              .copyWith(color: brasa.primaryStrong)),
+                    ],
+                  ),
                 ),
               ),
+            Divider(color: brasa.outline, height: 12),
+            SplgPartyRow(
+              name: order.customerName ?? 'Cliente',
+              subtitle: order.customerPhone,
+              initials: _initials(order.customerName),
+              rating: model.customerRating?.average,
+              ratingCount: model.customerRating?.count,
             ),
-          Divider(color: brasa.outline, height: 12),
-          SplgPartyRow(
-            name: order.customerName ?? 'Cliente',
-            subtitle: order.customerPhone,
-            initials: _initials(order.customerName),
-            rating: model.customerRating?.average,
-            ratingCount: model.customerRating?.count,
-          ),
-          const SizedBox(height: 10),
-          SplgRouteRow(
-            icon: SplgIcons.flame,
-            text: order.lines.isEmpty ? 'Sin detalle' : order.linesText,
-            caption:
-                '${paymentLabel(order.paymentMethod)} - ${formatTotal(order.amountToCollect)}',
-            color: brasa.primaryStrong,
-          ),
+            const SizedBox(height: 10),
+            SplgRouteRow(
+              icon: SplgIcons.flame,
+              text: order.lines.isEmpty ? 'Sin detalle' : order.linesText,
+              caption:
+                  '${paymentLabel(order.paymentMethod)} - ${formatTotal(order.amountToCollect)}',
+              color: brasa.primaryStrong,
+            ),
+          ],
+          // Lo que el chofer tiene que ver o completar antes de la acción
+          // principal (vacíos, retiro, errores del back) no se pliega nunca.
           if (model.showEmpties) EmptiesCard(model: model),
           PickupCard(model: model.pickups),
           if (model.errorMessage != null || model.notice != null) ...[
@@ -330,31 +356,33 @@ class _TripSheet extends StatelessWidget {
                         ? brasa.danger
                         : brasa.muted)),
           ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: SplgButton(
-                  key: const Key('trip-call'),
-                  title: 'Llamar',
-                  style: SplgButtonStyle.outlined,
-                  onPressed:
-                      order.customerPhone == null ? null : model.callCustomer,
+          if (!_plegado) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: SplgButton(
+                    key: const Key('trip-call'),
+                    title: 'Llamar',
+                    style: SplgButtonStyle.outlined,
+                    onPressed:
+                        order.customerPhone == null ? null : model.callCustomer,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: SplgButton(
-                  key: const Key('trip-navigate'),
-                  title: 'Navegar',
-                  style: SplgButtonStyle.outlined,
-                  onPressed: model.destination == null
-                      ? null
-                      : () => _chooseMap(context, model),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SplgButton(
+                    key: const Key('trip-navigate'),
+                    title: 'Navegar',
+                    style: SplgButtonStyle.outlined,
+                    onPressed: model.destination == null
+                        ? null
+                        : () => _chooseMap(context, model),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
           if (model.isAccepted)
             SplgActionButton(
@@ -398,6 +426,7 @@ Future<void> _chooseMap(BuildContext context, DeliveryViewModel model) async {
   );
   if (picked == null) return;
   if (picked == MapApp.stay) {
+    debugPrint('Navegación dentro de SPLG hacia el pedido ${model.orderId}');
     await model.fitRoute();
   } else {
     await model.navigateWith(picked);

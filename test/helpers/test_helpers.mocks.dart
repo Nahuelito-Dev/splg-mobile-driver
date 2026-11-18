@@ -1225,6 +1225,13 @@ class MockDriverSocketService extends _i1.Mock
       ) as _i16.Stream<Map<String, dynamic>>);
 
   @override
+  _i16.Stream<void> get routeSheetStarted => (super.noSuchMethod(
+        Invocation.getter(#routeSheetStarted),
+        returnValue: _i16.Stream<void>.empty(),
+        returnValueForMissingStub: _i16.Stream<void>.empty(),
+      ) as _i16.Stream<void>);
+
+  @override
   _i16.Stream<Map<String, dynamic>> get orderAddressChanged =>
       (super.noSuchMethod(
         Invocation.getter(#orderAddressChanged),

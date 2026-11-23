@@ -200,7 +200,7 @@ void main() {
       await m.initialize();
       await m.arriveAndDeliver();
       verifyNever(trips.declareEmpties(any, any));
-      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(1);
       m.dispose();
     });
 
@@ -214,7 +214,7 @@ void main() {
             .thenAnswer((_) async => tripWithEmpties(received10: 1));
         return tripWithEmpties(received10: 1);
       });
-      when(nav.navigateToDeliveryQrView(orderId: 'o1'))
+      when(nav.navigateToDeliveryCodeView(orderId: 'o1'))
           .thenAnswer((_) async => calls.add('qr'));
       final m = build();
       await m.initialize();
@@ -247,10 +247,10 @@ void main() {
       final m = build();
       await m.initialize();
       m.removeEmpty(k15);
-      when(nav.navigateToDeliveryQrView(orderId: 'o1'))
+      when(nav.navigateToDeliveryCodeView(orderId: 'o1'))
           .thenAnswer((_) async => null);
       // Volver del QR relee el pedido.
-      await m.openDeliveryQr();
+      await m.openDeliveryCode();
       expect(row(m, k15).value, 1);
       expect(m.emptiesChanged, true);
       m.dispose();
@@ -267,7 +267,7 @@ void main() {
       await m.arriveAndDeliver();
       expect(m.errorMessage,
           'Las vacías recibidas no pueden superar las esperadas');
-      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      verifyNever(nav.navigateToDeliveryCodeView(orderId: 'o1'));
       expect(row(m, k10).value, 1);
       expect(m.isUpdatingStatus, false);
       // El aviso de llegada ya salió: el reintento no lo repite.
@@ -278,7 +278,7 @@ void main() {
       verify(trips.arrived('o1',
               latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
           .called(1);
-      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(1);
       m.dispose();
     });
 
@@ -298,7 +298,7 @@ void main() {
         expect(m.errorMessage, shown);
         m.dispose();
       }
-      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      verifyNever(nav.navigateToDeliveryCodeView(orderId: 'o1'));
     });
 
     test('doble toque: una sola llamada y no se mueve el selector en vuelo',
@@ -319,7 +319,7 @@ void main() {
       gate.complete();
       await Future.wait([first, second]);
       verify(trips.declareEmpties('o1', any)).called(1);
-      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(1);
       m.dispose();
     });
   });

@@ -1210,7 +1210,7 @@ class HomeViewModel extends StreamViewModel<Position>
     // La oferta tiene prioridad: un aviso de taller abierto se cierra y vuelve después.
     _notifier.offerStarted();
     try {
-      // Con el QR de entrega arriba, la oferta va en una banda que no lo tapa.
+      // Con el código de entrega arriba, la oferta va en una banda que no lo tapa.
       final response = await _offerSlot.show(
         offer,
         () => _dialogService.showCustomDialog(
@@ -1362,7 +1362,7 @@ class HomeViewModel extends StreamViewModel<Position>
         _retryingOrderId == null) {
       // Con una entrega en curso queda como el próximo (CU-013).
       _queuedOrderId = orderId;
-      // Con el QR de entrega arriba el aviso va en esa pantalla, sin taparlo.
+      // Con el código de entrega arriba el aviso va en esa pantalla, sin taparlo.
       if (_offerSlot.announce('Te asignaron un pedido más: te lo mostramos '
           'apenas termines esta entrega.')) {
         return;
@@ -1448,7 +1448,7 @@ class HomeViewModel extends StreamViewModel<Position>
     if (!alreadyAccepted && !await _acceptWithConfirmation(orderId)) return;
     _queuedOrderId = orderId;
     debugPrint('Pedido $orderId aceptado en espera');
-    // Con el QR de entrega arriba el aviso va en esa pantalla, sin taparlo.
+    // Con el código de entrega arriba el aviso va en esa pantalla, sin taparlo.
     if (_offerSlot.announce('Aceptaste un pedido más: te lo mostramos '
         'apenas termines esta entrega.')) {
       return;

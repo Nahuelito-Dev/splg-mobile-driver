@@ -30,7 +30,7 @@ import 'package:splg_driver/ui/views/about/about_view.dart';
 import 'package:splg_driver/services/driver_api_service.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/services/payment_repository.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_view.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_view.dart';
 import 'package:splg_driver/ui/views/payment/payment_view.dart';
 import 'package:splg_driver/ui/views/completed/completed_view.dart';
 import 'package:splg_driver/ui/views/my_load/my_load_view.dart';
@@ -70,7 +70,7 @@ import 'package:splg_driver/services/delivery_offer_slot.dart';
     MaterialRoute(page: NotificationsView),
     MaterialRoute(page: HelpView),
     MaterialRoute(page: AboutView),
-    MaterialRoute(page: DeliveryQrView),
+    MaterialRoute(page: DeliveryCodeView),
     MaterialRoute(page: PaymentView),
     MaterialRoute(page: CompletedView),
     MaterialRoute(page: MyLoadView),

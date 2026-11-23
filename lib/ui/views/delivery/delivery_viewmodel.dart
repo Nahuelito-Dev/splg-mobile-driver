@@ -17,6 +17,7 @@ import 'package:splg_driver/models/route_batch.dart';
 import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/services/backend_route_service.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
+import 'package:splg_driver/services/current_position.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
@@ -105,11 +106,11 @@ class EmptiesRow {
 
 /// Pantalla del pedido en curso: desde que el chofer lo acepta hasta que sale
 /// hacia el cliente y llega ("Pedido aceptado" y "En camino"). La entrega con
-/// QR, el cobro y la calificación son pantallas siguientes.
+/// código de entrega, el cobro y la calificación son pantallas siguientes.
 ///
 /// Máquina de estados del back (`order-status.machine.ts`):
 /// `accepted -> on_the_way -> delivered`; el chofer sólo mueve `accepted` y
-/// `on_the_way`, la entrega la confirma el cliente escaneando el QR. Si el
+/// `on_the_way`, la entrega la confirma el chofer con el código que le dicta el cliente. Si el
 /// pedido vuelve a `pending`/`reserved` o pasa a `cancelled` se corta el
 /// reparto y se avisa.
 class DeliveryViewModel extends BaseViewModel {
@@ -237,8 +238,8 @@ class DeliveryViewModel extends BaseViewModel {
   /// pedido que tenía en curso).
   bool _gone = false;
 
-  /// La pantalla del QR está arriba: ella maneja la cancelación y el cobro.
-  bool _qrOpen = false;
+  /// La pantalla del código está arriba: ella maneja la cancelación y el cobro.
+  bool _codeOpen = false;
 
   TripOrder? order;
   RatingSummary? customerRating;
@@ -552,8 +553,8 @@ class DeliveryViewModel extends BaseViewModel {
     unawaited(_loadRouteBatch());
     pickups.addListener(notifyListeners);
     _cancelSub = _driverSocketService.orderCancelled.listen((payload) {
-      // Con el QR arriba, ese es el único que maneja la cancelación.
-      if (_qrOpen) return;
+      // Con el código arriba, ese es el único que maneja la cancelación.
+      if (_codeOpen) return;
       if (payload['orderId']?.toString() == orderId) {
         _refresh(silent: true);
       }
@@ -689,7 +690,7 @@ class DeliveryViewModel extends BaseViewModel {
     _goHome();
   }
 
-  /// Lo entregó el cliente (escaneó el QR) mientras el chofer estaba acá:
+  /// Se entregó (otro dispositivo o el admin) mientras el chofer estaba acá:
   /// sigue el cobro.
   Future<void> _onDelivered() async {
     if (_closing) return;
@@ -763,7 +764,7 @@ class DeliveryViewModel extends BaseViewModel {
   }
 
   /// "Llegué / Entregar": avisa al cliente (`PATCH /v2/orders/:id/arrived` con
-  /// la posición actual) y abre la entrega con QR. Sin ubicación no se llama al
+  /// la posición actual) y abre la pantalla del código de entrega. Sin ubicación no se llama al
   /// back; si el back dice que el chofer todavía está lejos (409
   /// `ARRIVAL_TOO_FAR`) se muestra su mensaje y el chofer puede reintentar. Si
   /// el aviso falla se dice y no se avanza.
@@ -787,7 +788,7 @@ class DeliveryViewModel extends BaseViewModel {
       }
       await _declareEmpties();
     } catch (e) {
-      debugPrint('Error antes de abrir el QR del pedido $orderId: $e');
+      debugPrint('Error antes de abrir el código del pedido $orderId: $e');
       if (e is DioException && isArrivalTooFar(e)) {
         final text = arrivalTooFarText(e);
         _failArrival(text);
@@ -806,7 +807,7 @@ class DeliveryViewModel extends BaseViewModel {
     _updating = false;
     if (_disposed) return;
     notifyListeners();
-    await openDeliveryQr();
+    await openDeliveryCode();
   }
 
   void _failArrival(String text) {
@@ -836,27 +837,13 @@ class DeliveryViewModel extends BaseViewModel {
   /// usa ni la posición guardada. Si el permiso se puede volver a pedir (lo
   /// revocó durante el reparto), se pide con la misma explicación que al
   /// conectarse; si lo da, se lee el GPS de nuevo.
-  Future<PositionRead> _arrivalPosition() async {
-    final block = await _location.locationBlock();
-    if (block == LocationBlock.permissionDenied) {
-      await _location.requestLocationPermission();
-      if (_disposed) {
-        return const PositionRead.blocked(LocationBlock.permissionDenied);
-      }
-      final after = await _location.locationBlock();
-      if (after != null) return PositionRead.blocked(after);
-      return _location.readFreshPosition(timeout: arrivalPositionTimeout);
-    }
-    if (block != null) return PositionRead.blocked(block);
-    final last = _location.currentPosition;
-    if (last != null) {
-      final age = _clock().difference(last.timestamp);
-      if (!age.isNegative && age <= arrivalPositionMaxAge) {
-        return PositionRead.ok(last);
-      }
-    }
-    return _location.readFreshPosition(timeout: arrivalPositionTimeout);
-  }
+  Future<PositionRead> _arrivalPosition() => readCurrentPosition(
+        _location,
+        maxAge: arrivalPositionMaxAge,
+        timeout: arrivalPositionTimeout,
+        clock: _clock,
+        isCancelled: () => _disposed,
+      );
 
   // --- Vacías recibidas (F35 E4) ------------------------------------------
 
@@ -868,7 +855,7 @@ class DeliveryViewModel extends BaseViewModel {
   /// lecturas del pedido hasta que el back lo registra.
   final Map<String, int> _emptiesDraft = {};
 
-  /// La sección «Vacías» se muestra en camino, antes del QR.
+  /// La sección «Vacías» se muestra en camino, antes del código.
   bool get showEmpties => isOnTheWay && emptiesRows.isNotEmpty;
 
   /// El chofer cambió alguna cantidad respecto de lo registrado en el back.
@@ -928,16 +915,16 @@ class DeliveryViewModel extends BaseViewModel {
     _rebuildEmpties();
   }
 
-  /// Abre la pantalla del QR. Mientras está abierta ella lleva el control del
+  /// Abre la pantalla del código. Mientras está abierta ella lleva el control del
   /// pedido; al volver se retoma el seguimiento.
-  Future<void> openDeliveryQr() async {
+  Future<void> openDeliveryCode() async {
     _stopPolling();
-    _qrOpen = true;
+    _codeOpen = true;
     final flow = _trips.activeOrderId;
-    await _navigationService.navigateToDeliveryQrView(orderId: orderId);
-    _qrOpen = false;
+    await _navigationService.navigateToDeliveryCodeView(orderId: orderId);
+    _codeOpen = false;
     if (_disposed || _closing) return;
-    // El QR cerró la entrega: o la terminó (cancelado o liberado: ya avisó y
+    // La pantalla del código cerró la entrega: o la terminó (cancelado o liberado: ya avisó y
     // volvió al Inicio) o abrió el cobro. Releer acá repetiría el aviso o
     // abriría el cobro otra vez.
     if ((flow != null && _trips.activeOrderId != flow) ||

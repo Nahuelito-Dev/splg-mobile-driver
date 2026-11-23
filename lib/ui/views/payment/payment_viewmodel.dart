@@ -13,7 +13,7 @@ import 'package:splg_driver/services/delivery_offer_slot.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/common/navigation_helpers.dart';
-import 'package:splg_driver/ui/views/delivery_qr/offer_slot_host.dart';
+import 'package:splg_driver/ui/views/delivery_code/offer_slot_host.dart';
 
 /// Cobro del pedido ya entregado: medio de pago, total a cobrar y detalle.
 ///
@@ -22,7 +22,7 @@ import 'package:splg_driver/ui/views/delivery_qr/offer_slot_host.dart';
 /// muestra el motivo y deja reintentar); "El cliente no pagó" pide una nota
 /// opcional, avisa al back y sigue al cierre con un aviso. Con Mercado Pago lo
 /// paga el cliente: se muestra el estado, sin esos botones.
-/// Una oferta de pedido que llega (o quedó pendiente del QR) se muestra como
+/// Una oferta de pedido que llega (o quedó pendiente de la entrega) se muestra como
 /// banda abajo, sin tapar el cobro.
 class PaymentViewModel extends BaseViewModel with OfferSlotHost {
   PaymentViewModel(

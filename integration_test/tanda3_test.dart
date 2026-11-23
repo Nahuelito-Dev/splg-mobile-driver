@@ -1,16 +1,23 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:splg_driver/main.dart' as app;
 
 /// Recorrido de la tanda 3 contra el back real: oferta, aceptar, en camino,
-/// QR, cobro, calificar y "¡Ganaste!"; rechazar una oferta y la cancelación del
-/// cliente con el chofer en camino. Un script externo crea los pedidos y
-/// simula al cliente cuando ve `READY:<paso>`; saca la captura con `SHOT:<n>`.
+/// código de entrega, cobro, calificar y "¡Ganaste!"; rechazar una oferta y la
+/// cancelación del cliente con el chofer en camino. Un script externo crea los
+/// pedidos y simula al cliente cuando ve `READY:<paso>`; saca la captura con
+/// `SHOT:<n>`. El código de entrega lo ve el cliente (el chofer nunca): con
+/// `READY:codigo-1` el script lo lee con el token del cliente
+/// (`GET /api/v3/orders/:id/delivery-code`) y escribe los 6 dígitos en el
+/// archivo de `--dart-define=CODE_FILE=<ruta>`; el test lo teclea.
 ///
 ///   flutter test integration_test/tanda3_test.dart -d `simulador` \
 ///     --dart-define=API_BASE_URL=http://localhost:3010 \
-///     --dart-define=PUSH_ENABLED=false
+///     --dart-define=PUSH_ENABLED=false \
+///     --dart-define=CODE_FILE=/tmp/codigo-entrega.txt
 Future<void> pumpUntil(WidgetTester t, Finder f, {int seconds = 40}) async {
   final end = DateTime.now().add(Duration(seconds: seconds));
   while (DateTime.now().isBefore(end)) {
@@ -42,6 +49,30 @@ Future<void> shot(WidgetTester t, String name) async {
 void ready(String step) {
   // ignore: avoid_print
   print('READY:$step');
+}
+
+/// Espera los 6 dígitos que el script externo deja en `CODE_FILE` y los teclea.
+Future<void> typeCodeFromFile(WidgetTester t, {int seconds = 60}) async {
+  const path = String.fromEnvironment('CODE_FILE');
+  if (path.isEmpty) {
+    throw TestFailure('Falta --dart-define=CODE_FILE=<ruta del código>');
+  }
+  final file = File(path);
+  final end = DateTime.now().add(Duration(seconds: seconds));
+  while (DateTime.now().isBefore(end)) {
+    await t.pump(const Duration(milliseconds: 250));
+    if (file.existsSync()) {
+      final code = file.readAsStringSync().trim();
+      if (RegExp(r'^\d{6}$').hasMatch(code)) {
+        file.deleteSync();
+        for (final d in code.split('')) {
+          await tapKey(t, 'code-key-$d');
+        }
+        return;
+      }
+    }
+  }
+  throw TestFailure('No llegó el código a $path');
 }
 
 Future<void> tapText(WidgetTester t, String text) async {
@@ -106,7 +137,7 @@ void main() {
     await pumpUntil(t, find.text('Buscando pedidos…'));
     await shot(t, '01-inicio-buscando');
 
-    // 1. Camino completo: oferta -> aceptar -> en camino -> QR -> cobro -> calificar.
+    // 1. Camino completo: oferta -> aceptar -> en camino -> código -> cobro -> calificar.
     ready('create-1');
     await pumpUntil(t, find.text('Datos del pedido'), seconds: 60);
     await shot(t, '02-oferta');
@@ -124,9 +155,11 @@ void main() {
     await shot(t, '06-navegar-popup');
     await tapText(t, 'Permanecer en SPLG');
     await tapKey(t, 'trip-arrive');
-    await pumpUntil(t, find.byKey(const Key('qr-code')));
-    await shot(t, '07-qr');
-    ready('scan-1');
+    await pumpUntil(t, find.byKey(const Key('code-keypad')));
+    await shot(t, '07-codigo');
+    ready('codigo-1');
+    await typeCodeFromFile(t);
+    await tapKey(t, 'code-submit');
     await pumpUntil(t, find.byKey(const Key('payment-confirm')), seconds: 60);
     await shot(t, '08-cobro');
     await tapKey(t, 'payment-confirm');

@@ -40,29 +40,11 @@ void main() {
     locator.reset();
   });
 
-  test('escucha exactamente order:delivery-code-failed y -blocked', () {
-    expect(socket.handlers.keys, contains('order:delivery-code-failed'));
-    expect(socket.handlers.keys, contains('order:delivery-code-blocked'));
-  });
-
-  test('los dos eventos llegan al stream deliveryCodeFailed con su payload',
-      () async {
-    final got = <Map<String, dynamic>>[];
-    svc.deliveryCodeFailed.listen(got.add);
-    socket.handlers['order:delivery-code-failed']!(
-        {'orderId': 'o1', 'attempts': 2, 'maxAttempts': 5, 'blocked': false});
-    socket.handlers['order:delivery-code-blocked']!(
-        {'orderId': 'o1', 'attempts': 5, 'maxAttempts': 5, 'blocked': true});
-    await Future<void>.delayed(Duration.zero);
-    expect(got.map((e) => e['attempts']), [2, 5]);
-    expect(got.last['blocked'], isTrue);
-  });
-
-  test('un payload que no es un mapa se ignora', () async {
-    final got = <Map<String, dynamic>>[];
-    svc.deliveryCodeFailed.listen(got.add);
-    socket.handlers['order:delivery-code-failed']!('basura');
-    await Future<void>.delayed(Duration.zero);
-    expect(got, isEmpty);
+  // Los avisos de código de entrega (errores, bloqueo) van al cliente: el
+  // chofer recibe el resultado en la respuesta de confirm-delivery.
+  test('no escucha los avisos de código de entrega (son del cliente)', () {
+    expect(socket.handlers.keys, isNot(contains('order:delivery-code-failed')));
+    expect(
+        socket.handlers.keys, isNot(contains('order:delivery-code-blocked')));
   });
 }

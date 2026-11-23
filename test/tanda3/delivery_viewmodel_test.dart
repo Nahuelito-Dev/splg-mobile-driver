@@ -135,7 +135,7 @@ void main() {
       verify(trips.arrived('o1',
               latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
           .called(1);
-      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(2);
+      verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(2);
       m.dispose();
     });
 
@@ -150,7 +150,7 @@ void main() {
       await m.arriveAndDeliver();
       expect(m.errorMessage, isNotNull);
       expect(m.arrivedNotified, false);
-      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      verifyNever(nav.navigateToDeliveryCodeView(orderId: 'o1'));
       m.dispose();
     });
 
@@ -212,7 +212,7 @@ void main() {
       verifyNever(loc.readFreshPosition(timeout: anyNamed('timeout')));
       expect(m.arrivedNotified, true);
       expect(m.errorMessage, isNull);
-      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(1);
       m.dispose();
     });
 
@@ -235,7 +235,7 @@ void main() {
           .called(1);
       expect(m.arrivedNotified, false);
       expect(m.isUpdatingStatus, false);
-      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      verifyNever(nav.navigateToDeliveryCodeView(orderId: 'o1'));
 
       // Ya en la puerta: el reintento pasa y abre la entrega.
       when(trips.arrived('o1',
@@ -244,7 +244,7 @@ void main() {
       await m.arriveAndDeliver();
       expect(m.arrivedNotified, true);
       expect(m.errorMessage, isNull);
-      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(1);
       m.dispose();
     });
 
@@ -288,7 +288,7 @@ void main() {
           title: 'Todavía no llegaste',
           description: anyNamed('description'),
           buttonTitle: anyNamed('buttonTitle')));
-      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      verifyNever(nav.navigateToDeliveryCodeView(orderId: 'o1'));
       m.dispose();
     });
 
@@ -304,7 +304,7 @@ void main() {
           'de nuevo.');
       verifyNever(trips.arrived(any,
           latitude: anyNamed('latitude'), longitude: anyNamed('longitude')));
-      verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+      verifyNever(nav.navigateToDeliveryCodeView(orderId: 'o1'));
       expect(m.isUpdatingStatus, false);
       m.dispose();
     });
@@ -359,7 +359,7 @@ void main() {
         verifyNever(trips.arrived(any,
             latitude: anyNamed('latitude'), longitude: anyNamed('longitude')));
         verifyNever(loc.readFreshPosition(timeout: anyNamed('timeout')));
-        verifyNever(nav.navigateToDeliveryQrView(orderId: 'o1'));
+        verifyNever(nav.navigateToDeliveryCodeView(orderId: 'o1'));
       }
 
       test('GPS apagado: no manda la posición guardada y pide prenderlo',
@@ -404,7 +404,7 @@ void main() {
         verify(trips.arrived('o1', latitude: -27.3575, longitude: -55.8904))
             .called(1);
         expect(m.errorMessage, isNull);
-        verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+        verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(1);
         m.dispose();
       });
 
@@ -503,7 +503,7 @@ void main() {
       verify(trips.arrived('o1',
               latitude: anyNamed('latitude'), longitude: anyNamed('longitude')))
           .called(1);
-      verify(nav.navigateToDeliveryQrView(orderId: 'o1')).called(1);
+      verify(nav.navigateToDeliveryCodeView(orderId: 'o1')).called(1);
       expect(m.isUpdatingStatus, false);
       m.dispose();
     });

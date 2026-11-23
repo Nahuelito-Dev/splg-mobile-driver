@@ -16,9 +16,10 @@ import 'package:splg_driver/ui/views/change_password/change_password_view.dart'
 import 'package:splg_driver/ui/views/completed/completed_view.dart' as _i22;
 import 'package:splg_driver/ui/views/deliveries/deliveries_view.dart' as _i13;
 import 'package:splg_driver/ui/views/delivery/delivery_view.dart' as _i6;
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_view.dart'
+    as _i20;
 import 'package:splg_driver/ui/views/delivery_detail/delivery_detail_view.dart'
     as _i14;
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_view.dart' as _i20;
 import 'package:splg_driver/ui/views/directions/directions_view.dart' as _i5;
 import 'package:splg_driver/ui/views/forgot_password/forgot_password_view.dart'
     as _i9;
@@ -83,7 +84,7 @@ class Routes {
 
   static const aboutView = '/about-view';
 
-  static const deliveryQrView = '/delivery-qr-view';
+  static const deliveryCodeView = '/delivery-code-view';
 
   static const paymentView = '/payment-view';
 
@@ -122,7 +123,7 @@ class Routes {
     notificationsView,
     helpView,
     aboutView,
-    deliveryQrView,
+    deliveryCodeView,
     paymentView,
     completedView,
     myLoadView,
@@ -155,7 +156,7 @@ class StackedRouter extends _i1.RouterBase {
     _i1.RouteDef(Routes.notificationsView, page: _i17.NotificationsView),
     _i1.RouteDef(Routes.helpView, page: _i18.HelpView),
     _i1.RouteDef(Routes.aboutView, page: _i19.AboutView),
-    _i1.RouteDef(Routes.deliveryQrView, page: _i20.DeliveryQrView),
+    _i1.RouteDef(Routes.deliveryCodeView, page: _i20.DeliveryCodeView),
     _i1.RouteDef(Routes.paymentView, page: _i21.PaymentView),
     _i1.RouteDef(Routes.completedView, page: _i22.CompletedView),
     _i1.RouteDef(Routes.myLoadView, page: _i23.MyLoadView),
@@ -331,11 +332,11 @@ class StackedRouter extends _i1.RouterBase {
         settings: data,
       );
     },
-    _i20.DeliveryQrView: (data) {
-      final args = data.getArgs<DeliveryQrViewArguments>(nullOk: false);
+    _i20.DeliveryCodeView: (data) {
+      final args = data.getArgs<DeliveryCodeViewArguments>(nullOk: false);
       return _i30.MaterialPageRoute<dynamic>(
         builder: (context) =>
-            _i20.DeliveryQrView(key: args.key, orderId: args.orderId),
+            _i20.DeliveryCodeView(key: args.key, orderId: args.orderId),
         settings: data,
       );
     },
@@ -836,8 +837,8 @@ class AboutViewArguments {
   }
 }
 
-class DeliveryQrViewArguments {
-  const DeliveryQrViewArguments({this.key, required this.orderId});
+class DeliveryCodeViewArguments {
+  const DeliveryCodeViewArguments({this.key, required this.orderId});
 
   final _i30.Key? key;
 
@@ -849,7 +850,7 @@ class DeliveryQrViewArguments {
   }
 
   @override
-  bool operator ==(covariant DeliveryQrViewArguments other) {
+  bool operator ==(covariant DeliveryCodeViewArguments other) {
     if (identical(this, other)) return true;
     return other.key == key && other.orderId == orderId;
   }
@@ -1413,7 +1414,7 @@ extension NavigatorStateExtension on _i32.NavigationService {
     );
   }
 
-  Future<dynamic> navigateToDeliveryQrView({
+  Future<dynamic> navigateToDeliveryCodeView({
     _i30.Key? key,
     required String orderId,
     int? routerId,
@@ -1423,8 +1424,8 @@ extension NavigatorStateExtension on _i32.NavigationService {
         transition,
   }) async {
     return navigateTo<dynamic>(
-      Routes.deliveryQrView,
-      arguments: DeliveryQrViewArguments(key: key, orderId: orderId),
+      Routes.deliveryCodeView,
+      arguments: DeliveryCodeViewArguments(key: key, orderId: orderId),
       id: routerId,
       preventDuplicates: preventDuplicates,
       parameters: parameters,
@@ -1934,7 +1935,7 @@ extension NavigatorStateExtension on _i32.NavigationService {
     );
   }
 
-  Future<dynamic> replaceWithDeliveryQrView({
+  Future<dynamic> replaceWithDeliveryCodeView({
     _i30.Key? key,
     required String orderId,
     int? routerId,
@@ -1944,8 +1945,8 @@ extension NavigatorStateExtension on _i32.NavigationService {
         transition,
   }) async {
     return replaceWith<dynamic>(
-      Routes.deliveryQrView,
-      arguments: DeliveryQrViewArguments(key: key, orderId: orderId),
+      Routes.deliveryCodeView,
+      arguments: DeliveryCodeViewArguments(key: key, orderId: orderId),
       id: routerId,
       preventDuplicates: preventDuplicates,
       parameters: parameters,

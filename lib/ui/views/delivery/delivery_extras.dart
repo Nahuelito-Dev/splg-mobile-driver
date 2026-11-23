@@ -515,7 +515,7 @@ class NotCollectedSheetState extends State<NotCollectedSheet> {
   }
 }
 
-/// «Vacías» de la entrega en curso, antes de mostrar el QR: por tipo de
+/// «Vacías» de la entrega en curso, antes de pedir el código: por tipo de
 /// garrafa las esperadas y el selector «Te dio» (0 a esperadas), precargado
 /// con lo que tiene registrado el back.
 class EmptiesCard extends StatelessWidget {

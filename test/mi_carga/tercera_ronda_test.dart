@@ -13,7 +13,7 @@ import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_viewmodel.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_viewmodel.dart';
 import 'package:splg_driver/ui/views/home/home_viewmodel.dart';
 import 'package:splg_driver/ui/views/payment/payment_viewmodel.dart';
 import 'package:splg_driver/ui/views/pending_collections/pending_collections_viewmodel.dart';
@@ -68,8 +68,6 @@ void main() {
     homeCalls = 0;
     when(trips.order('o1')).thenAnswer((_) async => trip());
     when(trips.customerRating(any)).thenAnswer((_) async => null);
-    when(trips.deliveryCode('o1'))
-        .thenAnswer((_) async => const DeliveryCodeInfo('A1B2C3D4E5'));
   });
   tearDown(() => locator.reset());
 
@@ -131,13 +129,13 @@ void main() {
       m.dispose();
     });
 
-    DeliveryQrViewModel qr() => DeliveryQrViewModel(
+    DeliveryCodeViewModel qr() => DeliveryCodeViewModel(
         orderId: 'o1',
         trips: trips,
         pollInterval: const Duration(milliseconds: 20),
         goHome: () => homeCalls++);
 
-    test('QR: un 410 mientras espera la confirmación vuelve al Inicio',
+    test('Código: un 410 mientras el chofer escribe vuelve al Inicio',
         () async {
       when(trips.order('o1'))
           .thenAnswer((_) async => trip(status: 'on_the_way'));
@@ -149,11 +147,8 @@ void main() {
       m.dispose();
     });
 
-    test('QR: 403 del código de entrega tras reasignación es perdido',
-        () async {
-      when(trips.order('o1'))
-          .thenAnswer((_) async => trip(status: 'on_the_way'));
-      when(trips.deliveryCode('o1')).thenThrow(http(403, {'message': 'x'}));
+    test('Código: un 410 en la primera carga es perdido', () async {
+      when(trips.order('o1')).thenThrow(gone());
       final m = qr();
       await m.initialize();
       verificaLiberado();
@@ -161,7 +156,7 @@ void main() {
       m.dispose();
     });
 
-    test('QR: sin red sigue esperando (no es perdido)', () async {
+    test('Código: sin red sigue esperando (no es perdido)', () async {
       when(trips.order('o1'))
           .thenAnswer((_) async => trip(status: 'on_the_way'));
       final m = qr();

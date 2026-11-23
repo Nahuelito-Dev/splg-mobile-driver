@@ -9,7 +9,7 @@ import 'package:splg_driver/services/photo_picker.dart';
 import 'package:splg_driver/ui/dialogs/order_offer/order_offer_dialog.dart'
     show paymentIcon, paymentLabel;
 
-import 'package:splg_driver/ui/views/delivery_qr/offer_band.dart';
+import 'package:splg_driver/ui/views/delivery_code/offer_band.dart';
 
 import 'payment_viewmodel.dart';
 

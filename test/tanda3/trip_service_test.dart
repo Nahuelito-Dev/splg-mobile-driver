@@ -128,45 +128,62 @@ void main() {
     });
   });
 
-  test('deliveryCode devuelve el texto del QR; sin código lanza', () async {
-    when(api.get('orders/o1/delivery-code', 'tok'))
-        .thenAnswer((_) async => ok({'orderId': 'o1', 'deliveryCode': 'A1B2'}));
-    final info = await svc.deliveryCode('o1');
-    expect(info.code, 'A1B2');
-    expect(info.attempts, 0);
-    expect(info.blocked, isFalse);
-    when(api.get('orders/o3/delivery-code', 'tok')).thenAnswer((_) async => ok({
-          'orderId': 'o3',
-          'deliveryCode': '482913',
-          'attempts': 5,
-          'blocked': true
-        }));
-    final bloqueado = await svc.deliveryCode('o3');
-    expect(bloqueado.attempts, 5);
-    expect(bloqueado.blocked, isTrue);
-    when(api.get('orders/o2/delivery-code', 'tok'))
-        .thenAnswer((_) async => ok({'orderId': 'o2', 'deliveryCode': ''}));
-    await expectLater(svc.deliveryCode('o2'), throwsA(isA<StateError>()));
-  });
+  group('confirmDelivery', () {
+    test('postea a la v3 con código, ubicación y Idempotency-Key', () async {
+      when(api.post(any, any, any, any)).thenAnswer((_) async => ok({}));
+      await svc.confirmDelivery('o1',
+          code: '482913',
+          latitude: -27.357482,
+          longitude: -55.890404,
+          accuracyMeters: 8);
+      verify(api.post(
+        argThat(endsWith('/api/v3/orders/o1/confirm-delivery')),
+        {
+          'code': '482913',
+          'latitude': -27.357482,
+          'longitude': -55.890404,
+          'accuracyMeters': 8.0,
+        },
+        'tok',
+        argThat(containsPair('Idempotency-Key', isNotEmpty)),
+      )).called(1);
+    });
 
-  test('regenerateDeliveryCode postea a la v2 y devuelve el código nuevo',
-      () async {
-    when(api.post(any, any, any, any)).thenAnswer(
-        (_) async => ok({'orderId': 'o1', 'deliveryCode': '482913'}));
-    expect(await svc.regenerateDeliveryCode('o1'), '482913');
-    verify(api.post(
-      argThat(endsWith('/api/v2/orders/o1/delivery-code/regenerate')),
-      any,
-      'tok',
-      argThat(containsPair('Idempotency-Key', isNotEmpty)),
-    )).called(1);
-  });
+    test('sin precisión no manda accuracyMeters', () async {
+      when(api.post(any, any, any, any)).thenAnswer((_) async => ok({}));
+      await svc.confirmDelivery('o1',
+          code: '482913', latitude: -27.1, longitude: -55.1);
+      verify(api.post(
+        any,
+        {'code': '482913', 'latitude': -27.1, 'longitude': -55.1},
+        'tok',
+        any,
+      )).called(1);
+    });
 
-  test('regenerateDeliveryCode sin código en la respuesta lanza', () async {
-    when(api.post(any, any, any, any))
-        .thenAnswer((_) async => ok({'orderId': 'o1'}));
-    await expectLater(
-        svc.regenerateDeliveryCode('o1'), throwsA(isA<StateError>()));
+    test('un rechazo del back (400) se propaga: nunca es éxito', () async {
+      when(api.post(any, any, any, any)).thenThrow(rejected(400));
+      await expectLater(
+          svc.confirmDelivery('o1',
+              code: '000000', latitude: -27.1, longitude: -55.1),
+          throwsA(isA<DioException>()));
+    });
+
+    test('con la red caída el reintento reusa la clave', () async {
+      final keys = <String>[];
+      when(api.post(any, any, any, any)).thenAnswer((i) async {
+        keys.add(keyOf(i));
+        if (keys.length == 1) throw offline();
+        return ok({});
+      });
+      await expectLater(
+          svc.confirmDelivery('o1',
+              code: '482913', latitude: -27.1, longitude: -55.1),
+          throwsA(isA<DioException>()));
+      await svc.confirmDelivery('o1',
+          code: '482913', latitude: -27.1, longitude: -55.1);
+      expect(keys[0], keys[1]);
+    });
   });
 
   test('rateCustomer manda orderId, stars y comentario sin espacios', () async {

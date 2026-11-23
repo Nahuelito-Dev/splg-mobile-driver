@@ -1,10 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_toolkit/golden_toolkit.dart';
 import 'package:mockito/mockito.dart';
 import 'package:splg_driver/app/app.locator.dart';
+import 'package:splg_driver/app/app.router.dart';
 import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
+import 'package:splg_driver/services/location_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/dialogs/order_offer/order_offer_dialog.dart';
@@ -12,8 +15,8 @@ import 'package:splg_driver/ui/views/completed/completed_view.dart';
 import 'package:splg_driver/ui/views/completed/completed_viewmodel.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_view.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_view.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_viewmodel.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_view.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_viewmodel.dart';
 import 'package:splg_driver/ui/views/payment/payment_view.dart';
 import 'package:splg_driver/ui/views/payment/payment_viewmodel.dart';
 import 'package:splg_lib/splg_lib.dart';
@@ -67,14 +70,12 @@ void main() {
     when(trips.order('o1')).thenAnswer((_) async => trip());
     when(trips.customerRating('c1'))
         .thenAnswer((_) async => const RatingSummary(average: 4.5, count: 12));
-    when(trips.deliveryCode('o1'))
-        .thenAnswer((_) async => const DeliveryCodeInfo('A1B2C3D4E5'));
     DeliveryView.debugMapBuilder = (_, __) => Container(
         color: const Color(0xFFE8E6E1),
         child: const Center(child: Text('mapa')));
     DeliveryView.debugViewModelFactory = (id) => DeliveryViewModel(
         orderId: id, trips: trips, pollInterval: const Duration(hours: 1));
-    DeliveryQrView.debugViewModelFactory = (id) => DeliveryQrViewModel(
+    DeliveryCodeView.debugViewModelFactory = (id) => DeliveryCodeViewModel(
         orderId: id, trips: trips, pollInterval: const Duration(hours: 1));
     PaymentView.debugViewModelFactory =
         (id) => PaymentViewModel(orderId: id, trips: trips);
@@ -84,7 +85,7 @@ void main() {
   tearDown(() {
     DeliveryView.debugMapBuilder = null;
     DeliveryView.debugViewModelFactory = null;
-    DeliveryQrView.debugViewModelFactory = null;
+    DeliveryCodeView.debugViewModelFactory = null;
     PaymentView.debugViewModelFactory = null;
     CompletedView.debugViewModelFactory = null;
     NavigationLauncher.launcher = null;
@@ -270,107 +271,144 @@ void main() {
     });
   });
 
-  group('Finalización (QR)', () {
-    testGoldens('muestra el QR grande con las instrucciones', (t) async {
+  group('Finalización (código del cliente)', () {
+    Future<void> tipear(WidgetTester t, String digits) async {
+      for (final d in digits.split('')) {
+        await t.ensureVisible(find.byKey(Key('code-key-$d')));
+        await t.tap(find.byKey(Key('code-key-$d')));
+        await t.pump();
+      }
+    }
+
+    testGoldens('pide el código con teclado numérico y botón deshabilitado',
+        (t) async {
       await loadAppFonts();
-      await pump(t, const DeliveryQrView(orderId: 'o1'));
-      expect(find.byKey(const Key('qr-code')), findsOneWidget);
-      expect(find.text('A1B2C3D4E5'), findsOneWidget);
-      expect(find.byKey(const Key('qr-waiting')), findsOneWidget);
-      verify(trips.deliveryCode('o1')).called(1);
-      await check(t, 'qr');
+      await pump(t, const DeliveryCodeView(orderId: 'o1'));
+      expect(find.text('Pedile el código al cliente'), findsOneWidget);
+      expect(find.byKey(const Key('code-keypad')), findsOneWidget);
+      expect(find.byKey(const Key('qr-code')), findsNothing);
+      final boton = t.widget<SplgButton>(find.byKey(const Key('code-submit')));
+      expect(boton.onPressed, isNull);
+      await tipear(t, '4829');
+      await check(t, 'codigo-entrega');
       await leave(t);
     });
 
-    testWidgets('«Generar código nuevo» pide confirmación y cambia el código',
+    testWidgets('con 6 dígitos habilita «Confirmar entrega» y la manda',
         (t) async {
-      when(trips.regenerateDeliveryCode('o1'))
-          .thenAnswer((_) async => '482913');
-      await pump(t, const DeliveryQrView(orderId: 'o1'));
-      await t.ensureVisible(find.byKey(const Key('qr-regenerate')));
-      await t.tap(find.byKey(const Key('qr-regenerate')));
+      when(trips.confirmDelivery('o1',
+              code: anyNamed('code'),
+              latitude: anyNamed('latitude'),
+              longitude: anyNamed('longitude'),
+              accuracyMeters: anyNamed('accuracyMeters')))
+          .thenAnswer((_) async {});
+      final loc = locator<LocationService>() as MockLocationService;
+      when(loc.locationBlock()).thenAnswer((_) async => null);
+      when(loc.currentPosition).thenReturn(fix());
+      when(nav.currentRoute).thenReturn(Routes.paymentView);
+      await pump(t, const DeliveryCodeView(orderId: 'o1'));
+      await tipear(t, '482913');
+      final boton = t.widget<SplgButton>(find.byKey(const Key('code-submit')));
+      expect(boton.onPressed, isNotNull);
+      await t.ensureVisible(find.byKey(const Key('code-submit')));
+      await t.tap(find.byKey(const Key('code-submit')));
       await t.pump();
-      expect(find.byKey(const Key('qr-regenerate-ask')), findsOneWidget);
-      await t.ensureVisible(find.byKey(const Key('qr-regenerate-confirm')));
-      await t.tap(find.byKey(const Key('qr-regenerate-confirm')));
       await t.pump();
-      await t.pump();
-      expect(find.text('482 913'), findsOneWidget);
-      expect(find.text('A1B2C3D4E5'), findsNothing);
-      verify(trips.regenerateDeliveryCode('o1')).called(1);
+      verify(trips.confirmDelivery('o1',
+              code: '482913',
+              latitude: anyNamed('latitude'),
+              longitude: anyNamed('longitude'),
+              accuracyMeters: anyNamed('accuracyMeters')))
+          .called(1);
+      verify(nav.replaceWithPaymentView(orderId: 'o1')).called(1);
       await leave(t);
     });
 
-    testWidgets('bloqueado: aviso claro y botón que genera el código nuevo',
-        (t) async {
-      when(trips.deliveryCode('o1')).thenAnswer((_) async =>
-          const DeliveryCodeInfo('A1B2C3D4E5', attempts: 5, blocked: true));
-      when(trips.regenerateDeliveryCode('o1'))
-          .thenAnswer((_) async => '482913');
-      await pump(t, const DeliveryQrView(orderId: 'o1'));
-      expect(find.byKey(const Key('qr-blocked')), findsOneWidget);
+    testWidgets('«Borrar» saca el último dígito', (t) async {
+      await pump(t, const DeliveryCodeView(orderId: 'o1'));
+      await tipear(t, '12');
+      await t.tap(find.byKey(const Key('code-key-delete')));
+      await t.pump();
       expect(
-          find.textContaining('El cliente se equivocó 5 veces: generá un '
-              'código nuevo y dictáselo'),
+          find.descendant(
+              of: find.byKey(const Key('code-box-0')),
+              matching: find.text('1')),
           findsOneWidget);
-      expect(find.byKey(const Key('qr-waiting')), findsNothing);
-      expect(find.byKey(const Key('qr-code')), findsNothing);
-      expect(find.byKey(const Key('qr-code-text')), findsNothing);
-      expect(find.text('A1B2C3D4E5'), findsNothing);
-      expect(find.textContaining('dictale este código'), findsNothing);
-      expect(find.byKey(const Key('qr-regenerate')), findsOneWidget);
-
-      await t.ensureVisible(find.byKey(const Key('qr-regenerate')));
-      await t.tap(find.byKey(const Key('qr-regenerate')));
-      await t.pump();
-      await t.pump();
-
-      verify(trips.regenerateDeliveryCode('o1')).called(1);
-      expect(find.byKey(const Key('qr-blocked')), findsNothing);
-      expect(find.text('482 913'), findsOneWidget);
-      expect(find.byKey(const Key('qr-waiting')), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const Key('code-box-1')),
+              matching: find.text('2')),
+          findsNothing);
       await leave(t);
     });
 
-    testWidgets('desde el 3.er error avisa cuántas veces, sin bloquear',
-        (t) async {
-      when(trips.deliveryCode('o1')).thenAnswer(
-          (_) async => const DeliveryCodeInfo('A1B2C3D4E5', attempts: 3));
-      await pump(t, const DeliveryQrView(orderId: 'o1'));
-      expect(find.byKey(const Key('qr-attempts-warning')), findsOneWidget);
-      expect(find.text('El cliente se equivocó 3 veces'), findsOneWidget);
-      expect(find.byKey(const Key('qr-blocked')), findsNothing);
-      expect(find.byKey(const Key('qr-waiting')), findsOneWidget);
+    testWidgets('código incorrecto: se ve el error en castellano', (t) async {
+      when(trips.confirmDelivery('o1',
+              code: anyNamed('code'),
+              latitude: anyNamed('latitude'),
+              longitude: anyNamed('longitude'),
+              accuracyMeters: anyNamed('accuracyMeters')))
+          .thenThrow(DioException(
+              requestOptions: RequestOptions(path: ''),
+              response: Response(
+                  requestOptions: RequestOptions(path: ''),
+                  statusCode: 400,
+                  data: {'code': 'DELIVERY_CODE_INCORRECTO'})));
+      final loc = locator<LocationService>() as MockLocationService;
+      when(loc.locationBlock()).thenAnswer((_) async => null);
+      when(loc.currentPosition).thenReturn(fix());
+      await pump(t, const DeliveryCodeView(orderId: 'o1'));
+      await tipear(t, '482913');
+      await t.ensureVisible(find.byKey(const Key('code-submit')));
+      await t.tap(find.byKey(const Key('code-submit')));
+      await t.pump();
+      await t.pump();
+      expect(find.byKey(const Key('code-error')), findsOneWidget);
+      expect(find.text('El código no es correcto.'), findsOneWidget);
+      verifyNever(nav.replaceWithPaymentView(orderId: 'o1'));
       await leave(t);
     });
 
-    testWidgets('si generar el código falla (sin bloqueo), se ve el motivo',
-        (t) async {
-      when(trips.regenerateDeliveryCode('o1'))
-          .thenThrow(StateError('El pedido ya no está en camino'));
-      await pump(t, const DeliveryQrView(orderId: 'o1'));
-      await t.ensureVisible(find.byKey(const Key('qr-regenerate')));
-      await t.tap(find.byKey(const Key('qr-regenerate')));
+    testWidgets('bloqueado: aviso claro y sin teclado útil', (t) async {
+      when(trips.confirmDelivery('o1',
+              code: anyNamed('code'),
+              latitude: anyNamed('latitude'),
+              longitude: anyNamed('longitude'),
+              accuracyMeters: anyNamed('accuracyMeters')))
+          .thenThrow(DioException(
+              requestOptions: RequestOptions(path: ''),
+              response: Response(
+                  requestOptions: RequestOptions(path: ''),
+                  statusCode: 409,
+                  data: {'code': 'DELIVERY_CODE_BLOQUEADO'})));
+      final loc = locator<LocationService>() as MockLocationService;
+      when(loc.locationBlock()).thenAnswer((_) async => null);
+      when(loc.currentPosition).thenReturn(fix());
+      await pump(t, const DeliveryCodeView(orderId: 'o1'));
+      await tipear(t, '482913');
+      await t.ensureVisible(find.byKey(const Key('code-submit')));
+      await t.tap(find.byKey(const Key('code-submit')));
       await t.pump();
-      await t.ensureVisible(find.byKey(const Key('qr-regenerate-confirm')));
-      await t.tap(find.byKey(const Key('qr-regenerate-confirm')));
       await t.pump();
-      await t.pump();
-      expect(find.byKey(const Key('qr-regenerate-error')), findsOneWidget);
-      expect(find.text('El pedido ya no está en camino'), findsOneWidget);
+      expect(find.byKey(const Key('code-blocked')), findsOneWidget);
+      expect(
+          find.textContaining('Pedile al cliente que genere un código nuevo'),
+          findsOneWidget);
+      final boton = t.widget<SplgButton>(find.byKey(const Key('code-submit')));
+      expect(boton.onPressed, isNull);
       await leave(t);
     });
 
-    testWidgets('sin código: error y reintento', (t) async {
-      when(trips.deliveryCode('o1')).thenThrow(StateError('Sin código'));
-      await pump(t, const DeliveryQrView(orderId: 'o1'));
-      expect(find.byKey(const Key('qr-error')), findsOneWidget);
-      expect(find.byKey(const Key('qr-code')), findsNothing);
+    testWidgets('si el pedido no carga: error y reintento', (t) async {
+      when(trips.order('o1')).thenThrow(StateError('x'));
+      await pump(t, const DeliveryCodeView(orderId: 'o1'));
+      expect(find.byKey(const Key('code-load-error')), findsOneWidget);
+      expect(find.byKey(const Key('code-keypad')), findsNothing);
       await leave(t);
     });
 
     testWidgets('la flecha vuelve al pedido', (t) async {
-      await pump(t, const DeliveryQrView(orderId: 'o1'));
+      await pump(t, const DeliveryCodeView(orderId: 'o1'));
       await t.tap(find.byTooltip('Volver'));
       verify(nav.back()).called(1);
       await leave(t);

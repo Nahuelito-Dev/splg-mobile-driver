@@ -34,7 +34,6 @@ dependencies:
   # abrir apps externas de navegación (Waze / Google Maps)
   url_launcher: ^6.3.1
   # renderizar el QR de entrega en la pantalla de entrega en curso
-  qr_flutter: ^4.1.0
   # foto opcional al reportar que el cliente no pagó
   image_picker: ^1.1.2
   # splg_lib

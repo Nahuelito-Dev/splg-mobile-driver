@@ -17,7 +17,7 @@ enum OfferSlotState {
 }
 
 /// Lugar para la oferta de pedido mientras el chofer está en el final de una
-/// entrega (QR de entrega o cobro).
+/// entrega (código de entrega o cobro).
 ///
 /// Con esas pantallas arriba, la oferta a pantalla completa las taparía.
 /// Mientras alguna la hospeda ([host]), la oferta se muestra como una banda

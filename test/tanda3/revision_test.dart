@@ -382,7 +382,7 @@ void main() {
       final c = StreamController<Map<String, dynamic>>.broadcast();
       when(socket.orderCancelled).thenAnswer((_) => c.stream);
       final qr = Completer<void>();
-      when(nav.navigateToDeliveryQrView(orderId: 'o1'))
+      when(nav.navigateToDeliveryCodeView(orderId: 'o1'))
           .thenAnswer((_) => qr.future.then((_) => null));
       when(trips.order('o1'))
           .thenAnswer((_) async => trip(status: 'out_for_delivery'));

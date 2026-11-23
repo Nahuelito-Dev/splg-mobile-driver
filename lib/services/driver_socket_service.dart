@@ -151,14 +151,6 @@ class DriverSocketService with ListenableServiceMixin {
   Stream<Map<String, dynamic>> get orderAddressChanged =>
       _addressChangedController.stream;
 
-  /// El cliente erró el código de entrega (`order:delivery-code-failed`) o lo
-  /// bloqueó (`order:delivery-code-blocked`): trae `orderId`, `attempts`,
-  /// `maxAttempts` y `blocked`.
-  final _deliveryCodeController =
-      StreamController<Map<String, dynamic>>.broadcast();
-  Stream<Map<String, dynamic>> get deliveryCodeFailed =>
-      _deliveryCodeController.stream;
-
   /// Avisos del planificador de taller (CU-105): propuesta nueva o cerrada,
   /// ventana confirmada y caso escalado.
   final _maintenanceController = StreamController<MaintenanceEvent>.broadcast();
@@ -229,17 +221,6 @@ class DriverSocketService with ListenableServiceMixin {
         _addressChangedController.add(Map<String, dynamic>.from(data));
       }
     });
-
-    for (final event in const [
-      'order:delivery-code-failed',
-      'order:delivery-code-blocked',
-    ]) {
-      socket.on(event, (data) {
-        if (data is Map) {
-          _deliveryCodeController.add(Map<String, dynamic>.from(data));
-        }
-      });
-    }
 
     void maintenance(
         String event, MaintenanceEvent? Function(Map<String, dynamic>) parse) {
@@ -476,7 +457,6 @@ class DriverSocketService with ListenableServiceMixin {
     _cancelledController.close();
     _routeSheetStartedController.close();
     _addressChangedController.close();
-    _deliveryCodeController.close();
     _maintenanceController.close();
     _routeBatchController.close();
     _rejectedController.close();

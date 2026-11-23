@@ -12,8 +12,8 @@ import 'package:splg_driver/services/payment_repository.dart';
 import 'package:splg_driver/services/trip_service.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_view.dart';
 import 'package:splg_driver/ui/views/delivery/delivery_viewmodel.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_view.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_viewmodel.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_view.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_viewmodel.dart';
 import 'package:splg_driver/ui/views/payment/payment_view.dart';
 import 'package:splg_driver/ui/views/payment/payment_viewmodel.dart';
 import 'package:splg_lib/splg_lib.dart';
@@ -105,7 +105,6 @@ void main() {
     final socket = locator<DriverSocketService>() as MockDriverSocketService;
     cancelado = StreamController<Map<String, dynamic>>.broadcast();
     when(socket.orderCancelled).thenAnswer((_) => cancelado.stream);
-    when(socket.deliveryCodeFailed).thenAnswer((_) => const Stream.empty());
     when(socket.orderAddressChanged).thenAnswer((_) => const Stream.empty());
     final loc = locator<LocationService>() as MockLocationService;
     when(loc.currentPosition).thenReturn(null);
@@ -113,8 +112,6 @@ void main() {
     estado = 'out_for_delivery';
     when(trips.order('o1')).thenAnswer((_) async => trip(status: estado));
     when(trips.customerRating(any)).thenAnswer((_) async => null);
-    when(trips.deliveryCode('o1'))
-        .thenAnswer((_) async => const DeliveryCodeInfo('482913'));
     final pagos = locator<PaymentRepository>() as MockPaymentRepository;
     cobros = 0;
     pedido = null;
@@ -122,7 +119,7 @@ void main() {
     DeliveryView.debugMapBuilder = (_, __) => const SizedBox();
     DeliveryView.debugViewModelFactory = (id) => pedido = DeliveryViewModel(
         orderId: id, trips: trips, pollInterval: sondeoPedido);
-    DeliveryQrView.debugViewModelFactory = (id) => DeliveryQrViewModel(
+    DeliveryCodeView.debugViewModelFactory = (id) => DeliveryCodeViewModel(
         orderId: id,
         trips: trips,
         pollInterval: const Duration(milliseconds: 100));
@@ -135,7 +132,7 @@ void main() {
   tearDown(() async {
     DeliveryView.debugMapBuilder = null;
     DeliveryView.debugViewModelFactory = null;
-    DeliveryQrView.debugViewModelFactory = null;
+    DeliveryCodeView.debugViewModelFactory = null;
     PaymentView.debugViewModelFactory = null;
     await cancelado.close();
     locator.reset();
@@ -165,9 +162,9 @@ void main() {
     unawaited(nav.navigateToDeliveryView(orderId: 'o1'));
     await avanzar(t);
     expect(pedido, isNotNull);
-    unawaited(pedido!.openDeliveryQr());
+    unawaited(pedido!.openDeliveryCode());
     await avanzar(t);
-    expect(find.byKey(const Key('qr-code')), findsOneWidget);
+    expect(find.byKey(const Key('code-keypad')), findsOneWidget);
   }
 
   Future<void> salir(WidgetTester t) async {
@@ -188,7 +185,7 @@ void main() {
     await salir(t);
   });
 
-  testWidgets('el cliente confirma con el QR abierto: el cobro se abre una vez',
+  testWidgets('el cobro llega con el QR abierto: el cobro se abre una vez',
       (t) async {
     await hastaElQr(t);
     estado = 'delivered';
@@ -208,7 +205,7 @@ void main() {
     await avanzar(t, 2);
     expect(nav.reemplazos, contains(Routes.paymentView));
     expect(trips.paymentOpenedFor, isNull);
-    expect(find.byKey(const Key('qr-code')), findsOneWidget);
+    expect(find.byKey(const Key('code-keypad')), findsOneWidget);
     // Con la navegación de vuelta, el próximo sondeo abre el cobro.
     nav.fallarCobro = false;
     await avanzar(t, 6);
@@ -227,7 +224,7 @@ void main() {
     expect(nav.reemplazos, contains(Routes.paymentView));
     expect(find.byType(PaymentView), findsNothing);
     expect(trips.paymentOpenedFor, isNull);
-    expect(find.byKey(const Key('qr-code')), findsOneWidget);
+    expect(find.byKey(const Key('code-keypad')), findsOneWidget);
     nav.cobroNulo = false;
     await avanzar(t, 6);
     expect(find.byType(PaymentView), findsOneWidget);
@@ -261,7 +258,7 @@ void main() {
     await hastaElQr(t);
     await t.tap(find.byTooltip('Volver'));
     await avanzar(t);
-    expect(find.byKey(const Key('qr-code')), findsNothing);
+    expect(find.byKey(const Key('code-keypad')), findsNothing);
     expect(find.byType(DeliveryView), findsOneWidget);
     verifyNever(dialogs.showDialog(
         title: anyNamed('title'), description: anyNamed('description')));

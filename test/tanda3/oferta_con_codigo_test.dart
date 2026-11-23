@@ -13,9 +13,9 @@ import 'package:splg_driver/services/driver_auth_service.dart';
 import 'package:splg_driver/services/driver_socket_service.dart';
 import 'package:splg_driver/services/navigation_launcher.dart';
 import 'package:splg_driver/services/trip_service.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_view.dart';
-import 'package:splg_driver/ui/views/delivery_qr/delivery_qr_viewmodel.dart';
-import 'package:splg_driver/ui/views/delivery_qr/offer_band_model.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_view.dart';
+import 'package:splg_driver/ui/views/delivery_code/delivery_code_viewmodel.dart';
+import 'package:splg_driver/ui/views/delivery_code/offer_band_model.dart';
 import 'package:splg_driver/ui/views/home/home_viewmodel.dart';
 import 'package:splg_driver/ui/views/payment/payment_view.dart';
 import 'package:splg_driver/ui/views/payment/payment_viewmodel.dart';
@@ -26,8 +26,8 @@ import '../helpers/test_helpers.dart';
 import '../helpers/test_helpers.mocks.dart';
 import 'support.dart';
 
-/// Oferta que llega con el QR de entrega arriba (el chofer está «por
-/// terminar»): se muestra en una banda abajo, sin tapar el QR ni el código.
+/// Oferta que llega con el código de entrega arriba (el chofer está «por
+/// terminar»): se muestra en una banda abajo, sin tapar el teclado ni el botón.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -245,7 +245,7 @@ void main() {
     });
   });
 
-  group('pantalla del QR con una oferta', () {
+  group('pantalla del código con una oferta', () {
     late MockTripService trips;
     late DeliveryOfferSlot slot;
 
@@ -257,16 +257,14 @@ void main() {
           .thenAnswer((_) async => trip(status: 'out_for_delivery'));
       when(trips.order('oB')).thenAnswer((_) async => trip(status: 'pending'));
       when(trips.customerRating('c1')).thenAnswer((_) async => null);
-      when(trips.deliveryCode('o1'))
-          .thenAnswer((_) async => const DeliveryCodeInfo('482913'));
-      DeliveryQrView.debugViewModelFactory = (id) => DeliveryQrViewModel(
+      DeliveryCodeView.debugViewModelFactory = (id) => DeliveryCodeViewModel(
           orderId: id,
           trips: trips,
           offers: slot,
           pollInterval: const Duration(hours: 1));
     });
     tearDown(() {
-      DeliveryQrView.debugViewModelFactory = null;
+      DeliveryCodeView.debugViewModelFactory = null;
       locator.reset();
     });
 
@@ -278,7 +276,7 @@ void main() {
       addTearDown(t.view.resetDevicePixelRatio);
       await t.pumpWidget(MaterialApp(
           theme: AppTheme.lightTheme,
-          home: const DeliveryQrView(orderId: 'o1')));
+          home: const DeliveryCodeView(orderId: 'o1')));
       await t.pump();
       await t.pump(const Duration(milliseconds: 50));
     }
@@ -288,7 +286,8 @@ void main() {
       return r.top >= 0 && r.bottom <= 852;
     }
 
-    testWidgets('la banda aparece abajo y el QR y el código siguen a la vista',
+    testWidgets(
+        'la banda aparece abajo y el teclado y el botón siguen a la vista',
         (t) async {
       await montar(t);
       expect(slot.hosting, true);
@@ -297,15 +296,15 @@ void main() {
       await t.pump(const Duration(milliseconds: 50));
       final band = find.byKey(const Key('offer-band'));
       expect(band, findsOneWidget);
-      expect(find.byKey(const Key('qr-code')), findsOneWidget);
-      expect(find.text('482 913'), findsOneWidget);
-      expect(visible(t, find.byKey(const Key('qr-code'))), true);
-      expect(visible(t, find.byKey(const Key('qr-code-text'))), true);
-      // La banda no se superpone con el QR ni con el código.
+      expect(find.byKey(const Key('code-keypad')), findsOneWidget);
+      expect(visible(t, find.byKey(const Key('code-keypad'))), true);
+      expect(visible(t, find.byKey(const Key('code-submit'))), true);
+      // La banda no se superpone con el teclado ni con el botón.
       final top = t.getRect(band).top;
-      expect(t.getRect(find.byKey(const Key('qr-code'))).bottom <= top, true);
       expect(
-          t.getRect(find.byKey(const Key('qr-code-text'))).bottom <= top, true);
+          t.getRect(find.byKey(const Key('code-keypad'))).bottom <= top, true);
+      expect(
+          t.getRect(find.byKey(const Key('code-submit'))).bottom <= top, true);
       expect(find.textContaining('La oferta vence en'), findsOneWidget);
       expect(find.text(r'$28.310'), findsWidgets);
       final o = slot.offer!;
@@ -324,7 +323,7 @@ void main() {
       await t.pump();
       expect(r?.confirmed, false);
       expect(find.byKey(const Key('offer-band')), findsNothing);
-      expect(find.byKey(const Key('qr-code')), findsOneWidget);
+      expect(find.byKey(const Key('code-keypad')), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     });
 
@@ -341,7 +340,7 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
 
-    testWidgets('el aviso de próximo pedido no tapa el QR ni el código',
+    testWidgets('el aviso de próximo pedido no tapa el teclado ni el botón',
         (t) async {
       await montar(t);
       slot.announce('Aceptaste un pedido más: te lo mostramos apenas '
@@ -350,16 +349,18 @@ void main() {
       final aviso = find.byKey(const Key('offer-notice'));
       expect(aviso, findsOneWidget);
       final top = t.getRect(aviso).top;
-      expect(t.getRect(find.byKey(const Key('qr-code'))).bottom <= top, true);
       expect(
-          t.getRect(find.byKey(const Key('qr-code-text'))).bottom <= top, true);
-      // No es un diálogo: el QR sigue respondiendo.
+          t.getRect(find.byKey(const Key('code-keypad'))).bottom <= top, true);
+      expect(
+          t.getRect(find.byKey(const Key('code-submit'))).bottom <= top, true);
+      // No es un diálogo: el teclado sigue respondiendo.
       expect(find.byType(Dialog), findsNothing);
       await t.pumpWidget(const SizedBox());
       expect(slot.notice, isNull);
     });
 
-    testWidgets('al cerrarse el QR la pantalla deja de hospedar ofertas',
+    testWidgets(
+        'al cerrarse la pantalla del código la pantalla deja de hospedar ofertas',
         (t) async {
       await montar(t);
       expect(slot.hosting, true);

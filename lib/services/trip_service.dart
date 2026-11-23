@@ -11,21 +11,8 @@ import 'package:splg_driver/models/driver_data.dart';
 import 'package:splg_driver/models/trip_order.dart';
 import 'package:splg_driver/services/driver_auth_service.dart';
 
-/// El código de entrega del pedido y el estado de los intentos del cliente.
-class DeliveryCodeInfo {
-  const DeliveryCodeInfo(this.code, {this.attempts = 0, this.blocked = false});
-
-  final String code;
-
-  /// Códigos incorrectos del cliente desde el último código nuevo.
-  final int attempts;
-
-  /// El cliente agotó los intentos: hay que generar un código nuevo.
-  final bool blocked;
-}
-
 /// Llamadas del chofer sobre un pedido en curso: leerlo, aceptarlo, salir,
-/// avisar la llegada, liberarlo, pedir el código del QR y calificar al cliente. Cada
+/// avisar la llegada, liberarlo, confirmar la entrega con el código del cliente y calificar al cliente. Cada
 /// método lanza si el back falla; las pantallas muestran el texto con
 /// `ApiErrorText`.
 ///
@@ -50,7 +37,7 @@ class TripService {
   String? activeOrderId;
   Completer<void>? _flow;
 
-  /// Arranca el flujo de un pedido (en curso -> QR -> cobro -> completado).
+  /// Arranca el flujo de un pedido (en curso -> código -> cobro -> completado).
   void beginFlow(String orderId) {
     if (activeOrderId != orderId) paymentOpenedFor = null;
     activeOrderId = orderId;
@@ -58,7 +45,7 @@ class TripService {
   }
 
   /// Pedido del flujo cuya pantalla de cobro ya se abrió. La abre la pantalla
-  /// del QR al confirmarse la entrega; la del pedido, que queda abajo, no la
+  /// del código al confirmarse la entrega; la del pedido, que queda abajo, no la
   /// vuelve a abrir al recuperar el control.
   String? paymentOpenedFor;
 
@@ -169,41 +156,34 @@ class TripService {
     });
   }
 
-  /// `GET /orders/:id/delivery-code`: el texto que va en el QR y cuántos
-  /// códigos incorrectos lleva el cliente (`attempts`, `blocked`).
-  Future<DeliveryCodeInfo> deliveryCode(String id) async {
-    final res = await _api.get('orders/$id/delivery-code', await _token());
-    final data = res.data is Map ? res.data as Map : const {};
-    final code = data['deliveryCode']?.toString();
-    if (code == null || code.isEmpty) {
-      throw StateError('El pedido no tiene código de entrega todavía.');
-    }
-    final attempts = data['attempts'];
-    return DeliveryCodeInfo(
-      code,
-      attempts: attempts is num ? attempts.toInt() : 0,
-      blocked: data['blocked'] == true,
-    );
-  }
-
-  /// `POST /api/v2/orders/:id/delivery-code/regenerate`: un código nuevo (6
-  /// dígitos) que reemplaza al anterior y vuelve a 0 los intentos del cliente.
-  /// Devuelve el código nuevo.
-  Future<String> regenerateDeliveryCode(String id) {
-    final action = 'regenerate-code:$id';
+  /// `POST /api/v3/orders/:id/confirm-delivery`: el chofer escribe el código de
+  /// 6 dígitos que le dicta el cliente y manda su ubicación; el back valida
+  /// código, estado y asignación, y guarda dónde y cuándo se entregó. Si el
+  /// pedido ya estaba entregado responde 200 igual (idempotente). Lanza con el
+  /// rechazo del back (400 `DELIVERY_CODE_FORMATO`/`DELIVERY_CODE_INCORRECTO`,
+  /// 409 `DELIVERY_CODE_BLOQUEADO`/`ORDER_NOT_ON_THE_WAY`, 403). La clave es una
+  /// por intención (pedido + código + posición).
+  Future<void> confirmDelivery(
+    String id, {
+    required String code,
+    required double latitude,
+    required double longitude,
+    double? accuracyMeters,
+  }) {
+    final action = 'confirm-delivery:$id:$code:'
+        '${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}';
     return _once(action, () async {
-      final res = await _api.post(
-        '${AppConfig.apiV2Url}orders/$id/delivery-code/regenerate',
-        const {},
+      await _api.post(
+        '${AppConfig.apiV3Url}orders/$id/confirm-delivery',
+        {
+          'code': code,
+          'latitude': latitude,
+          'longitude': longitude,
+          if (accuracyMeters != null) 'accuracyMeters': accuracyMeters,
+        },
         await _token(),
         _idem(action),
       );
-      final code =
-          res.data is Map ? res.data['deliveryCode']?.toString() : null;
-      if (code == null || code.isEmpty) {
-        throw StateError('No pudimos generar el código nuevo.');
-      }
-      return code;
     });
   }
 
